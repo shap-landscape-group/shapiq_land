@@ -527,6 +527,366 @@ def fig_matrix(df: pd.DataFrame) -> go.Figure:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# RQ helper chart builders
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def empty_state(title: str, message: str) -> html.Div:
+    """Placeholder card when a research question cannot yet be answered."""
+    return html.Div(
+        [
+            html.Div("⚠", style={"fontSize": "32px", "marginBottom": "12px"}),
+            html.Div(title, style={"fontSize": "15px", "fontWeight": "600",
+                                   "color": TEXT, "marginBottom": "8px"}),
+            html.Div(message, style={"fontSize": "13px", "color": TEXT2,
+                                     "lineHeight": "1.7", "maxWidth": "560px"}),
+        ],
+        style={
+            "textAlign": "center", "padding": "48px 32px",
+            "background": CARD, "borderRadius": "12px",
+            "border": f"1px solid {BORDER}", "marginBottom": "24px",
+        },
+    )
+
+
+def warning_note(message: str) -> html.Div:
+    """Inline amber warning banner."""
+    return html.Div(
+        [html.Span("⚠ ", style={"fontWeight": "700"}), message],
+        style={
+            "background": "#FFFBEB", "border": f"1px solid {AMBER}",
+            "borderRadius": "8px", "padding": "10px 16px",
+            "fontSize": "13px", "color": "#92400E", "marginBottom": "16px",
+        },
+    )
+
+
+def rq_header(rq: str, title: str, question: str) -> html.Div:
+    """Standard title/question header for each RQ tab."""
+    return html.Div(
+        [
+            html.Div(
+                [html.Span(rq + " — ", style={"color": ACCENT, "fontWeight": "700"}),
+                 html.Span(title, style={"fontWeight": "600"})],
+                style={"fontSize": "18px", "marginBottom": "6px"},
+            ),
+            html.Div(
+                ["Research question: ", html.Em(question)],
+                style={"fontSize": "13px", "color": TEXT2,
+                       "lineHeight": "1.6", "marginBottom": "20px"},
+            ),
+        ],
+    )
+
+
+def interpretation_note(text: str) -> html.Div:
+    return html.Div(
+        html.Em(text, style={"fontSize": "12px", "color": TEXT2, "lineHeight": "1.7"}),
+        style={"marginTop": "8px", "marginBottom": "24px"},
+    )
+
+
+def fig_runtime_vs_features(df: pd.DataFrame) -> go.Figure:
+    """Line chart: median runtime vs n_features, one line per method."""
+    sub = df[df["n_features"].notna() & df["runtime_s"].notna()]
+    if sub.empty or sub["n_features"].nunique() < 2:
+        return go.Figure(layout=dict(title="Not enough n_features variation", **_CHART_LAYOUT))
+    grp = (
+        sub.groupby(["method", "library", "n_features"])
+        .agg(rt=("runtime_s", "median"))
+        .reset_index()
+    )
+    fig = go.Figure()
+    for method, mdf in grp.groupby("method"):
+        lib = mdf["library"].iloc[0]
+        mdf = mdf.sort_values("n_features")
+        fig.add_trace(go.Scatter(
+            x=mdf["n_features"], y=mdf["rt"],
+            mode="lines+markers", name=method,
+            line=dict(color=LIB_COLOR.get(lib, ACCENT), width=2),
+            marker=dict(size=8, color=LIB_COLOR.get(lib, ACCENT),
+                        line=dict(color="white", width=1.5)),
+            hovertemplate=(f"<b>{method}</b><br>"
+                           "n_features: %{x}<br>Runtime: %{y:.3f} s<extra></extra>"),
+        ))
+    fig.update_layout(
+        **_CHART_LAYOUT, height=400, margin=_MARGIN, legend=_LEGEND_H,
+        xaxis=dict(title="Number of features", gridcolor=BORDER, zeroline=False, type="log"),
+        yaxis=dict(title="Median runtime (s) — log scale",
+                   gridcolor=BORDER, zeroline=False, type="log"),
+    )
+    return fig
+
+
+def fig_quality_vs_features(df: pd.DataFrame) -> go.Figure:
+    """Line chart: median quality_score vs n_features."""
+    sub = df[df["n_features"].notna()]
+    if sub.empty or sub["n_features"].nunique() < 2:
+        return go.Figure(layout=dict(title="Not enough n_features variation", **_CHART_LAYOUT))
+    grp = (
+        sub.groupby(["method", "library", "n_features"])
+        .agg(q=("quality_score", "median"))
+        .reset_index()
+    )
+    fig = go.Figure()
+    for method, mdf in grp.groupby("method"):
+        lib = mdf["library"].iloc[0]
+        mdf = mdf.sort_values("n_features")
+        fig.add_trace(go.Scatter(
+            x=mdf["n_features"], y=mdf["q"],
+            mode="lines+markers", name=method,
+            line=dict(color=LIB_COLOR.get(lib, ACCENT), width=2),
+            marker=dict(size=8, color=LIB_COLOR.get(lib, ACCENT),
+                        line=dict(color="white", width=1.5)),
+            hovertemplate=(f"<b>{method}</b><br>"
+                           "n_features: %{x}<br>Quality: %{y:.2f}<extra></extra>"),
+        ))
+    fig.update_layout(
+        **_CHART_LAYOUT, height=400, margin=_MARGIN, legend=_LEGEND_H,
+        xaxis=dict(title="Number of features", gridcolor=BORDER, zeroline=False, type="log"),
+        yaxis=dict(title="Median quality score (0–12)", gridcolor=BORDER, zeroline=False),
+    )
+    return fig
+
+
+def fig_failure_heatmap_by_features(df: pd.DataFrame) -> go.Figure:
+    """Heatmap: failure rate per method × n_features."""
+    sub = df[df["n_features"].notna()]
+    if sub.empty:
+        return go.Figure(layout=dict(title="No data", **_CHART_LAYOUT))
+    pivot = (
+        sub.groupby(["method", "n_features"])
+        .agg(fr=("is_failure", "mean"))
+        .reset_index()
+        .pivot(index="method", columns="n_features", values="fr")
+    )
+    z = pivot.values * 100
+    text = [[f"{v:.0f}%" if not np.isnan(v) else "—" for v in row] for row in z]
+    fig = go.Figure(go.Heatmap(
+        z=z,
+        x=[str(int(c)) for c in pivot.columns],
+        y=list(pivot.index),
+        text=text,
+        texttemplate="%{text}",
+        colorscale=[[0, "#D1FAE5"], [0.5, "#FEF3C7"], [1, "#FEE2E2"]],
+        zmin=0, zmax=100,
+        colorbar=dict(title="Failure %", thickness=14, len=0.8),
+        hovertemplate=(
+            "Method: <b>%{y}</b><br>"
+            "n_features: <b>%{x}</b><br>"
+            "Failure rate: %{z:.1f}%<extra></extra>"
+        ),
+    ))
+    fig.update_layout(
+        **_CHART_LAYOUT,
+        height=max(260, len(pivot) * 36 + 80),
+        xaxis=dict(title="Number of features", gridcolor="rgba(0,0,0,0)"),
+        yaxis=dict(title="", gridcolor="rgba(0,0,0,0)", automargin=True),
+        margin=dict(l=10, r=16, t=20, b=60),
+    )
+    return fig
+
+
+def fig_runtime_vs_budget(df: pd.DataFrame) -> go.Figure:
+    """Line chart: median runtime vs budget."""
+    sub = df[df["budget"].notna() & df["runtime_s"].notna()]
+    if sub.empty or sub["budget"].nunique() < 2:
+        return go.Figure(layout=dict(title="Not enough budget variation", **_CHART_LAYOUT))
+    grp = (
+        sub.groupby(["method", "library", "budget"])
+        .agg(rt=("runtime_s", "median"))
+        .reset_index()
+    )
+    fig = go.Figure()
+    for method, mdf in grp.groupby("method"):
+        lib = mdf["library"].iloc[0]
+        mdf = mdf.sort_values("budget")
+        fig.add_trace(go.Scatter(
+            x=mdf["budget"], y=mdf["rt"],
+            mode="lines+markers", name=method,
+            line=dict(color=LIB_COLOR.get(lib, ACCENT), width=2),
+            marker=dict(size=8, color=LIB_COLOR.get(lib, ACCENT),
+                        line=dict(color="white", width=1.5)),
+            hovertemplate=(f"<b>{method}</b><br>"
+                           "Budget: %{x}<br>Runtime: %{y:.3f} s<extra></extra>"),
+        ))
+    fig.update_layout(
+        **_CHART_LAYOUT, height=400, margin=_MARGIN, legend=_LEGEND_H,
+        xaxis=dict(title="Budget (model evaluations)", gridcolor=BORDER, zeroline=False),
+        yaxis=dict(title="Median runtime (s)", gridcolor=BORDER, zeroline=False),
+    )
+    return fig
+
+
+def fig_metric_vs_budget(df: pd.DataFrame, metric: str = "mean_sample_rho") -> go.Figure:
+    """Line chart: proxy convergence metric vs budget (failed runs excluded)."""
+    sub = df[df["budget"].notna() & ~df["is_failure"]].copy()
+    if sub.empty or sub["budget"].nunique() < 2:
+        return go.Figure(layout=dict(title="Not enough budget variation", **_CHART_LAYOUT))
+    grp = (
+        sub.groupby(["method", "library", "budget"])
+        .agg(val=(metric, "median"))
+        .reset_index()
+    )
+    label_map = {
+        "mean_sample_rho": "Median Spearman ρ (higher = better)",
+        "sign_agreement":  "Median sign agreement (higher = better)",
+        "quality_score":   "Median quality score (higher = better)",
+    }
+    fig = go.Figure()
+    for method, mdf in grp.groupby("method"):
+        lib = mdf["library"].iloc[0]
+        mdf = mdf.sort_values("budget")
+        fig.add_trace(go.Scatter(
+            x=mdf["budget"], y=mdf["val"],
+            mode="lines+markers", name=method,
+            line=dict(color=LIB_COLOR.get(lib, ACCENT), width=2),
+            marker=dict(size=8, color=LIB_COLOR.get(lib, ACCENT),
+                        line=dict(color="white", width=1.5)),
+            hovertemplate=(f"<b>{method}</b><br>"
+                           f"Budget: %{{x}}<br>{metric}: %{{y:.3f}}<extra></extra>"),
+        ))
+    fig.update_layout(
+        **_CHART_LAYOUT, height=380, margin=_MARGIN, legend=_LEGEND_H,
+        xaxis=dict(title="Budget (model evaluations)", gridcolor=BORDER, zeroline=False),
+        yaxis=dict(title=label_map.get(metric, metric), gridcolor=BORDER, zeroline=False),
+    )
+    return fig
+
+
+def fig_runtime_by_model(df: pd.DataFrame) -> go.Figure:
+    """Grouped bar chart: median runtime per model, grouped by method."""
+    sub = df[df["model"].notna() & df["runtime_s"].notna()]
+    if sub.empty:
+        return go.Figure(layout=dict(title="No data", **_CHART_LAYOUT))
+    grp = (
+        sub.groupby(["method", "library", "model"])
+        .agg(rt=("runtime_s", "median"))
+        .reset_index()
+    )
+    fig = go.Figure()
+    for method, mdf in grp.groupby("method"):
+        lib = mdf["library"].iloc[0]
+        fig.add_trace(go.Bar(
+            x=mdf["model"], y=mdf["rt"], name=method,
+            marker_color=LIB_COLOR.get(lib, ACCENT), opacity=0.85,
+            hovertemplate=(f"<b>{method}</b><br>"
+                           "Model: %{x}<br>Runtime: %{y:.3f} s<extra></extra>"),
+        ))
+    fig.update_layout(
+        **_CHART_LAYOUT, height=400, margin=_MARGIN, legend=_LEGEND_H,
+        barmode="group",
+        xaxis=dict(title="Model", gridcolor=BORDER, zeroline=False),
+        yaxis=dict(title="Median runtime (s)", gridcolor=BORDER, zeroline=False),
+    )
+    return fig
+
+
+def fig_quality_by_model(df: pd.DataFrame) -> go.Figure:
+    """Grouped bar chart: median quality score per model, grouped by method."""
+    sub = df[df["model"].notna()]
+    if sub.empty:
+        return go.Figure(layout=dict(title="No data", **_CHART_LAYOUT))
+    grp = (
+        sub.groupby(["method", "library", "model"])
+        .agg(q=("quality_score", "median"))
+        .reset_index()
+    )
+    fig = go.Figure()
+    for method, mdf in grp.groupby("method"):
+        lib = mdf["library"].iloc[0]
+        fig.add_trace(go.Bar(
+            x=mdf["model"], y=mdf["q"], name=method,
+            marker_color=LIB_COLOR.get(lib, ACCENT), opacity=0.85,
+            hovertemplate=(f"<b>{method}</b><br>"
+                           "Model: %{x}<br>Quality: %{y:.2f}<extra></extra>"),
+        ))
+    fig.update_layout(
+        **_CHART_LAYOUT, height=400, margin=_MARGIN, legend=_LEGEND_H,
+        barmode="group",
+        xaxis=dict(title="Model", gridcolor=BORDER, zeroline=False),
+        yaxis=dict(title="Median quality score (0–12)", gridcolor=BORDER, zeroline=False),
+    )
+    return fig
+
+
+def capability_matrix_table(benchmarked_libs: set) -> html.Div:
+    """Static capability comparison table for known explanation libraries."""
+    th_s = {
+        "fontSize": "10px", "fontWeight": "600", "color": TEXT2,
+        "textTransform": "uppercase", "letterSpacing": "0.05em",
+        "padding": "8px 12px", "borderBottom": f"2px solid {BORDER}",
+        "textAlign": "left", "background": BG,
+    }
+
+    def td_s(extra=None):
+        base = {"fontSize": "12px", "padding": "8px 12px",
+                "borderBottom": f"1px solid {BORDER}"}
+        return {**base, **(extra or {})}
+
+    def yn(v):
+        if v == "yes":
+            return html.Span("✓", style={"color": GREEN, "fontWeight": "700"})
+        if v == "no":
+            return html.Span("✗", style={"color": RED})
+        return html.Span(v, style={"color": TEXT2, "fontSize": "11px"})
+
+    def status_badge(lib):
+        if lib in benchmarked_libs:
+            return html.Span("benchmarked", style={
+                "background": "#D1FAE5", "color": "#065F46",
+                "borderRadius": "4px", "padding": "1px 6px",
+                "fontSize": "10px", "fontWeight": "600",
+            })
+        return html.Span("planned", style={
+            "background": "#FEF3C7", "color": "#92400E",
+            "borderRadius": "4px", "padding": "1px 6px",
+            "fontSize": "10px", "fontWeight": "600",
+        })
+
+    rows_data = [
+        # (lib, feat_attr, interactions, model_agnostic, graph, nn_support, nn_focus, notes)
+        ("shapiq",      "yes", "yes",               "yes",     "no",  "no",      "no",  "Main benchmark focus"),
+        ("shap",        "yes", "limited",            "yes",     "no",  "partial", "no",  "Model-specific & agnostic variants"),
+        ("lightshap",   "yes", "no",                 "yes",     "no",  "no",      "no",  "Speed-oriented approximation"),
+        ("dalex",       "yes", "no",                 "yes",     "no",  "no",      "no",  "Model-agnostic, R-inspired"),
+        ("alibi",       "yes", "not main focus",     "yes",     "no",  "partial", "no",  "Planned / not yet benchmarked"),
+        ("shapleyflow", "no",  "different def.",     "no",      "yes", "no",      "no",  "Requires graph assumption"),
+        ("captum",      "yes", "not main focus",     "partial", "no",  "no",      "yes", "Neural-network focus (PyTorch)"),
+    ]
+
+    cols = ["Library", "Status", "Feature attr.", "Interactions",
+            "Model-agnostic", "Graph/flow", "NN support", "NN focus", "Notes"]
+    thead = html.Thead(html.Tr([html.Th(c, style=th_s) for c in cols]))
+
+    tbody_rows = []
+    for row in rows_data:
+        lib, feat, inter, agnostic, graph, nn_sup, nn_focus, notes = row
+        tbody_rows.append(html.Tr([
+            html.Td(lib,             style=td_s({"fontFamily": "monospace",
+                                                 "color": ACCENT, "fontWeight": "600"})),
+            html.Td(status_badge(lib), style=td_s()),
+            html.Td(yn(feat),        style=td_s()),
+            html.Td(yn(inter),       style=td_s()),
+            html.Td(yn(agnostic),    style=td_s()),
+            html.Td(yn(graph),       style=td_s()),
+            html.Td(yn(nn_sup),      style=td_s()),
+            html.Td(yn(nn_focus),    style=td_s()),
+            html.Td(notes,           style=td_s({"color": TEXT2, "fontSize": "11px"})),
+        ]))
+
+    return html.Div(
+        html.Table(
+            [thead, html.Tbody(tbody_rows)],
+            style={"width": "100%", "borderCollapse": "collapse", "fontSize": "13px"},
+        ),
+        style={
+            "background": CARD, "borderRadius": "12px",
+            "border": f"1px solid {BORDER}", "overflowX": "auto",
+        },
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Layout helpers
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -798,15 +1158,14 @@ def build_app() -> Dash:
     # ── tabs ────────────────────────────────────────────────────────────────
     tabs = dcc.Tabs(
         id="tabs",
-        value="about",
+        value="overview",
         children=[
-            dcc.Tab(label="About",              value="about"),
-            dcc.Tab(label="Raw Data",           value="raw"),
-            dcc.Tab(label="Leaderboard",        value="leaderboard"),
-            dcc.Tab(label="Method Matrix",      value="matrix"),
-            dcc.Tab(label="Distribution",       value="distribution"),
-            dcc.Tab(label="Budget Convergence", value="budget"),
-            dcc.Tab(label="Pareto Frontier",    value="pareto"),
+            dcc.Tab(label="Overview",               value="overview"),
+            dcc.Tab(label="RQ1 — Dimensionality",   value="rq1"),
+            dcc.Tab(label="RQ2 — Budget & Conv.",   value="rq2"),
+            dcc.Tab(label="RQ3 — Model Complexity", value="rq3"),
+            dcc.Tab(label="RQ4 — Libraries",        value="rq4"),
+            dcc.Tab(label="Raw Data",               value="raw"),
         ],
         style={"marginBottom": "18px"},
     )
@@ -845,39 +1204,419 @@ def build_app() -> Dash:
     )
     def update(tab, ds, mdl, nf, budgets):
         fdf = apply_filters(ds, mdl, nf, budgets)
+        lb  = compute_leaderboard(fdf)
 
-        # leaderboard always uses the full (failure-inclusive) filtered set
-        lb = compute_leaderboard(fdf)
+        # ── Overview ────────────────────────────────────────────────────────
+        if tab == "overview":
+            def rq_card(rq, color, title, desc):
+                return html.Div(
+                    [
+                        html.Div(rq, style={"fontSize": "11px", "fontWeight": "700",
+                                            "color": color, "textTransform": "uppercase",
+                                            "letterSpacing": "0.07em", "marginBottom": "6px"}),
+                        html.Div(title, style={"fontSize": "14px", "fontWeight": "600",
+                                               "color": TEXT, "marginBottom": "6px"}),
+                        html.Div(desc,  style={"fontSize": "12px", "color": TEXT2,
+                                               "lineHeight": "1.6"}),
+                    ],
+                    style={
+                        "flex": "1", "minWidth": "200px",
+                        "background": CARD, "border": f"1px solid {BORDER}",
+                        "borderRadius": "12px", "padding": "16px 18px",
+                        "borderTop": f"3px solid {color}",
+                        "boxShadow": "0 1px 3px rgba(15,23,42,0.06)",
+                    },
+                )
 
-        # ── tab content ─────────────────────────────────────────────────────
-        if tab == "leaderboard":
-            weight_note = (
-                "Combined score = 40 % quality · 25 % sign agreement "
-                "· 20 % rank correlation · 10 % speed · 5 % reliability"
+            metric_rows = [
+                ("quality_score",   "clip(−log₁₀(relative_mae), 0, 12)",
+                 "0–12 scale, higher = better. 12 = near-perfect; < 4 = poor; failures forced to 0."),
+                ("relative_mae",    "mean |approx − exact| / mean |exact|",
+                 "Lower is better. Values > 1 indicate a failed run."),
+                ("sign_agreement",  "fraction of features with correct sign",
+                 "0–1, higher is better."),
+                ("mean_sample_rho", "mean Spearman ρ per sample",
+                 "−1 to 1, higher is better. Measures ranking agreement."),
+                ("is_failure",      "relative_mae > 1 OR any quality metric is NaN",
+                 "Boolean flag. True = failed / unreliable run."),
+            ]
+            th_s = {"fontSize": "10px", "fontWeight": "600", "color": TEXT2,
+                    "textTransform": "uppercase", "letterSpacing": "0.05em",
+                    "padding": "8px 12px", "borderBottom": f"2px solid {BORDER}",
+                    "textAlign": "left", "background": BG}
+            td_s = {"fontSize": "12px", "padding": "8px 12px",
+                    "borderBottom": f"1px solid {BORDER}", "verticalAlign": "top"}
+
+            # global summary table
+            disp = lb[["rank", "method", "q_median", "runtime_median",
+                        "failure_rate", "n_runs"]].copy()
+            disp["q_median"]      = disp["q_median"].round(2)
+            disp["runtime_median"] = disp["runtime_median"].round(3)
+            disp["failure_rate"]  = (disp["failure_rate"] * 100).round(1)
+
+            content = html.Div([
+                html.H1("Shapley Benchmark Explorer",
+                        style={"fontSize": "22px", "fontWeight": "700",
+                               "margin": "0 0 6px", "color": TEXT}),
+                html.P("This dashboard evaluates Shapley-based approximation methods across "
+                       "four research dimensions: dimensionality, budget / convergence, "
+                       "model complexity, and library design.",
+                       style={"color": TEXT2, "fontSize": "13px",
+                              "lineHeight": "1.7", "margin": "0 0 24px"}),
+
+                html.Div([
+                    rq_card("RQ1", ACCENT,      "Dimensionality",
+                            "How do methods scale with more features?"),
+                    rq_card("RQ2", "#7C3AED",   "Budget & Convergence",
+                            "How much budget is needed for stable explanations?"),
+                    rq_card("RQ3", AMBER,       "Model Complexity",
+                            "Do explanations change with deeper or more complex models?"),
+                    rq_card("RQ4", GREEN,       "Libraries",
+                            "Which libraries work best under controlled settings?"),
+                ], style={"display": "flex", "gap": "12px",
+                           "flexWrap": "wrap", "marginBottom": "28px"}),
+
+                section(
+                    "Global Method Summary",
+                    "All methods ranked by combined score (40 % quality · "
+                    "25 % sign agreement · 20 % rank correlation · "
+                    "10 % speed · 5 % reliability). "
+                    "Applies to current filter selection.",
+                    dash_table.DataTable(
+                        data=disp.to_dict("records"),
+                        columns=[
+                            {"name": "#",            "id": "rank"},
+                            {"name": "Method",       "id": "method"},
+                            {"name": "Quality (med)","id": "q_median"},
+                            {"name": "Runtime (s)",  "id": "runtime_median"},
+                            {"name": "Failure %",    "id": "failure_rate"},
+                            {"name": "Runs",         "id": "n_runs"},
+                        ],
+                        sort_action="native",
+                        page_size=20,
+                        style_table={"overflowX": "auto"},
+                        style_header={
+                            "background": BG, "color": TEXT2, "fontWeight": "600",
+                            "fontSize": "11px", "textTransform": "uppercase",
+                            "letterSpacing": "0.05em", "border": "none",
+                            "borderBottom": f"1px solid {BORDER}",
+                            "padding": "10px 14px", "fontFamily": FONT,
+                        },
+                        style_cell={
+                            "fontFamily": FONT, "fontSize": "13px",
+                            "padding": "10px 14px", "border": "none",
+                            "borderBottom": f"1px solid {BORDER}", "color": TEXT,
+                            "background": CARD,
+                        },
+                        style_data_conditional=[
+                            {"if": {"row_index": 0},
+                             "background": "#EEF2FF", "fontWeight": "600"},
+                            {"if": {"column_id": "failure_rate",
+                                    "filter_query": "{failure_rate} > 20"},
+                             "color": RED},
+                        ],
+                    ),
+                ),
+
+                section(
+                    "Metric Reference",
+                    "Definitions of all quality metrics used in this dashboard.",
+                    html.Table(
+                        [
+                            html.Thead(html.Tr([
+                                html.Th("Metric",          style=th_s),
+                                html.Th("Formula",         style=th_s),
+                                html.Th("Interpretation",  style=th_s),
+                            ])),
+                            html.Tbody([
+                                html.Tr([
+                                    html.Td(name,   style={**td_s,
+                                                            "fontFamily": "monospace",
+                                                            "color": ACCENT,
+                                                            "whiteSpace": "nowrap"}),
+                                    html.Td(formula,style={**td_s,
+                                                            "fontFamily": "monospace",
+                                                            "color": TEXT2,
+                                                            "fontSize": "11px",
+                                                            "whiteSpace": "nowrap"}),
+                                    html.Td(interp, style=td_s),
+                                ])
+                                for name, formula, interp in metric_rows
+                            ]),
+                        ],
+                        style={"width": "100%", "borderCollapse": "collapse"},
+                    ),
+                ),
+            ])
+
+        # ── RQ1 — Dimensionality ─────────────────────────────────────────────
+        elif tab == "rq1":
+            unique_nf = fdf["n_features"].dropna().nunique()
+            max_nf    = int(fdf["n_features"].max()) if not fdf.empty else 0
+            success   = 1 - fdf["is_failure"].mean() if not fdf.empty else 0
+            rt_at_max = (
+                fdf[fdf["n_features"] == fdf["n_features"].max()]["runtime_s"].median()
+                if not fdf.empty else float("nan")
             )
-            content = html.Div(
+
+            kpis = html.Div([
+                kpi_card(str(unique_nf),          "Feature-count settings"),
+                kpi_card(str(max_nf),             "Highest n_features benchmarked"),
+                kpi_card(f"{success * 100:.0f} %","Overall success rate", GREEN if success >= 0.8 else AMBER),
+                kpi_card(
+                    f"{rt_at_max:.2f} s" if not np.isnan(rt_at_max) else "—",
+                    f"Median runtime at n_features = {max_nf}",
+                ),
+            ], style={"display": "flex", "gap": "12px",
+                      "flexWrap": "wrap", "marginBottom": "20px"})
+
+            warns = []
+            if unique_nf < 2:
+                warns.append(warning_note(
+                    "RQ1 needs at least two different n_features values to show scaling "
+                    "behaviour. Current filter selection contains only one feature-count "
+                    "setting. Remove the n_features filter to see all available settings."
+                ))
+
+            content = html.Div([
+                rq_header("RQ1", "Dimensionality",
+                          "How does the number of input features affect feasibility, "
+                          "runtime, and stability of Shapley-based explanations?"),
+                kpis,
+                *warns,
+                section(
+                    "Runtime vs Number of Features",
+                    "Median runtime (log scale) as a function of n_features. "
+                    "Steep lines indicate poor scalability.",
+                    dcc.Graph(figure=fig_runtime_vs_features(fdf),
+                              config={"displayModeBar": False},
+                              style={"padding": "8px"}),
+                ),
+                section(
+                    "Quality vs Number of Features",
+                    "Median quality score as a function of n_features. "
+                    "Declining lines mean the method becomes less accurate at scale.",
+                    dcc.Graph(figure=fig_quality_vs_features(fdf),
+                              config={"displayModeBar": False},
+                              style={"padding": "8px"}),
+                ),
+                section(
+                    "Failure Rate Heatmap",
+                    "Fraction of failed runs per method and feature count. "
+                    "Red cells indicate the method is unreliable at that dimensionality.",
+                    dcc.Graph(figure=fig_failure_heatmap_by_features(fdf),
+                              config={"displayModeBar": False},
+                              style={"padding": "8px"}),
+                ),
+                interpretation_note(
+                    "Interpretation: methods whose runtime grows steeply with n_features "
+                    "will become infeasible at high dimensionality. Look for methods that "
+                    "maintain quality (stable line near the top) while keeping runtime low."
+                ),
+            ])
+
+        # ── RQ2 — Budget & Convergence ───────────────────────────────────────
+        elif tab == "rq2":
+            has_budget   = fdf["budget"].notna()
+            sub_b        = fdf[has_budget]
+            unique_b     = sub_b["budget"].nunique() if not sub_b.empty else 0
+            max_b        = sub_b["budget"].max()     if not sub_b.empty else float("nan")
+            best_q       = lb["q_median"].max()      if not lb.empty else float("nan")
+            rt_at_maxb   = (
+                sub_b[sub_b["budget"] == max_b]["runtime_s"].median()
+                if not sub_b.empty else float("nan")
+            )
+
+            kpis = html.Div([
+                kpi_card(str(unique_b),            "Budget settings available"),
+                kpi_card(
+                    str(int(max_b)) if not np.isnan(max_b) else "—",
+                    "Highest budget benchmarked",
+                ),
+                kpi_card(
+                    f"{best_q:.1f} / 12" if not np.isnan(best_q) else "—",
+                    "Best median quality score", GREEN,
+                ),
+                kpi_card(
+                    f"{rt_at_maxb:.2f} s" if not np.isnan(rt_at_maxb) else "—",
+                    f"Median runtime at budget = {int(max_b) if not np.isnan(max_b) else '—'}",
+                ),
+            ], style={"display": "flex", "gap": "12px",
+                      "flexWrap": "wrap", "marginBottom": "20px"})
+
+            warns = []
+            if unique_b < 2:
+                warns.append(warning_note(
+                    "RQ2 needs at least two budget settings to show convergence. "
+                    "Remove the budget filter or select all budget checkboxes to "
+                    "see convergence curves."
+                ))
+
+            content = html.Div([
+                rq_header("RQ2", "Budget & Convergence",
+                          "How much approximation budget is needed before "
+                          "explanations become stable?"),
+                kpis,
+                *warns,
+                section(
+                    "Quality vs Budget",
+                    "Median quality score as budget (number of model evaluations) "
+                    "increases. Failed runs excluded. "
+                    "Flat lines = already converged; rising lines = still improving.",
+                    dcc.Graph(figure=fig_budget(fdf),
+                              config={"displayModeBar": False},
+                              style={"padding": "8px"}),
+                ),
+                section(
+                    "Runtime vs Budget",
+                    "How much wall-clock time does each additional budget unit cost?",
+                    dcc.Graph(figure=fig_runtime_vs_budget(fdf),
+                              config={"displayModeBar": False},
+                              style={"padding": "8px"}),
+                ),
+                section(
+                    "Rank Correlation (ρ) vs Budget",
+                    "Spearman ρ between approximated and exact SHAP vectors per sample. "
+                    "Values closer to 1.0 indicate better convergence. "
+                    "Failed runs excluded.",
+                    dcc.Graph(figure=fig_metric_vs_budget(fdf, "mean_sample_rho"),
+                              config={"displayModeBar": False},
+                              style={"padding": "8px"}),
+                ),
+                html.Div(
+                    [
+                        html.Span("ℹ ", style={"fontWeight": "700", "color": ACCENT}),
+                        "Raw attribution vectors are not stored in the current benchmark. "
+                        "Therefore we cannot compute direct vector convergence such as "
+                        "cosine similarity or top-k overlap. "
+                        "Convergence is measured here via proxy metrics: "
+                        "relative MAE, sign agreement, and Spearman rank correlation.",
+                    ],
+                    style={
+                        "background": "#EFF6FF", "border": f"1px solid {ACCENT}",
+                        "borderRadius": "8px", "padding": "10px 16px",
+                        "fontSize": "13px", "color": "#1E3A8A",
+                        "marginBottom": "16px", "lineHeight": "1.7",
+                    },
+                ),
+                interpretation_note(
+                    "Interpretation: look for the budget level at which quality and ρ "
+                    "plateau — that is the minimum budget needed. Higher budget beyond "
+                    "that point wastes compute without improving accuracy."
+                ),
+            ])
+
+        # ── RQ3 — Model Complexity ───────────────────────────────────────────
+        elif tab == "rq3":
+            unique_models = fdf["model"].dropna().nunique() if not fdf.empty else 0
+            fastest_model = (
+                fdf.groupby("model")["runtime_s"].median().idxmin()
+                if not fdf.empty else "—"
+            )
+            best_model = (
+                fdf.groupby("model")["quality_score"].median().idxmax()
+                if not fdf.empty else "—"
+            )
+            worst_fail_model = (
+                fdf.groupby("model")["is_failure"].mean().idxmax()
+                if not fdf.empty else "—"
+            )
+            worst_fail_pct = (
+                fdf.groupby("model")["is_failure"].mean().max() * 100
+                if not fdf.empty else 0
+            )
+
+            kpis = html.Div([
+                kpi_card(str(unique_models), "Model settings available"),
+                kpi_card(fastest_model,      "Fastest model (median runtime)"),
+                kpi_card(best_model,         "Most accurate model (median quality)", GREEN),
+                kpi_card(
+                    f"{worst_fail_pct:.0f} % ({worst_fail_model})",
+                    "Worst failure rate by model",
+                    RED if worst_fail_pct > 10 else GREEN,
+                ),
+            ], style={"display": "flex", "gap": "12px",
+                      "flexWrap": "wrap", "marginBottom": "20px"})
+
+            warns = []
+            if unique_models < 2:
+                warns.append(warning_note(
+                    "RQ3 needs at least two model settings to show model-complexity "
+                    "effects. Current filter selection contains only one model. "
+                    "Remove the Model filter to compare all models."
+                ))
+
+            future_note = html.Div(
                 [
-                    section(
-                        "Method Ranking",
-                        "Bars = median quality score (higher = better). "
-                        "Diamonds = failure rate (red if > 10 %). "
-                        "Color = library.",
-                        dcc.Graph(
-                            figure=fig_leaderboard_bars(lb),
-                            config={"displayModeBar": False},
-                            style={"padding": "8px"},
-                        ),
-                    ),
-                    section(
-                        "Detailed Table",
-                        weight_note,
-                        build_leaderboard_datatable(lb),
-                    ),
-                ]
+                    html.Span("TODO ", style={"fontWeight": "700", "color": AMBER}),
+                    "Future benchmark runs should include tree-depth sweeps "
+                    "(e.g. depth 4, 8, 15, 50) and possibly neural-network benchmarks "
+                    "via Captum to fully answer model-complexity effects.",
+                ],
+                style={
+                    "background": "#FFFBEB", "border": f"1px solid {AMBER}",
+                    "borderRadius": "8px", "padding": "10px 16px",
+                    "fontSize": "13px", "color": "#92400E",
+                    "marginBottom": "16px", "lineHeight": "1.7",
+                },
             )
 
-        elif tab == "pareto":
-            agg = (
+            content = html.Div([
+                rq_header("RQ3", "Model Complexity",
+                          "How does model complexity affect explanation "
+                          "runtime and attribution stability?"),
+                kpis,
+                *warns,
+                section(
+                    "Runtime by Model",
+                    "Median wall-clock runtime per model type, grouped by method. "
+                    "More complex models are expected to have higher runtimes.",
+                    dcc.Graph(figure=fig_runtime_by_model(fdf),
+                              config={"displayModeBar": False},
+                              style={"padding": "8px"}),
+                ),
+                section(
+                    "Quality by Model",
+                    "Median quality score per model type. "
+                    "Some approximators may degrade on non-linear models.",
+                    dcc.Graph(figure=fig_quality_by_model(fdf),
+                              config={"displayModeBar": False},
+                              style={"padding": "8px"}),
+                ),
+                future_note,
+                interpretation_note(
+                    "Interpretation: if runtime or quality changes significantly across "
+                    "model types, the approximation method is sensitive to model "
+                    "complexity. Robust methods should be stable across model types."
+                ),
+            ])
+
+        # ── RQ4 — Libraries ──────────────────────────────────────────────────
+        elif tab == "rq4":
+            n_libs    = fdf["library"].dropna().nunique() if not fdf.empty else 0
+            n_methods = lb.shape[0]
+            top_m     = lb.iloc[0]["method"] if not lb.empty else "—"
+            top_q     = lb.iloc[0]["q_median"] if not lb.empty else float("nan")
+            worst_fr  = lb["failure_rate"].max() * 100 if not lb.empty else 0
+            worst_fm  = lb.loc[lb["failure_rate"].idxmax(), "method"] if not lb.empty else "—"
+
+            kpis = html.Div([
+                kpi_card(str(n_libs),    "Libraries compared"),
+                kpi_card(str(n_methods), "Methods compared"),
+                kpi_card(
+                    f"{top_m}  ({top_q:.1f} / 12)" if not np.isnan(top_q) else top_m,
+                    "Top-ranked method", ACCENT,
+                ),
+                kpi_card(
+                    f"{worst_fr:.0f} %  ({worst_fm})",
+                    "Worst failure rate",
+                    RED if worst_fr > 10 else GREEN,
+                ),
+            ], style={"display": "flex", "gap": "12px",
+                      "flexWrap": "wrap", "marginBottom": "20px"})
+
+            benchmarked = set(fdf["library"].dropna().unique())
+            agg_pareto = (
                 fdf.groupby(["method", "library", "approximator"])
                 .agg(
                     q_median=("quality_score", "median"),
@@ -888,219 +1627,66 @@ def build_app() -> Dash:
                 )
                 .reset_index()
             )
-            content = section(
-                "Pareto Frontier",
-                "Pareto-optimal methods are faster AND more accurate than all dominated methods. "
-                "Dominated points are shown in gray.",
-                dcc.Graph(figure=fig_pareto(agg),
-                          config={"displayModeBar": False},
-                          style={"padding": "8px"}),
-            )
 
-        elif tab == "budget":
-            content = section(
-                "Quality vs Budget",
-                "Does spending more budget (more model evaluations) actually improve accuracy? "
-                "Failed runs are excluded.",
-                dcc.Graph(figure=fig_budget(fdf),
-                          config={"displayModeBar": False},
-                          style={"padding": "8px"}),
-            )
-
-        elif tab == "matrix":
-            content = section(
-                "Method Quality Matrix",
-                "Median quality score per library × approximator. "
-                "Darker blue = higher score = more accurate. "
-                "Failed runs are included but scored as 0.",
-                dcc.Graph(figure=fig_matrix(fdf),
-                          config={"displayModeBar": False},
-                          style={"padding": "8px"}),
-            )
-
-        elif tab == "distribution":
-            content = section(
-                "Quality Score Distribution",
-                "Each box shows the spread of quality scores across all runs of that method. "
-                "Points are individual runs. Green band = quality ≥ 8 (excellent). "
-                "Methods sorted best-first.",
-                dcc.Graph(
-                    figure=fig_distribution(fdf),
-                    config={"displayModeBar": False},
-                    style={"padding": "8px"},
+            content = html.Div([
+                rq_header("RQ4", "Libraries",
+                          "How do different explanation libraries compare "
+                          "under the same benchmark settings?"),
+                kpis,
+                section(
+                    "Method Ranking",
+                    "Bars = median quality score. "
+                    "Failure-rate labels on the right (red if > 10 %). "
+                    "Color = library.",
+                    dcc.Graph(figure=fig_leaderboard_bars(lb),
+                              config={"displayModeBar": False},
+                              style={"padding": "8px"}),
                 ),
-            )
+                section(
+                    "Method Quality Matrix",
+                    "Median quality score per library × approximator. "
+                    "Darker blue = higher score = more accurate. "
+                    "Failed runs scored as 0.",
+                    dcc.Graph(figure=fig_matrix(fdf),
+                              config={"displayModeBar": False},
+                              style={"padding": "8px"}),
+                ),
+                section(
+                    "Pareto Frontier — Speed vs Accuracy",
+                    "Colored points are Pareto-optimal: no other method is both "
+                    "faster AND more accurate. Gray points are dominated.",
+                    dcc.Graph(figure=fig_pareto(agg_pareto),
+                              config={"displayModeBar": False},
+                              style={"padding": "8px"}),
+                ),
+                section(
+                    "Library Capability Matrix",
+                    "Static overview of supported explanation types per library. "
+                    "Libraries not yet in the benchmark are shown as 'planned'.",
+                    capability_matrix_table(benchmarked),
+                ),
+                interpretation_note(
+                    "Interpretation: the Pareto frontier shows which library/method "
+                    "combinations give the best accuracy for a given runtime budget. "
+                    "The capability matrix shows which libraries support features "
+                    "beyond standard feature attribution."
+                ),
+            ])
 
+        # ── Raw Data ─────────────────────────────────────────────────────────
         elif tab == "raw":
             content = section(
                 "Approximation Quality vs Runtime",
-                "Each point is one benchmark run. Y axis = relative MAE (lower = better, log scale). "
+                "Each point is one benchmark run. "
+                "Y axis = relative MAE (lower = better, log scale). "
                 "X axis = runtime in seconds (log scale). "
                 "Marker size = number of features. "
-                "Dotted red line = failure threshold (relative MAE \u2265 1).",
+                "Dotted red line = failure threshold (relative MAE ≥ 1).",
                 dcc.Graph(
                     figure=fig_raw_scatter(fdf),
                     config={"displayModeBar": True},
                     style={"padding": "8px"},
                 ),
-            )
-
-        elif tab == "about":
-            def h2(text):
-                return html.H2(text, style={"fontSize": "15px", "fontWeight": "700",
-                                            "margin": "28px 0 6px", "color": TEXT,
-                                            "borderBottom": f"1px solid {BORDER}",
-                                            "paddingBottom": "6px"})
-            def p(text):
-                return html.P(text, style={"margin": "0 0 10px", "lineHeight": "1.7",
-                                           "color": TEXT, "fontSize": "13px"})
-            def col_row(name, dtype, desc):
-                return html.Tr([
-                    html.Td(name, style={"fontFamily": "monospace", "fontSize": "12px",
-                                        "padding": "6px 12px", "color": ACCENT,
-                                        "whiteSpace": "nowrap", "verticalAlign": "top"}),
-                    html.Td(dtype, style={"fontSize": "11px", "padding": "6px 12px",
-                                          "color": TEXT2, "whiteSpace": "nowrap",
-                                          "verticalAlign": "top"}),
-                    html.Td(desc, style={"fontSize": "13px", "padding": "6px 12px",
-                                         "color": TEXT, "lineHeight": "1.5"}),
-                ])
-            table_style = {"width": "100%", "borderCollapse": "collapse",
-                           "fontSize": "13px", "marginBottom": "12px"}
-            th_style   = {"fontSize": "10px", "fontWeight": "600", "color": TEXT2,
-                          "textTransform": "uppercase", "letterSpacing": "0.05em",
-                          "padding": "8px 12px", "borderBottom": f"2px solid {BORDER}",
-                          "textAlign": "left", "background": BG}
-            content = html.Div(
-                [
-                    html.H1("Benchmark Data — Reference Guide",
-                            style={"fontSize": "20px", "fontWeight": "700",
-                                   "margin": "0 0 4px", "color": TEXT}),
-                    html.P("A structured overview of the raw benchmark data and the derived metrics used in this dashboard.",
-                           style={"color": TEXT2, "fontSize": "13px", "margin": "0 0 8px"}),
-
-                    h2("Background"),
-                    p("This benchmark evaluates SHAP approximation methods — algorithms that estimate Shapley value "
-                      "feature attributions without computing them exactly. The benchmark runs each method across "
-                      "multiple datasets, model types, feature counts, and approximation budgets and records how "
-                      "closely the approximated SHAP values match a reference exact computation."),
-
-                    h2("Experimental Dimensions"),
-                    html.Table(
-                        [
-                            html.Thead(html.Tr([
-                                html.Th("Dimension", style=th_style),
-                                html.Th("Values", style=th_style),
-                            ])),
-                            html.Tbody([
-                                html.Tr([html.Td("Datasets", style={"padding":"6px 12px","fontSize":"13px","borderBottom":f"1px solid {BORDER}"}),
-                                         html.Td(", ".join(sorted(df["dataset"].dropna().unique())), style={"padding":"6px 12px","fontSize":"13px","borderBottom":f"1px solid {BORDER}"})]),
-                                html.Tr([html.Td("Models", style={"padding":"6px 12px","fontSize":"13px","borderBottom":f"1px solid {BORDER}"}),
-                                         html.Td(", ".join(sorted(df["model"].dropna().unique())), style={"padding":"6px 12px","fontSize":"13px","borderBottom":f"1px solid {BORDER}"})]),
-                                html.Tr([html.Td("Libraries", style={"padding":"6px 12px","fontSize":"13px","borderBottom":f"1px solid {BORDER}"}),
-                                         html.Td(", ".join(sorted(df["library"].dropna().unique())), style={"padding":"6px 12px","fontSize":"13px","borderBottom":f"1px solid {BORDER}"})]),
-                                html.Tr([html.Td("Approximators", style={"padding":"6px 12px","fontSize":"13px","borderBottom":f"1px solid {BORDER}"}),
-                                         html.Td(", ".join(sorted(df["approximator"].dropna().unique())), style={"padding":"6px 12px","fontSize":"13px","borderBottom":f"1px solid {BORDER}"})]),
-                                html.Tr([html.Td("Feature counts (n_features)", style={"padding":"6px 12px","fontSize":"13px","borderBottom":f"1px solid {BORDER}"}),
-                                         html.Td(", ".join(str(int(n)) for n in sorted(df["n_features"].dropna().unique())), style={"padding":"6px 12px","fontSize":"13px","borderBottom":f"1px solid {BORDER}"})]),
-                                html.Tr([html.Td("Budgets", style={"padding":"6px 12px","fontSize":"13px"}),
-                                         html.Td(", ".join(str(int(b)) for b in sorted(df["budget"].dropna().unique())), style={"padding":"6px 12px","fontSize":"13px"})]),
-                            ]),
-                        ],
-                        style={**table_style, "border": f"1px solid {BORDER}", "borderRadius": "8px", "overflow": "hidden"},
-                    ),
-
-                    h2("CSV Columns"),
-                    html.Table(
-                        [
-                            html.Thead(html.Tr([
-                                html.Th("Column", style=th_style),
-                                html.Th("Type", style=th_style),
-                                html.Th("Description", style=th_style),
-                            ])),
-                            html.Tbody(
-                                [
-                                    col_row("dataset", "string", "Name of the tabular dataset used for the benchmark run."),
-                                    col_row("model", "string", "ML model type trained on the dataset (e.g. random_forest, gradient_boosting)."),
-                                    col_row("n_features", "int", "Number of input features used in this run. Controls problem dimensionality."),
-                                    col_row("n_samples", "int", "Number of samples (rows) used for SHAP value computation."),
-                                    col_row("backend", "string", "Internal identifier for the backend/configuration used to run the approximation."),
-                                    col_row("library", "string", "Python library that implements the approximation method (shap, shapiq, lightshap, dalex)."),
-                                    col_row("computation_type", "string", '"approximation" for estimated SHAP values; "true_value" for the exact reference computation.'),
-                                    col_row("approximator", "string", "Approximation strategy within the library (kernel, permutation)."),
-                                    col_row("budget", "float", "Number of model evaluations allocated to the approximation. Higher = more compute, potentially better quality."),
-                                    col_row("n_eval", "int", "Actual number of evaluation samples used."),
-                                    col_row("runtime_s", "float", "Wall-clock runtime in seconds for the approximation."),
-                                    col_row("n_model_evals", "float", "Total number of model forward passes performed."),
-                                    col_row("mean_abs_diff", "float", "Mean absolute difference between approximated and exact SHAP values."),
-                                    col_row("relative_mae", "float", "Mean absolute error normalised by the magnitude of the exact values. Lower is better. Values above 1.0 indicate a failed run."),
-                                    col_row("sign_agreement", "float", "Fraction of features where the sign of the approximated SHAP value matches the exact value. Range 0-1, higher is better."),
-                                    col_row("mean_sample_rho", "float", "Mean Spearman rank correlation per sample between approximated and exact SHAP vectors. Range -1 to 1, higher is better."),
-                                    col_row("reference_backend", "string", "The backend used to compute the exact reference SHAP values that approximations are compared against."),
-                                ],
-                                style={"verticalAlign": "top"},
-                            ),
-                        ],
-                        style={**table_style, "border": f"1px solid {BORDER}"},
-                    ),
-
-                    h2("Derived Metrics (computed in this dashboard)"),
-                    html.Table(
-                        [
-                            html.Thead(html.Tr([
-                                html.Th("Metric", style=th_style),
-                                html.Th("Formula", style=th_style),
-                                html.Th("Interpretation", style=th_style),
-                            ])),
-                            html.Tbody([
-                                html.Tr([
-                                    html.Td("quality_score", style={"fontFamily":"monospace","fontSize":"12px","padding":"8px 12px","color":ACCENT,"borderBottom":f"1px solid {BORDER}","verticalAlign":"top"}),
-                                    html.Td("clip( -log10(relative_mae), 0, 12 )", style={"fontFamily":"monospace","fontSize":"12px","padding":"8px 12px","color":TEXT2,"borderBottom":f"1px solid {BORDER}","verticalAlign":"top","whiteSpace":"nowrap"}),
-                                    html.Td("Transforms relative_mae into a 0-12 scale where higher is better. "
-                                            "A score of 12 means near-perfect agreement; 8 is excellent; below 4 is poor. "
-                                            "Failed runs (relative_mae > 1) are forced to 0.",
-                                            style={"fontSize":"13px","padding":"8px 12px","color":TEXT,"borderBottom":f"1px solid {BORDER}","lineHeight":"1.5"}),
-                                ]),
-                                html.Tr([
-                                    html.Td("is_failure", style={"fontFamily":"monospace","fontSize":"12px","padding":"8px 12px","color":ACCENT,"verticalAlign":"top"}),
-                                    html.Td("relative_mae > 1 OR sign_agreement is NaN OR mean_sample_rho is NaN", style={"fontFamily":"monospace","fontSize":"12px","padding":"8px 12px","color":TEXT2,"verticalAlign":"top"}),
-                                    html.Td("Boolean flag. A run is considered a failure if the approximation error exceeds 100 % "
-                                            "of the true value magnitude, or if quality metrics could not be computed.",
-                                            style={"fontSize":"13px","padding":"8px 12px","color":TEXT,"lineHeight":"1.5"}),
-                                ]),
-                            ]),
-                        ],
-                        style={**table_style, "border": f"1px solid {BORDER}"},
-                    ),
-
-                    h2("Leaderboard Scoring"),
-                    p("Methods are ranked by a weighted combined score that aggregates multiple quality dimensions:"),
-                    html.Table(
-                        [
-                            html.Thead(html.Tr([
-                                html.Th("Component", style=th_style),
-                                html.Th("Weight", style=th_style),
-                                html.Th("Source column", style=th_style),
-                            ])),
-                            html.Tbody([
-                                html.Tr([html.Td(c, style={"padding":"6px 12px","fontSize":"13px","borderBottom":f"1px solid {BORDER}"}),
-                                         html.Td(w, style={"padding":"6px 12px","fontSize":"13px","borderBottom":f"1px solid {BORDER}","color":ACCENT,"fontWeight":"600"}),
-                                         html.Td(s, style={"fontFamily":"monospace","fontSize":"12px","padding":"6px 12px","color":TEXT2,"borderBottom":f"1px solid {BORDER}"})])
-                                for c, w, s in [
-                                    ("Approximation quality", "40 %", "quality_score"),
-                                    ("Sign agreement",        "25 %", "sign_agreement"),
-                                    ("Rank correlation",      "20 %", "mean_sample_rho"),
-                                    ("Speed (inverse runtime)","10 %", "runtime_s"),
-                                    ("Reliability (no failures)","5 %", "is_failure"),
-                                ]
-                            ]),
-                        ],
-                        style={**table_style, "border": f"1px solid {BORDER}"},
-                    ),
-                    p("Each component is min-max normalised across the visible methods before weighting, "
-                      "so scores are relative to the current filter selection."),
-                ],
-                style={"maxWidth": "860px", "padding": "8px 4px 40px"},
             )
 
         else:
