@@ -12,6 +12,7 @@ import sys
 
 import dash
 import numpy as np
+import plotly.graph_objects as go
 from dash import Input, Output, callback, dcc, html
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -28,6 +29,94 @@ _HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _CSV  = os.path.join(_HERE, "results", "rq3_neural_networks.csv")
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  Local helpers — config card
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _pill(text: str, bg: str, color: str) -> html.Span:
+    return html.Span(text, style={
+        "fontSize": "11px", "fontWeight": "500", "color": color,
+        "background": bg, "borderRadius": "4px",
+        "padding": "2px 8px", "marginRight": "4px", "marginBottom": "4px",
+        "display": "inline-block",
+    })
+
+
+def _col(heading, items, bg, color) -> html.Div:
+    return html.Div([
+        html.Div(heading, style={
+            "fontSize": "10px", "fontWeight": "700", "color": S.TEXT2,
+            "textTransform": "uppercase", "letterSpacing": "0.07em",
+            "marginBottom": "8px",
+        }),
+        html.Div([_pill(i, bg, color) for i in items]),
+    ], style={"flex": "1", "minWidth": "160px"})
+
+
+def _fig_coverage(df) -> go.Figure:
+    """Dataset \u00d7 model heatmap \u2014 run count per cell."""
+    if df.empty or "model" not in df.columns:
+        return S.fig_empty("No data")
+    counts = df.groupby(["dataset", "model"]).size().reset_index(name="n")
+    pivot  = counts.pivot(index="dataset", columns="model", values="n").fillna(0)
+    z      = pivot.values
+    text   = [[f"{int(v)}" for v in row] for row in z]
+    fig    = go.Figure(go.Heatmap(
+        z=z, x=list(pivot.columns), y=list(pivot.index),
+        text=text, texttemplate="%{text}",
+        colorscale=[[0, "#EEF2FF"], [1, S.ACCENT]],
+        showscale=False,
+        hovertemplate="Dataset: <b>%{y}</b><br>Model: <b>%{x}</b><br>Runs: %{z}<extra></extra>",
+    ))
+    fig.update_layout(
+        **S._CHART_LAYOUT, height=150,
+        margin=dict(l=10, r=10, t=4, b=36),
+        xaxis=dict(title="model type", gridcolor="rgba(0,0,0,0)", tickfont=dict(size=10)),
+        yaxis=dict(gridcolor="rgba(0,0,0,0)", automargin=True, tickfont=dict(size=10)),
+    )
+    return fig
+
+
+def _config_card(df) -> html.Div:
+    """Compact benchmark overview \u2014 config + experiment coverage heatmap."""
+    left  = _col("Swept",
+                 ["3 datasets", "3 model types", "6 libraries",
+                  "7 approximators", "3 seeds (10 planned)"],
+                 "#EEF2FF", S.ACCENT)
+    mid   = _col("Fixed",
+                 ["budget = 512", "n_background = 200",
+                  "n_eval = 100", "imputer = marginal", "GPU (CUDA)"],
+                 "#F1F5F9", S.TEXT2)
+    right = _col("Measured",
+                 ["runtime_s", "n_model_evals",
+                  "relative_mae", "mean_sample_rho"],
+                 "#F0FDF4", S.GREEN)
+    return html.Div([
+        html.Div([
+            html.Div("Benchmark at a glance", style={
+                "fontSize": "13px", "fontWeight": "700", "color": S.TEXT,
+                "marginBottom": "14px",
+            }),
+            html.Div([left, mid, right],
+                     style={"display": "flex", "gap": "20px", "flexWrap": "wrap"}),
+        ], style={"flex": "1.4", "minWidth": "280px"}),
+        html.Div([
+            html.Div("Experiment coverage  (runs per cell)", style={
+                "fontSize": "10px", "fontWeight": "700", "color": S.TEXT2,
+                "textTransform": "uppercase", "letterSpacing": "0.07em",
+                "marginBottom": "6px",
+            }),
+            dcc.Graph(figure=_fig_coverage(df), config={"displayModeBar": False},
+                      style={"height": "150px"}),
+        ], style={"flex": "1", "minWidth": "240px"}),
+    ], style={
+        "display": "flex", "gap": "32px", "flexWrap": "wrap",
+        "background": S.CARD, "borderRadius": "12px",
+        "border": f"1px solid {S.BORDER}", "padding": "20px 24px",
+        "marginBottom": "20px",
+    })
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 #  PAGE CONFIGURATION — edit here to change what the page shows
 # ═════════════════════════════════════════════════════════════════════════════
@@ -39,8 +128,9 @@ _RQ_HEADER = (
 
 # Notes shown on the page directly below the research question.
 _REMARKS = [
-    "Remark: Use of variance in architecture rather than varying the size.",
-    "Open question: ShapIQ supports ProxySPEX \u2014 would this also be interesting?",
+    "Benchmark: 3 models (MLP, Transformer, CNN-1D) \u00d7 3 datasets \u00d7 6 libraries \u2014 3 seeds (10 planned).",
+    "Budget fixed at 512. GPU (CUDA) backend. n_background\u202f=\u202f200, n_eval\u202f=\u202f100.",
+    "Open question: ShapIQ supports ProxySHAP \u2014 would this also be interesting?",
 ]
 
 
@@ -95,6 +185,13 @@ _CHARTS = [
                      "Gray = dominated.",
         fn         = lambda df: S.fig_pareto(_agg(df)),
     ),
+    dict(
+        section_id = "rq3-failure-section",
+        title      = "Failure Rate by Model Type",
+        subtitle   = "Fraction of failed runs per method \u00d7 model type. "
+                     "Red cells mark where a method becomes unreliable for a specific architecture.",
+        fn         = S.fig_failure_vs_complexity,
+    ),
 ]
 
 _INTERP = (
@@ -110,44 +207,18 @@ def layout(**kwargs):
     if src is None:
         return html.Div([
             S.rq_header(*_RQ_HEADER),
-            *[S.info_note(r) for r in _REMARKS],
             S.missing_data_banner(_CSV),
             _schema_hint(),
         ])
 
     datasets = [{"label": "All datasets", "value": "__all__"}] + \
                [{"label": d, "value": d} for d in sorted(df["dataset"].dropna().unique())]
+    models   = sorted(df["model"].dropna().unique()) if not df.empty else []
     libs     = sorted(df["library"].dropna().unique())
-    budgets  = sorted(df["budget"].dropna().unique()) if not df.empty else []
 
     return html.Div([
         S.rq_header(*_RQ_HEADER),
-        *[S.info_note(r) for r in _REMARKS],
-        html.Div(
-            [html.Span("Data source: ", style={"fontWeight": "600"}),
-             html.Code(os.path.basename(src),
-                       style={"fontFamily": "monospace", "fontSize": "11px",
-                              "background": S.BG, "padding": "2px 6px",
-                              "borderRadius": "4px"})],
-            style={"fontSize": "12px", "color": S.TEXT2, "marginBottom": "4px"},
-        ),
-        S.data_summary_card(df),
-        S.charts_toc(_CHARTS),
-        S.filter_bar(
-            S.filter_dropdown("Dataset", "rq3-ds", datasets, "__all__", "220px"),
-            S.filter_checklist(
-                "Library",
-                "rq3-lib",
-                [{"label": f"  {lib}", "value": lib} for lib in libs],
-                libs,
-            ),
-            S.filter_checklist(
-                "Budget",
-                "rq3-budget",
-                [{"label": f"  {int(b)}", "value": float(b)} for b in budgets],
-                [float(b) for b in budgets],
-            ),
-        ),
+        _config_card(df),
 
         # ── Dynamic content ───────────────────────────────────────────────────
         html.Div(id="rq3-kpis"),
@@ -201,17 +272,17 @@ def _schema_hint() -> html.Div:
     Output("rq3-kpis",   "children"),
     Output("rq3-charts", "children"),
     Input("rq3-ds",     "value"),
+    Input("rq3-model",  "value"),
     Input("rq3-lib",    "value"),
-    Input("rq3-budget", "value"),
 )
-def update_rq3(ds, libs, budgets):
+def update_rq3(ds, models, libs):
     df, src = S.try_load_data(_CSV)
     if src is None or df.empty:
         return html.Div(), html.Div()
 
     if ds != "__all__": df = df[df["dataset"] == ds]
+    if models:          df = df[df["model"].isin(models)]
     if libs:            df = df[df["library"].isin(libs)]
-    if budgets:         df = df[df["budget"].isin(budgets)]
 
     lb = S.compute_leaderboard(df)
 
@@ -225,14 +296,7 @@ def update_rq3(ds, libs, budgets):
     )
 
     kpis = S.kpi_row(
-        S.kpi_card(fastest_m, "Fastest library / method", S.ACCENT),
-        S.kpi_card(f"{fastest_rt:.3f} s" if not np.isnan(fastest_rt) else "—",
-                   "Median runtime (fastest)", S.GREEN),
-        S.kpi_card(str(n_libs), "Libraries compared"),
-        S.kpi_card(f"{fail_of_fast:.0f} %" if not np.isnan(fail_of_fast) else "—",
-                   "Failure rate of fastest method",
-                   S.RED if (not np.isnan(fail_of_fast) and fail_of_fast > 10) else S.GREEN),
-    )
+      )
 
     warns = []
     if df.empty:

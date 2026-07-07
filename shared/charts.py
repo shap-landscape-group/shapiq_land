@@ -134,7 +134,12 @@ def fig_pareto(agg: pd.DataFrame) -> go.Figure:
         xaxis=dict(title="Median runtime (s) — log scale", type="log",
                    gridcolor=BORDER, zeroline=False),
         yaxis=dict(title="Median Spearman ρ  (higher = better)",
-                   range=[0, 1.08], gridcolor=BORDER, zeroline=False),
+                   range=(
+                       [max(0.0, float(agg["rho_median"].min()) - 0.04),
+                        min(1.05, float(agg["rho_median"].max()) + 0.03)]
+                       if not agg.empty else [0, 1.08]
+                   ),
+                   gridcolor=BORDER, zeroline=False),
     )
     return fig
 
@@ -170,9 +175,15 @@ def fig_distribution(df: pd.DataFrame) -> go.Figure:
     fig.add_hline(
         y=RHO_GOOD, line=dict(color=GREEN, width=1, dash="dot"),
     )
+    # Tight y-range: zoom into the actual data instead of always showing 0–1
+    _rho_arr = df["mean_sample_rho"].dropna().values
+    _y_range = (
+        [max(0.0, float(_rho_arr.min()) - 0.04), min(1.05, float(_rho_arr.max()) + 0.03)]
+        if len(_rho_arr) > 0 else [-0.05, 1.08]
+    )
     fig.update_layout(
         **_CHART_LAYOUT, height=440,
-        yaxis=dict(title="Spearman ρ  (higher = better)", range=[-0.05, 1.08],
+        yaxis=dict(title="Spearman ρ  (higher = better)", range=_y_range,
                    gridcolor=BORDER, zeroline=False),
         xaxis=dict(tickangle=-30, gridcolor="rgba(0,0,0,0)", automargin=True),
         margin=dict(l=55, r=16, t=36, b=100),
@@ -457,6 +468,279 @@ def fig_metric_vs_budget(df: pd.DataFrame, metric: str = "mean_sample_rho") -> g
     return fig
 
 
+def fig_quality_vs_cost_rq2(
+    df: pd.DataFrame,
+    x_metric: str = "runtime_s",
+    y_metric: str = "mean_sample_rho",
+) -> go.Figure:
+    """Scatter: quality vs cost for RQ2.
+
+    One point per library × approximator × budget × n_background, aggregated
+    (median) over seeds, models and datasets.
+    Circle = n_background 50, diamond-open = n_background 200.
+    Red border = problematic combo (n_background=200, budget ≤ 64).
+    """
+    for col in (x_metric, y_metric):
+        if col not in df.columns:
+            return fig_empty(f"Column '{col}' not in data")
+    if df.empty or df[x_metric].isna().all():
+        return fig_empty()
+
+    has_nbg    = "n_background" in df.columns and df["n_background"].notna().any()
+    has_budget = "budget"       in df.columns and df["budget"].notna().any()
+
+    grp_cols = ["method", "library", "approximator"]
+    if has_nbg:    grp_cols.append("n_background")
+    if has_budget: grp_cols.append("budget")
+
+    sub = df[df[x_metric].notna() & df[y_metric].notna()].copy()
+    if sub.empty:
+        return fig_empty()
+
+    grp = (
+        sub.groupby(grp_cols, dropna=False)
+        .agg(x=(x_metric, "median"), y=(y_metric, "median"), fr=("is_failure", "mean"))
+        .reset_index()
+    )
+
+    x_label = {"runtime_s": "Median runtime (s)",
+               "n_model_evals": "Median model evaluations"}.get(x_metric, x_metric)
+    y_label = {
+        "mean_sample_rho": "Median Spearman ρ  (higher = better)",
+        "relative_mae":    "Median relative MAE  (lower = better)",
+        "sign_agreement":  "Median sign agreement  (higher = better)",
+    }.get(y_metric, y_metric)
+
+    fig = go.Figure()
+    nbg_groups = grp.groupby("n_background") if has_nbg else [(None, grp)]
+    for nbg, nbg_grp in nbg_groups:
+        nbg_i  = int(nbg) if nbg is not None and not pd.isna(nbg) else None
+        symbol = "diamond-open" if nbg_i == 200 else "circle"
+
+        for lib, lib_grp in nbg_grp.groupby("library"):
+            if lib_grp.empty:
+                continue
+            color = _lib_color(lib)
+
+            bgt_series = lib_grp["budget"] if has_budget else pd.Series(
+                [float("nan")] * len(lib_grp), index=lib_grp.index)
+            is_warn = (nbg_i == 200) and has_budget and (bgt_series <= 64).any()
+            border_c = [
+                "rgba(220,38,38,0.9)"
+                if (nbg_i == 200 and has_budget and not pd.isna(b) and b <= 64)
+                else "white"
+                for b in bgt_series
+            ]
+            border_w = [2.5 if c != "white" else 1.5 for c in border_c]
+
+            suffix = f"  (n_bg={nbg_i})" if nbg_i is not None else ""
+            cd = list(zip(
+                lib_grp["method"].values,
+                [f"{int(b)}" if has_budget and not pd.isna(b) else "—"
+                 for b in bgt_series],
+                (lib_grp["fr"] * 100).values,
+            ))
+            fig.add_trace(go.Scatter(
+                x=lib_grp["x"], y=lib_grp["y"], mode="markers",
+                name=f"{lib}{suffix}",
+                marker=dict(color=color, symbol=symbol, size=13, opacity=0.85,
+                            line=dict(color=border_c, width=border_w)),
+                hovertemplate=(
+                    "<b>%{customdata[0]}</b><br>"
+                    + (f"n_background: {nbg_i}<br>" if nbg_i is not None else "")
+                    + "Budget: %{customdata[1]}<br>"
+                    + f"{x_label}: %{{x:.3g}}<br>"
+                    + f"{y_label}: %{{y:.4g}}<br>"
+                    + "Failure: %{customdata[2]:.0f}%<extra></extra>"
+                ),
+                customdata=cd,
+            ))
+
+    if y_metric == "mean_sample_rho":
+        fig.add_hline(y=RHO_GOOD, line=dict(color=GREEN, width=1.2, dash="dot"),
+                      annotation_text=f"ρ = {RHO_GOOD}",
+                      annotation_position="bottom right",
+                      annotation_font=dict(size=10, color=GREEN))
+
+    # Tight y-range: zoom into the actual data instead of always showing 0–1
+    _y_arr    = grp["y"].dropna().values
+    _bounded  = y_metric in ("mean_sample_rho", "sign_agreement")
+    _y_range  = (
+        [max(0.0, float(_y_arr.min()) - 0.04), min(1.05, float(_y_arr.max()) + 0.03)]
+        if _bounded and len(_y_arr) > 0 else
+        ([0, 1.08] if _bounded else None)
+    )
+    fig.update_layout(
+        **_CHART_LAYOUT, height=460, margin=_MARGIN, legend=_LEGEND_H,
+        xaxis=dict(title=x_label,
+                   type="log" if x_metric == "n_model_evals" else "linear",
+                   gridcolor=BORDER, zeroline=False),
+        yaxis=dict(
+            title=y_label,
+            type="log" if y_metric == "relative_mae" else "linear",
+            **({"range": _y_range} if _y_range is not None else {}),
+            gridcolor=BORDER, zeroline=False,
+        ),
+    )
+    return fig
+
+
+def fig_budget_quality_lines(df: pd.DataFrame, metric: str = "mean_sample_rho") -> go.Figure:
+    """Quality vs budget per method.
+
+    Solid line / circle = n_background 50,
+    dashed line / diamond = n_background 200 (when column is present).
+    Failed runs excluded.
+    """
+    has_nbg = "n_background" in df.columns and df["n_background"].notna().any()
+    sub = df[df["budget"].notna() & df[metric].notna() & ~df["is_failure"]].copy()
+    if sub.empty or sub["budget"].nunique() < 2:
+        return fig_empty("Select at least two budget values to see convergence")
+
+    grp_cols = ["method", "library", "budget"] + (["n_background"] if has_nbg else [])
+    grp = sub.groupby(grp_cols).agg(val=(metric, "median")).reset_index()
+
+    label_map = {
+        "mean_sample_rho": "Median Spearman ρ  (higher = better)",
+        "relative_mae":    "Median relative MAE  (lower = better)",
+        "sign_agreement":  "Median sign agreement  (higher = better)",
+    }
+    fig = go.Figure()
+    combo_cols = ["method"] + (["n_background"] if has_nbg else [])
+    for keys, mdf in grp.groupby(combo_cols):
+        method = keys[0] if has_nbg else keys
+        nbg    = keys[1] if has_nbg else None
+        nbg_i  = int(nbg) if nbg is not None and not pd.isna(nbg) else None
+        lib    = mdf["library"].iloc[0]
+        color  = _lib_color(lib)
+        mdf    = mdf.sort_values("budget")
+        suffix = f"  n_bg={nbg_i}" if nbg_i is not None else ""
+        fig.add_trace(go.Scatter(
+            x=mdf["budget"], y=mdf["val"],
+            mode="lines+markers",
+            name=f"{method}{suffix}",
+            line=dict(color=color, width=2, dash="dash" if nbg_i == 200 else "solid"),
+            marker=dict(size=8, color=color,
+                        symbol="diamond" if nbg_i == 200 else "circle",
+                        line=dict(color="white", width=1.5)),
+            hovertemplate=(
+                f"<b>{method}{suffix}</b><br>"
+                f"Budget: %{{x}}<br>{metric}: %{{y:.4g}}<extra></extra>"
+            ),
+        ))
+
+    if metric == "mean_sample_rho":
+        fig.add_hline(y=RHO_GOOD, line=dict(color=GREEN, width=1.2, dash="dot"),
+                      annotation_text=f"ρ = {RHO_GOOD}",
+                      annotation_position="bottom right",
+                      annotation_font=dict(size=10, color=GREEN))
+
+    # Tight y-range: zoom into the actual data instead of always showing 0–1
+    _y_arr   = grp["val"].dropna().values
+    _bounded = metric in ("mean_sample_rho", "sign_agreement")
+    _y_range = (
+        [max(0.0, float(_y_arr.min()) - 0.04), min(1.05, float(_y_arr.max()) + 0.03)]
+        if _bounded and len(_y_arr) > 0 else
+        ([0, 1.08] if _bounded else None)
+    )
+    fig.update_layout(
+        **_CHART_LAYOUT, height=420, margin=_MARGIN, legend=_LEGEND_H,
+        xaxis=dict(title="Budget (model evaluations)", gridcolor=BORDER, zeroline=False),
+        yaxis=dict(title=label_map.get(metric, metric),
+                   **({"range": _y_range} if _y_range is not None else {}),
+                   gridcolor=BORDER, zeroline=False),
+    )
+    return fig
+
+
+def fig_pairwise_heatmap_rq2(df: pd.DataFrame, metric: str = "mean_sample_rho") -> go.Figure:
+    """Cross-library agreement heatmap from pairwise_metrics JSON.
+
+    Row = source library (whose approximation is in that row).
+    Column = compared-against library / exact reference.
+    Cell = mean metric across all matching runs (seeds, models, datasets, budgets).
+    """
+    import json as _json
+
+    if "pairwise_metrics" not in df.columns or df.empty:
+        return fig_empty("pairwise_metrics column not available")
+
+    _key_cache: dict = {}
+
+    def _key_to_target(k: str) -> str:
+        if k not in _key_cache:
+            if "true_value" in k:
+                _key_cache[k] = k.replace("_true_value", "") + " (exact)"
+            elif k.endswith("_approx"):
+                _key_cache[k] = k[:-7]
+            else:
+                _key_cache[k] = k
+        return _key_cache[k]
+
+    records = []
+    for _, row in df[df["pairwise_metrics"].notna()].iterrows():
+        src    = row.get("library", "?")
+        pm_str = row["pairwise_metrics"]
+        if not isinstance(pm_str, str):
+            continue
+        try:
+            pm = _json.loads(pm_str.replace(": NaN", ": null").replace(":NaN", ":null"))
+        except Exception:
+            continue
+        for key, vals in pm.items():
+            if not isinstance(vals, dict):
+                continue
+            v = vals.get(metric)
+            if v is None:
+                continue
+            records.append({"source": src, "target": _key_to_target(key), "value": float(v)})
+
+    if not records:
+        return fig_empty("No pairwise metrics extracted for the current filters")
+
+    pdf   = pd.DataFrame(records)
+    pivot = (
+        pdf.groupby(["source", "target"])["value"]
+        .mean().reset_index()
+        .pivot(index="source", columns="target", values="value")
+    )
+    # Exact-reference columns first, then alphabetical
+    cols  = sorted(pivot.columns, key=lambda c: (0 if "exact" in c else 1, c))
+    pivot = pivot[cols]
+
+    z    = pivot.values
+    text = [[f"{v:.3f}" if not np.isnan(v) else "—" for v in row] for row in z]
+
+    lower_better = metric == "relative_mae"
+    colorscale   = (
+        [[0, "#D1FAE5"], [0.5, "#93C5FD"], [1, "#FEE2E2"]] if lower_better else
+        [[0, "#FEE2E2"], [0.5, "#93C5FD"], [1, "#1E3A8A"]]
+    )
+    zmax = float(np.nanmax(z)) if lower_better and z.size > 0 and not np.all(np.isnan(z)) else 1.0
+
+    fig = go.Figure(go.Heatmap(
+        z=z, x=list(pivot.columns), y=list(pivot.index),
+        text=text, texttemplate="%{text}",
+        colorscale=colorscale, zmin=0, zmax=zmax,
+        colorbar=dict(title=metric.replace("_", " "), thickness=14, len=0.8),
+        hovertemplate=(
+            "Source lib: <b>%{y}</b><br>"
+            "Reference: <b>%{x}</b><br>"
+            f"{metric}: %{{z:.3f}}<extra></extra>"
+        ),
+    ))
+    fig.update_layout(
+        **_CHART_LAYOUT,
+        height=max(260, len(pivot) * 60 + 110),
+        xaxis=dict(title="Reference / compared against",
+                   gridcolor="rgba(0,0,0,0)", side="bottom"),
+        yaxis=dict(title="Source library",
+                   gridcolor="rgba(0,0,0,0)", automargin=True),
+        margin=dict(l=90, r=16, t=20, b=100),
+    )
+    return fig
+
+
 # ── RQ1: Dimensionality ───────────────────────────────────────────────────────
 
 def fig_runtime_vs_features(df: pd.DataFrame) -> go.Figure:
@@ -596,6 +880,105 @@ def fig_speed_ranking_at_nfeatures(df: pd.DataFrame, n: int | None = None) -> go
         yaxis=dict(gridcolor="rgba(0,0,0,0)", automargin=True),
         margin=dict(l=10, r=20, t=44, b=48),
         showlegend=False,
+    )
+    return fig
+
+
+def fig_cost_vs_features(df: pd.DataFrame, metric: str = "runtime_s") -> go.Figure:
+    """Cost (runtime_s OR n_model_evals) vs n_features — log-log scaling chart.
+
+    Seeds are aggregated automatically (median per method × n_features).
+    """
+    if metric not in df.columns:
+        return fig_empty(f"Column '{metric}' not found in data")
+    sub = df[df["n_features"].notna() & df[metric].notna()].copy()
+    if sub.empty or sub["n_features"].nunique() < 2:
+        return fig_empty("Not enough n_features variation for the current filters")
+    grp = (
+        sub.groupby(["method", "library", "n_features"])
+        .agg(val=(metric, "median")).reset_index()
+    )
+    label_map = {
+        "runtime_s":     "Median runtime (s)",
+        "n_model_evals": "Median model evaluations",
+    }
+    fig = go.Figure()
+    for method, mdf in grp.groupby("method"):
+        lib = mdf["library"].iloc[0]
+        mdf = mdf.sort_values("n_features")
+        fig.add_trace(go.Scatter(
+            x=mdf["n_features"], y=mdf["val"], mode="lines+markers", name=method,
+            line=dict(color=_lib_color(lib), width=2),
+            marker=dict(size=8, color=_lib_color(lib), line=dict(color="white", width=1.5)),
+            hovertemplate=(
+                f"<b>{method}</b><br>n_features: %{{x:,}}<br>"
+                f"{label_map.get(metric, metric)}: %{{y:.3g}}<extra></extra>"
+            ),
+        ))
+    fig.update_layout(
+        **_CHART_LAYOUT, height=420, margin=_MARGIN, legend=_LEGEND_H,
+        xaxis=dict(title="Number of features (log scale)", type="log",
+                   gridcolor=BORDER, zeroline=False),
+        yaxis=dict(title=f"{label_map.get(metric, metric)} — log scale",
+                   type="log", gridcolor=BORDER, zeroline=False),
+    )
+    return fig
+
+
+def fig_quality_vs_features(df: pd.DataFrame, metric: str = "mean_sample_rho") -> go.Figure:
+    """Quality (mean_sample_rho, relative_mae, or relative_additivity_gap) vs n_features.
+
+    Seeds are aggregated automatically (median per method × n_features).
+    Log-scale metrics with values near machine precision (<1e-6) are excluded.
+    """
+    if metric not in df.columns:
+        return fig_empty(f"Column '{metric}' not found in data")
+    sub = df[df["n_features"].notna() & df[metric].notna()].copy()
+    if metric in ("relative_mae", "relative_additivity_gap"):
+        sub = sub[sub[metric] > 1e-6]   # exclude machine-precision noise (e.g. linear models)
+    if sub.empty or sub["n_features"].nunique() < 2:
+        return fig_empty("Not enough n_features variation for the current filters")
+    grp = (
+        sub.groupby(["method", "library", "n_features"])
+        .agg(val=(metric, "median")).reset_index()
+    )
+    is_rho  = metric == "mean_sample_rho"
+    y_label = {
+        "mean_sample_rho":        "Median Spearman ρ  (higher = better)",
+        "relative_mae":           "Median relative MAE  (lower = better, log scale)",
+        "relative_additivity_gap": "Median relative additivity gap  (lower = better, log scale)",
+    }.get(metric, f"Median {metric}")
+    use_log = not is_rho
+    fig = go.Figure()
+    for method, mdf in grp.groupby("method"):
+        lib = mdf["library"].iloc[0]
+        mdf = mdf.sort_values("n_features")
+        fig.add_trace(go.Scatter(
+            x=mdf["n_features"], y=mdf["val"], mode="lines+markers", name=method,
+            line=dict(color=_lib_color(lib), width=2),
+            marker=dict(size=8, color=_lib_color(lib), line=dict(color="white", width=1.5)),
+            hovertemplate=(
+                f"<b>{method}</b><br>n_features: %{{x:,}}<br>"
+                f"{metric}: %{{y:.4g}}<extra></extra>"
+            ),
+        ))
+    if is_rho:
+        fig.add_hline(
+            y=RHO_GOOD, line=dict(color=GREEN, width=1.2, dash="dot"),
+            annotation_text=f"ρ = {RHO_GOOD}",
+            annotation_position="bottom right",
+            annotation_font=dict(size=10, color=GREEN),
+        )
+    fig.update_layout(
+        **_CHART_LAYOUT, height=420, margin=_MARGIN, legend=_LEGEND_H,
+        xaxis=dict(title="Number of features (log scale)", type="log",
+                   gridcolor=BORDER, zeroline=False),
+        yaxis=dict(
+            title=y_label,
+            type="linear" if is_rho else "log",
+            **({"range": [0, 1.08]} if is_rho else {}),
+            gridcolor=BORDER, zeroline=False,
+        ),
     )
     return fig
 

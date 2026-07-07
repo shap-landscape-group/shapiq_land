@@ -1,13 +1,11 @@
 """
 pages/rq1_dimensionality.py  —  RQ1: Dimensionality
-
-Edit the PAGE CONFIGURATION block below to change what is shown.
-The layout / filter / callback logic beneath it should rarely need touching.
 """
 import os
 import sys
 
 import dash
+import plotly.graph_objects as go
 from dash import Input, Output, callback, dcc, html
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -23,111 +21,227 @@ dash.register_page(
 _HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _CSV  = os.path.join(_HERE, "results", "rq1_dimensionality.csv")
 
-
-# ═════════════════════════════════════════════════════════════════════════════
-#  PAGE CONFIGURATION — edit here to change what the page shows
-# ═════════════════════════════════════════════════════════════════════════════
-
+# ─────────────────────────────────────────────────────────────────────────────
 _RQ_HEADER = (
     "RQ1", "Dimensionality",
     "As a user with a dataset that has many features, I want to find the fastest "
-    "model-agnostic library for high-dimensional datasets?"
+    "model-agnostic library for high-dimensional datasets?",
 )
-
-# Notes shown on the page directly below the research question.
-_REMARKS = [
-    "Also test the inverse: datasets with a small number of features.",
-    "Remark: Use of multiple seeds.",
-    "Scope: captum is excluded from model-agnostic questions; "
-    "no Shapley value interactions in the model-agnostic part.",
-]
-
-# Charts rendered in order.
-#   title      — section heading
-#   subtitle   — one-line description shown below the heading
-#   fn         — S.fig_* function that accepts the filtered DataFrame
-#   section_id — stable HTML id for advisor deep-links (optional)
-_CHARTS = [
-    dict(
-        title      = "Runtime vs Number of Features",
-        subtitle   = "Median runtime on a log–log scale. "
-                     "A steeper slope means worse scalability.",
-        fn         = S.fig_runtime_vs_features,
-        section_id = "rq1-runtime-section",
-    ),
-    dict(
-        title      = "Spearman ρ vs Number of Features",
-        subtitle   = "Does rank-order agreement with exact Shapley values hold as "
-                     "dimensionality grows? Declining lines signal accuracy concerns. "
-                     "Reference line: ρ = 0.9.",
-        fn         = S.fig_rho_vs_features,
-        section_id = "rq1-quality-section",
-    ),
-    dict(
-        title      = "Failure Rate Heatmap",
-        subtitle   = "Fraction of failed runs per method × feature count. "
-                     "Red cells mark where a method becomes unreliable.",
-        fn         = S.fig_failure_heatmap_by_features,
-        section_id = "rq1-failure-section",
-    ),
-]
 
 _INTERP = (
-    "How to read this page: look for methods whose runtime line stays flat as "
-    "n_features grows (good scalability) while ρ stays near 1.0 (accuracy maintained). "
-    "The failure heatmap reveals where methods break down entirely."
+    "Look for methods whose cost line stays flat as n_features grows (good scalability) "
+    "while quality stays high. The failure heatmap reveals where methods break down entirely."
 )
 
-# ═════════════════════════════════════════════════════════════════════════════
-#  Layout
-# ═════════════════════════════════════════════════════════════════════════════
+# ─────────────────────────────────────────────────────────────────────────────
+#  Local helpers
+# ─────────────────────────────────────────────────────────────────────────────
 
-def layout(**kwargs):
-    df, src = S.try_load_data(_CSV)
+def _pill(text, bg="#EEF2FF", color=S.ACCENT) -> html.Span:
+    return html.Span(text, style={
+        "display": "inline-block", "background": bg, "color": color,
+        "fontSize": "11px", "fontWeight": "600",
+        "padding": "3px 9px", "borderRadius": "4px",
+        "marginRight": "5px", "marginBottom": "5px",
+        "border": f"1px solid {color}40",
+        "whiteSpace": "nowrap",
+    })
 
-    datasets = [{"label": "All datasets", "value": "__all__"}] + \
-               [{"label": d, "value": d} for d in sorted(df["dataset"].dropna().unique())]
-    models   = [{"label": "All models",   "value": "__all__"}] + \
-               [{"label": m, "value": m} for m in sorted(df["model"].dropna().unique())]
-    approxs  = sorted(df["approximator"].dropna().unique()) if not df.empty else []
-    n_feats  = sorted(df["n_features"].dropna().unique())   if not df.empty else []
 
-    source_tag = html.Div(
-        [html.Span("Data source: ", style={"fontWeight": "600"}),
-         html.Code(os.path.basename(src) if src else "—",
-                   style={"fontFamily": "monospace", "fontSize": "11px",
-                          "background": S.BG, "padding": "2px 6px", "borderRadius": "4px"})],
-        style={"fontSize": "12px", "color": S.TEXT2, "marginBottom": "4px"},
-    ) if src else S.missing_data_banner(_CSV)
+def _col(heading, items, bg, color) -> html.Div:
+    return html.Div([
+        html.Div(heading, style={
+            "fontSize": "10px", "fontWeight": "700", "color": S.TEXT2,
+            "textTransform": "uppercase", "letterSpacing": "0.07em",
+            "marginBottom": "8px",
+        }),
+        html.Div([_pill(i, bg, color) for i in items]),
+    ], style={"flex": "1", "minWidth": "160px"})
+
+
+def _fig_coverage(df) -> go.Figure:
+    """Dataset × n_features heatmap — run count per cell."""
+    if df.empty or "n_features" not in df.columns:
+        return S.fig_empty("No data")
+    counts = df.groupby(["dataset", "n_features"]).size().reset_index(name="n")
+    pivot  = counts.pivot(index="dataset", columns="n_features", values="n").fillna(0)
+    z      = pivot.values
+    text   = [[f"{int(v)}" for v in row] for row in z]
+    fig    = go.Figure(go.Heatmap(
+        z=z,
+        x=[str(int(c)) for c in pivot.columns],
+        y=list(pivot.index),
+        text=text, texttemplate="%{text}",
+        colorscale=[[0, "#EEF2FF"], [1, S.ACCENT]],
+        showscale=False,
+        hovertemplate=(
+            "Dataset: <b>%{y}</b><br>"
+            "n_features: <b>%{x}</b><br>"
+            "Runs: %{z}<extra></extra>"
+        ),
+    ))
+    fig.update_layout(
+        **S._CHART_LAYOUT,
+        height=150,
+        margin=dict(l=10, r=10, t=4, b=36),
+        xaxis=dict(title="n_features", gridcolor="rgba(0,0,0,0)",
+                   tickfont=dict(size=10)),
+        yaxis=dict(gridcolor="rgba(0,0,0,0)", automargin=True,
+                   tickfont=dict(size=10)),
+    )
+    return fig
+
+
+def _config_card(df) -> html.Div:
+    """Compact benchmark overview — config + experiment coverage heatmap."""
+    left  = _col("Swept",
+                 ["3 datasets", "4 models", "n_features: 4–256",
+                  "4 libraries", "2 approximators", "3 seeds"],
+                 "#EEF2FF", S.ACCENT)
+    mid   = _col("Fixed",
+                 ["budget = 512", "n_background = 100",
+                  "n_eval = 10", "imputer = marginal"],
+                 "#F1F5F9", S.TEXT2)
+    right = _col("Measured",
+                 ["runtime_s", "n_model_evals",
+                  "relative_mae", "mean_sample_rho"],
+                 "#F0FDF4", S.GREEN)
 
     return html.Div([
-        S.rq_header(*_RQ_HEADER),
-        *[S.info_note(r) for r in _REMARKS],
-        source_tag,
-        S.data_summary_card(df),
-        S.charts_toc(_CHARTS),
-        S.filter_bar(
-            S.filter_dropdown("Dataset", "rq1-ds",  datasets, "__all__", "220px"),
-            S.filter_dropdown("Model",   "rq1-mdl", models,   "__all__", "200px"),
-            S.filter_checklist(
-                "n_features", "rq1-nf",
-                [{"label": f"  {int(n)}", "value": n} for n in n_feats],
-                n_feats,
+        html.Div([
+            html.Div("Benchmark at a glance", style={
+                "fontSize": "13px", "fontWeight": "700", "color": S.TEXT,
+                "marginBottom": "14px",
+            }),
+            html.Div([left, mid, right],
+                     style={"display": "flex", "gap": "20px", "flexWrap": "wrap"}),
+        ], style={"flex": "1.4", "minWidth": "280px"}),
+        html.Div([
+            html.Div("Experiment coverage  (runs per cell)", style={
+                "fontSize": "10px", "fontWeight": "700", "color": S.TEXT2,
+                "textTransform": "uppercase", "letterSpacing": "0.07em",
+                "marginBottom": "6px",
+            }),
+            dcc.Graph(
+                figure=_fig_coverage(df),
+                config={"displayModeBar": False},
+                style={"height": "150px"},
             ),
-            S.filter_checklist(
-                "Approximator", "rq1-approx",
-                [{"label": f"  {a}", "value": a} for a in approxs],
-                approxs,
-            ),
+        ], style={"flex": "1", "minWidth": "240px"}),
+    ], style={
+        "display": "flex", "gap": "32px", "flexWrap": "wrap",
+        "background": S.CARD, "borderRadius": "12px",
+        "border": f"1px solid {S.BORDER}", "padding": "20px 24px",
+        "marginBottom": "20px",
+    })
+
+
+def _col_note(*parts: str) -> html.Div:
+    """Compact data-provenance line inside a chart card."""
+    children = []
+    for i, part in enumerate(parts):
+        children.append(html.Span(part, style={"whiteSpace": "pre"}))
+        if i < len(parts) - 1:
+            children.append(html.Span("  ·  ", style={"color": S.BORDER}))
+    return html.Div(children, style={
+        "fontSize": "10px", "color": S.TEXT2, "fontFamily": "monospace",
+        "padding": "4px 12px 6px",
+        "borderBottom": f"1px solid {S.BORDER}",
+        "background": S.BG,
+        "letterSpacing": "0.01em",
+    })
+
+
+def _axis_toggle(cid: str, options: dict, default: str) -> html.Div:
+    """Compact inline axis-selector shown at the top of a chart card."""
+    return html.Div([
+        html.Span("Axis:", style={
+            "fontSize": "11px", "fontWeight": "600", "color": S.TEXT2,
+            "marginRight": "10px", "flexShrink": "0",
+        }),
+        dcc.RadioItems(
+            id=cid,
+            options=[{"label": v, "value": k} for k, v in options.items()],
+            value=default,
+            inline=True,
+            inputStyle={"marginRight": "4px"},
+            labelStyle={"marginRight": "16px", "fontSize": "12px",
+                        "cursor": "pointer", "color": S.TEXT},
         ),
-        html.Div(id="rq1-kpis"),
-        html.Div(id="rq1-charts"),
+    ], style={
+        "display": "flex", "alignItems": "center",
+        "padding": "8px 12px",
+        "borderBottom": f"1px solid {S.BORDER}",
+        "background": S.BG,
+        "borderRadius": "10px 10px 0 0",
+    })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Layout
+# ─────────────────────────────────────────────────────────────────────────────
+
+def layout(**kwargs):
+    df, _ = S.try_load_data(_CSV)
+    return html.Div([
+        S.rq_header(*_RQ_HEADER),
+        html.Div(id="rq1-kpis", style={"marginBottom": "20px"}),
+        _config_card(df),
+        S.section(
+            "Scaling cost vs n_features",
+            "Median cost per library \u00d7 approximator, seeds aggregated. "
+            "Note: each dataset covers different n_features ranges \u2014 filter by dataset for a clean view.",
+            html.Div([
+                _axis_toggle("rq1-cost-metric",
+                             {"runtime_s": "runtime (s)",
+                              "n_model_evals": "model evaluations"},
+                             "runtime_s"),
+                _col_note(
+                    "y \u2192 runtime_s  or  n_model_evals  (select above)",
+                    "agg: median(seed) \u2192 grouped by library \u00d7 approximator \u00d7 n_features",
+                ),
+                html.Div(id="rq1-cost-chart", style={"padding": "8px"}),
+            ]),
+            section_id="rq1-cost-section",
+        ),
+        S.section(
+            "Quality vs n_features",
+            "Approximation quality vs dimensionality, seeds aggregated. "
+            "Note: each dataset covers different n_features ranges \u2014 filter by dataset for a clean view.",
+            html.Div([
+                _axis_toggle("rq1-qual-metric",
+                             {"mean_sample_rho": "Spearman \u03c1",
+                              "relative_mae": "relative MAE"},
+                             "mean_sample_rho"),
+                _col_note(
+                    "y \u2192 mean_sample_rho  or  relative_mae  (select above)",
+                    "source: pairwise_metrics JSON, vs true_value reference backend",
+                    "agg: median(seed) \u2192 grouped by library \u00d7 approximator \u00d7 n_features",
+                ),
+                html.Div(id="rq1-quality-chart", style={"padding": "8px"}),
+            ]),
+            section_id="rq1-quality-section",
+        ),
+        S.section(
+            "Failure rate heatmap",
+            "Fraction of failed runs per method \u00d7 feature count. "
+            "Red cells mark where a method becomes unreliable.",
+            html.Div([
+                _col_note(
+                    "is_failure = relative_mae > 1.0  OR  relative_mae is NaN",
+                    "cell = mean(is_failure) over all seeds, models, datasets at that n_features",
+                ),
+                html.Div(id="rq1-failure-chart", style={"padding": "8px"}),
+            ]),
+            section_id="rq1-failure-section",
+        ),
+        S.interpretation_note(_INTERP),
     ])
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# ─────────────────────────────────────────────────────────────────────────────
 #  Filter helper
-# ═════════════════════════════════════════════════════════════════════════════
+# ─────────────────────────────────────────────────────────────────────────────
 
 def _apply_filters(df, ds, mdl, nf_vals, approxs):
     if ds  != "__all__": df = df[df["dataset"]      == ds]
@@ -137,89 +251,61 @@ def _apply_filters(df, ds, mdl, nf_vals, approxs):
     return df
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# ─────────────────────────────────────────────────────────────────────────────
 #  Callback
-# ═════════════════════════════════════════════════════════════════════════════
+# ─────────────────────────────────────────────────────────────────────────────
 
 @callback(
-    Output("rq1-kpis",   "children"),
-    Output("rq1-charts", "children"),
-    Input("rq1-ds",      "value"),
-    Input("rq1-mdl",     "value"),
-    Input("rq1-nf",      "value"),
-    Input("rq1-approx",  "value"),
+    Output("rq1-kpis",         "children"),
+    Output("rq1-cost-chart",    "children"),
+    Output("rq1-quality-chart", "children"),
+    Output("rq1-failure-chart", "children"),
+    Input("rq1-ds",          "value"),
+    Input("rq1-mdl",         "value"),
+    Input("rq1-nf",          "value"),
+    Input("rq1-approx",      "value"),
+    Input("rq1-cost-metric", "value"),
+    Input("rq1-qual-metric", "value"),
 )
-def update_rq1(ds, mdl, nf_vals, approxs):
+def update_rq1(ds, mdl, nf_vals, approxs, cost_metric, qual_metric):
     df, _ = S.try_load_data(_CSV)
-    fdf   = _apply_filters(df, ds, mdl, nf_vals or [], approxs or [])
+    fdf   = _apply_filters(df, ds or "__all__", mdl or "__all__",
+                           nf_vals or [], approxs or [])
+
+    cost_metric = cost_metric or "runtime_s"
+    qual_metric = qual_metric or "mean_sample_rho"
 
     # ── KPIs ──────────────────────────────────────────────────────────────
     unique_nf = fdf["n_features"].dropna().nunique() if not fdf.empty else 0
     max_nf    = int(fdf["n_features"].max()) if not fdf.empty and fdf["n_features"].notna().any() else 0
+    n_methods = fdf["method"].nunique()      if not fdf.empty else 0
     success   = (1 - fdf["is_failure"].mean()) if not fdf.empty else 0
-    if not fdf.empty and fdf["n_features"].notna().any():
-        hi = fdf[fdf["n_features"] == fdf["n_features"].max()]
-        fastest_m = hi.groupby("method")["runtime_s"].median().idxmin() \
-                    if not hi.empty and hi["runtime_s"].notna().any() else "—"
-    else:
-        fastest_m = "—"
 
     kpis = S.kpi_row(
-        S.kpi_card(str(unique_nf), "Feature-count settings"),
-        S.kpi_card(str(max_nf),    "Highest n_features benchmarked"),
-        S.kpi_card(fastest_m,      f"Fastest method at n_features={max_nf}", S.ACCENT),
-        S.kpi_card(f"{success * 100:.0f} %", "Overall success rate",
-                   S.GREEN if success >= 0.8 else S.AMBER),
+        
     )
 
     # ── Warnings ──────────────────────────────────────────────────────────
-    warns = []
     if unique_nf < 2:
-        warns.append(S.warning_note(
+        warn = S.warning_note(
             "Select at least two n_features values to see scaling behaviour."
-        ))
+        )
+        empty = dcc.Graph(figure=S.fig_empty(), config={"displayModeBar": False})
+        return kpis, warn, empty, empty
 
-    # ── Special: side-by-side speed ranking at smallest vs largest selected ──
-    side_by_side = []
-    sel_nf = sorted(fdf["n_features"].dropna().unique()) if not fdf.empty else []
-    if len(sel_nf) >= 2:
-        lo_n = int(sel_nf[0])
-        hi_n = int(sel_nf[-1])
-        lo_df = fdf[fdf["n_features"] == sel_nf[0]]
-        hi_df = fdf[fdf["n_features"] == sel_nf[-1]]
-        side_by_side = [html.Div([
-            html.Div([S.section(
-                f"Speed Ranking — n_features = {lo_n}",
-                "Fastest to slowest at the smallest selected feature count.",
-                dcc.Graph(figure=S.fig_speed_ranking_at_nfeatures(lo_df, lo_n),
-                          config={"displayModeBar": False}, style={"padding": "8px"}),
-                section_id="rq1-speed-section",
-            )], style={"flex": "1", "minWidth": "300px"}),
-            html.Div([S.section(
-                f"Speed Ranking — n_features = {hi_n}",
-                "Fastest to slowest at the largest selected feature count.",
-                dcc.Graph(figure=S.fig_speed_ranking_at_nfeatures(hi_df, hi_n),
-                          config={"displayModeBar": False}, style={"padding": "8px"}),
-            )], style={"flex": "1", "minWidth": "300px"}),
-        ], style={"display": "flex", "gap": "16px", "flexWrap": "wrap", "marginBottom": "24px"})]
+    cost_chart = dcc.Graph(
+        figure=S.fig_cost_vs_features(fdf, cost_metric),
+        config={"displayModeBar": False},
+    )
+    qual_chart = dcc.Graph(
+        figure=S.fig_quality_vs_features(fdf, qual_metric),
+        config={"displayModeBar": False},
+    )
+    fail_chart = dcc.Graph(
+        figure=S.fig_failure_heatmap_by_features(fdf),
+        config={"displayModeBar": False},
+    )
 
-    # ── Main charts — driven by _CHARTS manifest above ────────────────────
-    charts = html.Div([
-        *warns,
-        *side_by_side,
-        *[
-            S.section(
-                c["title"], c["subtitle"],
-                dcc.Graph(figure=c["fn"](fdf),
-                          config={"displayModeBar": False}, style={"padding": "8px"}),
-                section_id=c.get("section_id"),
-            )
-            for c in _CHARTS
-        ],
-        S.interpretation_note(_INTERP),
-    ])
-
-    return kpis, charts
-
+    return kpis, cost_chart, qual_chart, fail_chart
 
 

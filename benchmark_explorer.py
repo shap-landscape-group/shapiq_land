@@ -4,9 +4,13 @@ benchmark_explorer.py — Gunicorn entry-point for the SHAP-IQ Benchmark Explore
 Run locally:   python benchmark_explorer.py
 Deploy:        gunicorn benchmark_explorer:server --bind 0.0.0.0:$PORT
 """
+import os
+
 import dash
 from dash import html, dcc, callback, Input, Output, State, page_container, page_registry
 import shared as S
+
+_RESULTS = os.path.join(os.path.dirname(__file__), "results")
 
 # ── App ────────────────────────────────────────────────────────────────────────
 app = dash.Dash(
@@ -189,8 +193,16 @@ app.layout = html.Div(
                 html.Div(
                     [
                         html.Div(
-                            html.Button("☰", id="sidebar-open-btn", n_clicks=0,
-                                        className="topbar-toggle-btn", title="Toggle sidebar"),
+                            [
+                                html.Button("☰", id="sidebar-open-btn", n_clicks=0,
+                                            className="topbar-toggle-btn",
+                                            title="Toggle sidebar",
+                                            style={"alignSelf": "center", "flexShrink": "0"}),
+                                html.Div(id="page-topbar-slot",
+                                         style={"flex": "1", "display": "flex",
+                                                "alignItems": "flex-start", "flexWrap": "wrap",
+                                                "gap": "12px"}),
+                            ],
                             className="main-topbar",
                         ),
                         html.Div(
@@ -366,9 +378,193 @@ def _advisor_rec(model_type, primary_need, feature_count):
     ])
 
 
+# ── Callback: page-specific topbar controls ───────────────────────────────────
+@callback(
+    Output("page-topbar-slot", "children"),
+    Input("url", "pathname"),
+)
+def _render_page_topbar(pathname):
+    """Populate the topbar with page-specific filter controls."""
+
+    def _lbl(text):
+        return html.Div(text, style={
+            "fontSize": "9px", "fontWeight": "700", "color": S.TEXT2,
+            "textTransform": "uppercase", "letterSpacing": "0.06em", "marginBottom": "3px",
+        })
+
+    def _src_tag(src):
+        return html.Div(
+            [html.Span("Source: ", style={"fontWeight": "600"}),
+             html.Code(os.path.basename(src) if src else "—",
+                       style={"fontFamily": "monospace", "fontSize": "10px",
+                              "background": S.BG, "padding": "1px 5px", "borderRadius": "3px"})],
+            style={"fontSize": "11px", "color": S.TEXT2, "alignSelf": "center",
+                   "borderRight": f"1px solid {S.BORDER}", "paddingRight": "12px",
+                   "marginRight": "4px", "whiteSpace": "nowrap"},
+        )
+
+    # ── RQ1 ───────────────────────────────────────────────────────────────
+    if pathname == "/rq1":
+        _csv = os.path.join(_RESULTS, "rq1_dimensionality.csv")
+        df, src = S.try_load_data(_csv)
+
+        datasets = [{"label": "All datasets", "value": "__all__"}] + \
+                   [{"label": d, "value": d} for d in sorted(df["dataset"].dropna().unique())]
+        models   = [{"label": "All models",   "value": "__all__"}] + \
+                   [{"label": m, "value": m} for m in sorted(df["model"].dropna().unique())]
+        approxs  = sorted(df["approximator"].dropna().unique()) if not df.empty else []
+        n_feats  = sorted(df["n_features"].dropna().unique())   if not df.empty else []
+
+        return [
+            _src_tag(src),
+            html.Div([
+                _lbl("Dataset"),
+                dcc.Dropdown(id="rq1-ds", options=datasets, value="__all__",
+                             clearable=False,
+                             style={"width": "150px", "fontSize": "12px", "minHeight": "28px"}),
+            ], style={"marginRight": "4px"}),
+            html.Div([
+                _lbl("Model"),
+                dcc.Dropdown(id="rq1-mdl", options=models, value="__all__",
+                             clearable=False,
+                             style={"width": "140px", "fontSize": "12px", "minHeight": "28px"}),
+            ], style={"marginRight": "4px"}),
+            html.Div([
+                _lbl("n_features"),
+                dcc.Checklist(
+                    id="rq1-nf",
+                    options=[{"label": f" {int(n)}", "value": n} for n in n_feats],
+                    value=list(n_feats),
+                    inline=True,
+                    inputStyle={"marginRight": "3px"},
+                    labelStyle={"marginRight": "8px", "fontSize": "12px", "cursor": "pointer"},
+                ),
+            ], style={"marginRight": "4px"}),
+            html.Div([
+                _lbl("Approximator"),
+                dcc.Checklist(
+                    id="rq1-approx",
+                    options=[{"label": f" {a}", "value": a} for a in approxs],
+                    value=list(approxs),
+                    inline=True,
+                    inputStyle={"marginRight": "3px"},
+                    labelStyle={"marginRight": "8px", "fontSize": "12px", "cursor": "pointer"},
+                ),
+            ]),
+        ]
+
+    # ── RQ2 ───────────────────────────────────────────────────────────────
+    if pathname == "/rq2":
+        _csv = os.path.join(_RESULTS, "rq2_accuracy.csv")
+        df, src = S.try_load_data(_csv)
+
+        datasets = [{"label": "All datasets", "value": "__all__"}] + \
+                   [{"label": d, "value": d} for d in sorted(df["dataset"].dropna().unique())]
+        models   = [{"label": "All models",   "value": "__all__"}] + \
+                   [{"label": m, "value": m} for m in sorted(df["model"].dropna().unique())]
+        n_bgs    = sorted(df["n_background"].dropna().unique().astype(int)) \
+                   if "n_background" in df.columns and not df.empty else []
+        budgets  = sorted(df["budget"].dropna().unique().astype(int)) \
+                   if "budget" in df.columns and not df.empty else []
+        approxs  = sorted(df["approximator"].dropna().unique()) if not df.empty else []
+
+        return [
+            _src_tag(src),
+            html.Div([
+                _lbl("Dataset"),
+                dcc.Dropdown(id="rq2-ds", options=datasets, value="__all__",
+                             clearable=False,
+                             style={"width": "150px", "fontSize": "12px", "minHeight": "28px"}),
+            ], style={"marginRight": "4px"}),
+            html.Div([
+                _lbl("Model"),
+                dcc.Dropdown(id="rq2-mdl", options=models, value="__all__",
+                             clearable=False,
+                             style={"width": "140px", "fontSize": "12px", "minHeight": "28px"}),
+            ], style={"marginRight": "4px"}),
+            html.Div([
+                _lbl("n_background"),
+                dcc.Checklist(
+                    id="rq2-nbg",
+                    options=[{"label": f" {n}", "value": n} for n in n_bgs],
+                    value=list(n_bgs),
+                    inline=True,
+                    inputStyle={"marginRight": "3px"},
+                    labelStyle={"marginRight": "8px", "fontSize": "12px", "cursor": "pointer"},
+                ),
+            ], style={"marginRight": "4px"}),
+            html.Div([
+                _lbl("Budget"),
+                dcc.Checklist(
+                    id="rq2-budget-filt",
+                    options=[{"label": f" {b}", "value": b} for b in budgets],
+                    value=list(budgets),
+                    inline=True,
+                    inputStyle={"marginRight": "3px"},
+                    labelStyle={"marginRight": "8px", "fontSize": "12px", "cursor": "pointer"},
+                ),
+            ], style={"marginRight": "4px"}),
+            html.Div([
+                _lbl("Approximator"),
+                dcc.Checklist(
+                    id="rq2-approx",
+                    options=[{"label": f" {a}", "value": a} for a in approxs],
+                    value=list(approxs),
+                    inline=True,
+                    inputStyle={"marginRight": "3px"},
+                    labelStyle={"marginRight": "8px", "fontSize": "12px", "cursor": "pointer"},
+                ),
+            ]),
+        ]
+
+    # ── RQ3 ───────────────────────────────────────────────────────────────
+    if pathname == "/rq3":
+        _csv = os.path.join(_RESULTS, "rq3_neural_networks.csv")
+        df, src = S.try_load_data(_csv)
+
+        datasets = [{"label": "All datasets", "value": "__all__"}] + \
+                   [{"label": d, "value": d} for d in sorted(df["dataset"].dropna().unique())]
+        models   = sorted(df["model"].dropna().unique())   if not df.empty else []
+        libs     = sorted(df["library"].dropna().unique()) if not df.empty else []
+        _mlbl    = {"mlp": "MLP", "transformer": "Transformer", "cnn_1d": "CNN-1D"}
+
+        return [
+            _src_tag(src),
+            html.Div([
+                _lbl("Dataset"),
+                dcc.Dropdown(id="rq3-ds", options=datasets, value="__all__",
+                             clearable=False,
+                             style={"width": "150px", "fontSize": "12px", "minHeight": "28px"}),
+            ], style={"marginRight": "4px"}),
+            html.Div([
+                _lbl("Model"),
+                dcc.Checklist(
+                    id="rq3-model",
+                    options=[{"label": f" {_mlbl.get(m, m)}", "value": m} for m in models],
+                    value=list(models),
+                    inline=True,
+                    inputStyle={"marginRight": "3px"},
+                    labelStyle={"marginRight": "8px", "fontSize": "12px", "cursor": "pointer"},
+                ),
+            ], style={"marginRight": "4px"}),
+            html.Div([
+                _lbl("Library"),
+                dcc.Checklist(
+                    id="rq3-lib",
+                    options=[{"label": f" {lib}", "value": lib} for lib in libs],
+                    value=list(libs),
+                    inline=True,
+                    inputStyle={"marginRight": "3px"},
+                    labelStyle={"marginRight": "8px", "fontSize": "12px", "cursor": "pointer"},
+                ),
+            ]),
+        ]
+
+    return []
+
+
 # ── Dev server ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    import os
     app.run(
         debug=True,
         host="0.0.0.0",

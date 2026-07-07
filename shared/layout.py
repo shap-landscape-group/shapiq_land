@@ -81,7 +81,7 @@ def rq_header(rq: str, title: str, question: str) -> html.Div:
         html.Div(
             [
                 html.Span(rq, style={
-                    "fontSize": "10px", "fontWeight": "700", "color": ACCENT,
+                    "fontSize": "15px", "fontWeight": "700", "color": ACCENT,
                     "textTransform": "uppercase", "letterSpacing": "0.1em",
                     "background": "#E8EDFA", "padding": "3px 9px",
                     "borderRadius": "4px", "marginRight": "10px",
@@ -93,7 +93,7 @@ def rq_header(rq: str, title: str, question: str) -> html.Div:
         ),
         html.Div(
             html.Em(f'"{question}"'),
-            style={"fontSize": "13px", "color": TEXT2,
+            style={"fontSize": "18px", "color": TEXT2,
                    "lineHeight": "1.7", "marginBottom": "24px",
                    "borderLeft": f"3px solid {PINK}",
                    "paddingLeft": "12px", "fontStyle": "italic"},

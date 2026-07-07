@@ -23,11 +23,11 @@ TEXT2 = "#5A6A8A"
 
 LIB_COLOR: dict[str, str] = {
     "shapiq":       PINK,
+    "shapiq_proxy": "#F47B96",   # lighter pink-red — ShapIQ family
     "shap":         ACCENT,
-    "woodelf":      GREEN,
-    "fasttreeshap": AMBER,
+    "shap_nn":      ACCENT,      # shap NN backend — same blue family
     "lightshap":    "#6BA3E8",
-    "dalex":        "#EC9A0C",
+    "dalex":        AMBER,
     "captum":       "#7C3AED",
     "alibi":        "#06B6D4",
 }
@@ -166,9 +166,10 @@ a.sidebar-footer-link:hover {{ color: rgba(255,255,255,0.65); }}
     overflow: hidden; background: {BG};
 }}
 .main-topbar {{
-    height: 46px; background: {CARD}; flex-shrink: 0;
+    min-height: 46px; background: {CARD}; flex-shrink: 0;
     border-bottom: 1px solid {BORDER};
-    display: flex; align-items: center; padding: 0 20px; gap: 10px;
+    display: flex; align-items: flex-start; flex-wrap: wrap;
+    padding: 8px 20px; gap: 10px;
 }}
 .topbar-toggle-btn {{
     background: none; border: none; cursor: pointer; padding: 5px 8px;

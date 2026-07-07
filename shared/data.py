@@ -70,7 +70,8 @@ def load_data(path: str) -> pd.DataFrame:
     df = pd.read_csv(path)
 
     for col in ["runtime_s", "relative_mae", "budget", "sign_agreement",
-                "mean_sample_rho", "n_model_evals", "n_features", "n_samples"]:
+                "mean_sample_rho", "n_model_evals", "n_features", "n_samples",
+                "additivity_gap", "relative_additivity_gap"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
