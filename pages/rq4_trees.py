@@ -53,8 +53,24 @@ _REMARKS = [
     "(only more if time left).",
 ]
 
+_CASE_OPTIONS = [
+    {"label": "All cases", "value": "all"},
+    {"label": "Path-dependent", "value": "path-dependent"},
+    {"label": "Interventional", "value": "interventional"},
+    {"label": "Interaction", "value": "interaction"},
+]
 
-def _build_charts(comp_col: str) -> list:
+
+def _filter_supported_libraries(df: pd.DataFrame) -> pd.DataFrame:
+    """Drop libraries that are not comparable in this RQ4 view."""
+    if df.empty or "library" not in df.columns:
+        return df
+    return df[
+        ~df["library"].fillna("").astype(str).str.lower().eq("fasttreeshap")
+    ].copy()
+
+
+def _build_charts(comp_col: str, case: str = "all") -> list:
     """Returns the chart manifest for the RQ4 tree-explanation benchmark.
 
     Called from both layout() and update_rq4() so the TOC and chart sections
@@ -78,13 +94,22 @@ def _build_charts(comp_col: str) -> list:
 
     depth_charts = [
         dict(
+            section_id="rq4-case-agreement-section",
+            title="Cross-library Agreement Heatmap",
+            subtitle="How close the libraries are to one another on shared configurations "
+            "for the selected case, using sign-agreement as a correctness proxy. "
+            "Smaller values mean stronger agreement between libraries.",
+            fn=S.fig_tree_case_agreement_heatmap,
+        ),
+        dict(
             section_id="rq4-depth-runtime-section",
-            title="Runtime vs Tree Depth",
+            title="Runtime vs Tree Depth (Median)",
             subtitle="The direct answer to RQ4. Each line is one algorithm backend; "
             "the x-axis is the maximum tree depth (4 → 80) and the y-axis is median "
             "runtime on a log scale. A rising line means the method gets more "
             "expensive as trees deepen — a potential bottleneck for deep models — "
-            "while a flat line means the backend is depth-robust.",
+            "while a flat line means the backend is depth-robust. "
+            "Whiskers reach the worst-case (slowest) run at each depth.",
             fn=S.fig_tree_runtime_vs_depth,
         ),
         dict(
@@ -119,14 +144,17 @@ def _build_charts(comp_col: str) -> list:
             "gracefully.",
             fn=S.fig_tree_runtime_vs_features,
         ),
-        dict(
+    ]
+    if case in {"all", "interaction"}:
+        backend_charts.append(dict(
             section_id="rq4-order-section",
             title="Cost of Interaction Order (1 → 2)",
             subtitle="Moving from main effects (order 1) to pairwise interactions "
             "(order 2) is the single biggest cost jump in the benchmark. "
             "Bars compare median runtime per library at each order (log scale).",
             fn=S.fig_tree_order_cost,
-        ),
+        ))
+    backend_charts.extend([
         dict(
             section_id="rq4-tradeoff-section",
             title="Speed vs Accuracy Trade-off",
@@ -143,7 +171,7 @@ def _build_charts(comp_col: str) -> list:
             "output; the dotted line marks the ρ = 0.9 fidelity threshold.",
             fn=S.fig_tree_quality_ranking,
         ),
-    ]
+    ])
 
     # Depth charts lead when the data supports them; otherwise the backend-level
     # charts (which still render on the old CSV) carry the page.
@@ -170,6 +198,8 @@ def layout(**kwargs):
             S.missing_data_banner(_CSV),
             _schema_hint(),
         ])
+
+    df = _filter_supported_libraries(df)
 
     datasets = [{"label": "All datasets", "value": "__all__"}] + \
         [{"label": d, "value": d}
@@ -219,6 +249,47 @@ def layout(**kwargs):
                 [o["value"] for o in comp_opts],
             ),
         ),
+        html.Div([
+            html.Label("Case focus", style={
+                       "fontWeight": "600", "fontSize": "13px"}),
+            dcc.Tabs(
+                id="rq4-case",
+                value="all",
+                children=[
+                    dcc.Tab(
+                        label=opt["label"],
+                        value=opt["value"],
+                        style={
+                            "padding": "8px 12px",
+                            "border": f"1px solid {S.BORDER}",
+                            "borderRadius": "999px",
+                            "marginRight": "8px",
+                            "marginTop": "6px",
+                            "background": "white",
+                            "color": S.TEXT2,
+                            "fontSize": "12px",
+                            "fontWeight": "500",
+                        },
+                        selected_style={
+                            "padding": "8px 12px",
+                            "border": f"1px solid {S.ACCENT}",
+                            "borderRadius": "999px",
+                            "marginRight": "8px",
+                            "marginTop": "6px",
+                            "background": S.ACCENT,
+                            "color": "white",
+                            "fontSize": "12px",
+                            "fontWeight": "600",
+                        },
+                    )
+                    for opt in _CASE_OPTIONS
+                ],
+                parent_style={"marginTop": "6px"},
+                style={"display": "flex", "flexWrap": "wrap", "gap": "4px"},
+            ),
+        ], style={"margin": "8px 0 12px", "padding": "8px 12px",
+                  "border": f"1px solid {S.BORDER}", "borderRadius": "8px",
+                  "background": S.BG}),
 
         # ── Dynamic content ───────────────────────────────────────────────────
         html.Div(id="rq4-kpis"),
@@ -276,14 +347,16 @@ def _schema_hint() -> html.Div:
     Input("rq4-ds",         "value"),
     Input("rq4-lib",        "value"),
     Input("rq4-complexity", "value"),
+    Input("rq4-case",       "value"),
 )
-def update_rq4(ds, libs, comp_vals):
+def update_rq4(ds, libs, comp_vals, case):
     df, src = S.try_load_data(_CSV, _CSV_FALLBACK)
     if src is None or df.empty:
         return html.Div(), html.Div()
 
+    df = _filter_supported_libraries(df)
     comp_col = S._complexity_col(df)
-    charts_man = _build_charts(comp_col)
+    charts_man = _build_charts(comp_col, case=case)
 
     if ds != "__all__":
         df = df[df["dataset"] == ds]
@@ -291,6 +364,20 @@ def update_rq4(ds, libs, comp_vals):
         df = df[df["library"].isin(libs)]
     if comp_vals:
         df = df[df[comp_col].isin(comp_vals)]
+
+    if case != "all":
+        backend_text = df["backend"].fillna("").astype(str).str.lower()
+        if case == "path-dependent":
+            mask = backend_text.str.contains("path", na=False) & \
+                backend_text.str.contains("dependent", na=False)
+        elif case == "interventional":
+            mask = backend_text.str.contains("interventional", na=False) & \
+                ~backend_text.str.contains("true_value", na=False)
+        elif case == "interaction":
+            mask = backend_text.str.contains("interaction", na=False)
+        else:
+            mask = pd.Series(True, index=df.index)
+        df = df[mask]
 
     # ── KPIs — describe the axes that actually vary in the tree benchmark ──
     def _label(backend) -> str:
@@ -334,6 +421,9 @@ def update_rq4(ds, libs, comp_vals):
     if df.empty:
         warns.append(S.warning_note(
             "No data matches the current filter selection."))
+    elif case != "all" and df.empty:
+        warns.append(S.warning_note(
+            f"No rows remain for the selected case focus: {case}."))
     elif n_backends < 2:
         warns.append(S.warning_note(
             "Only one algorithm variant in the current selection. "
