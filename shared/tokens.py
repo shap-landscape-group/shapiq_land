@@ -4,31 +4,34 @@ Edit this file to retheme the entire app.
 """
 
 # ── Quality metric constants ──────────────────────────────────────────────────
-EPSILON     = 1e-10
+EPSILON = 1e-10
 FAILURE_MAE = 1.0
-RHO_GOOD    = 0.9    # reference line: "good" Spearman ρ
+RHO_GOOD = 0.9    # reference line: "good" Spearman ρ
 
 # ── SHAP-IQ brand palette ─────────────────────────────────────────────────────
-BG     = "#F5F5F5"
-CARD   = "#FFFFFF"
+BG = "#F5F5F5"
+CARD = "#FFFFFF"
 BORDER = "#E2E2E2"
 ACCENT = "#4B6DD4"   # logo blue
-PINK   = "#E84060"   # logo pink-red
-GREEN  = "#10B981"
-RED    = "#EF4444"
-AMBER  = "#F59E0B"
-MUTED  = "#B4C2DF"
-TEXT   = "#1A2040"   # dark navy
-TEXT2  = "#5A6A8A"
+PINK = "#E84060"   # logo pink-red
+GREEN = "#10B981"
+RED = "#EF4444"
+AMBER = "#F59E0B"
+MUTED = "#B4C2DF"
+TEXT = "#1A2040"   # dark navy
+TEXT2 = "#5A6A8A"
 
 LIB_COLOR: dict[str, str] = {
-    "shapiq":    PINK,
-    "shap":      ACCENT,
-    "lightshap": "#6BA3E8",
-    "dalex":     AMBER,
-    "captum":    "#7C3AED",
-    "alibi":     "#06B6D4",
+    "shapiq":       PINK,
+    "shap":         ACCENT,
+    "woodelf":      GREEN,
+    "fasttreeshap": AMBER,
+    "lightshap":    "#6BA3E8",
+    "dalex":        "#EC9A0C",
+    "captum":       "#7C3AED",
+    "alibi":        "#06B6D4",
 }
+
 
 FONT = "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif"
 

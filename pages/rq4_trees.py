@@ -4,9 +4,13 @@ pages/rq4_trees.py  —  RQ4: Tree Models
 Edit the PAGE CONFIGURATION block below to change what is shown.
 The layout / filter / callback logic beneath it should rarely need touching.
 
-Data file: results_config-tree.csv (falls back to results_trees.csv).
+Data file: results_config-tree-merged.csv (falls back to rq4_trees.csv).
 The complexity axis auto-detects: tree_depth > max_depth > n_estimators > model.
+This merged CSV carries a real ``max_depth`` column (4 → 80), so the page can
+finally answer RQ4 directly: how does each library scale with tree depth?
 """
+
+import shared as S
 import os
 import sys
 
@@ -16,7 +20,7 @@ import pandas as pd
 from dash import Input, Output, callback, dcc, html
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-import shared as S
+
 
 dash.register_page(
     __name__,
@@ -26,7 +30,10 @@ dash.register_page(
 )
 
 _HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_CSV  = os.path.join(_HERE, "results", "rq4_trees.csv")
+# Prefer the merged CSV (has a real max_depth column → true RQ4 answer);
+# fall back to the older depth-less file so the page still renders.
+_CSV = os.path.join(_HERE, "results", "results_config-tree-merged.csv")
+_CSV_FALLBACK = os.path.join(_HERE, "results", "rq4_trees.csv")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -48,56 +55,113 @@ _REMARKS = [
 
 
 def _build_charts(comp_col: str) -> list:
-    """Returns the chart manifest for the current data's complexity column.
+    """Returns the chart manifest for the RQ4 tree-explanation benchmark.
 
-    Called from both layout() and update_rq4() so that the TOC and chart sections
-    always reflect the actual complexity axis in the loaded CSV.
+    Called from both layout() and update_rq4() so the TOC and chart sections
+    stay in sync. These charts key off the ``backend`` column (the actual
+    algorithm variant, e.g. ``shapiq_tree_path_dependent``) rather than the
+    generic ``library / approximator`` method label, because the tree CSVs
+    leave ``approximator`` empty — which would otherwise merge genuinely
+    different algorithms onto a single misleading line.
 
     To add or remove charts, edit the list returned here.
     section_id values must be unique and stable (used as DOM anchors).
+
+    The first three charts use the ``max_depth`` axis (4 → 80) that the merged
+    CSV finally provides — these are the ones that directly answer RQ4 ("which
+    library handles extreme tree depths efficiently?"). They only render when a
+    depth column is present; on the older depth-less CSV they show an empty-state
+    message and the backend-level charts below carry the page.
     """
-    label = comp_col.replace("_", " ").title()
-    return [
+    has_depth = bool(comp_col) and comp_col in (
+        "max_depth", "tree_depth", "depth")
+
+    depth_charts = [
         dict(
-            section_id = "rq4-failure-section",
-            title      = f"Failure Rate Heatmap — Method × {label}",
-            subtitle   = "Red cells = breaking points. "
-                         "The first red cell in each row shows where a method starts to fail.",
-            fn         = S.fig_failure_vs_complexity,
+            section_id="rq4-depth-runtime-section",
+            title="Runtime vs Tree Depth",
+            subtitle="The direct answer to RQ4. Each line is one algorithm backend; "
+            "the x-axis is the maximum tree depth (4 → 80) and the y-axis is median "
+            "runtime on a log scale. A rising line means the method gets more "
+            "expensive as trees deepen — a potential bottleneck for deep models — "
+            "while a flat line means the backend is depth-robust.",
+            fn=S.fig_tree_runtime_vs_depth,
         ),
         dict(
-            section_id = "rq4-runtime-section",
-            title      = f"Runtime vs {label}",
-            subtitle   = "Steep slope = computational bottleneck as complexity grows. "
-                         "Look for flat lines — those libraries scale gracefully.",
-            fn         = S.fig_runtime_vs_complexity,
+            section_id="rq4-depth-scaling-section",
+            title="Depth Scaling Factor (shallow → deep)",
+            subtitle="How much each backend's runtime blows up going from the "
+            "shallowest to the deepest tree in the sweep. A bar near 1× means the "
+            "method barely notices depth (ideal for extreme trees); a large factor "
+            "flags a backend whose cost explodes as depth grows. This is the "
+            "single clearest ranking for the efficiency half of RQ4.",
+            fn=S.fig_tree_depth_scaling_factor,
         ),
         dict(
-            section_id = "rq4-quality-section",
-            title      = f"Spearman ρ vs {label}",
-            subtitle   = "Does approximation quality hold up at extreme depths? "
-                         "Declining lines indicate the method loses accuracy for complex trees.",
-            fn         = S.fig_rho_vs_complexity,
-        ),
-        dict(
-            section_id = "rq4-ranking-section",
-            title      = "Method Quality Ranking",
-            subtitle   = "Median Spearman ρ aggregated across all complexity settings "
-                         "in the current selection.",
-            fn         = lambda df: S.fig_leaderboard_bars(S.compute_leaderboard(df)),
+            section_id="rq4-depth-quality-section",
+            title="Approximation Quality vs Tree Depth",
+            subtitle="Efficiency is only half the story: a backend that stays fast "
+            "but loses rank fidelity on deep trees is still a poor choice. Lines "
+            "that stay near the top (and above the ρ = 0.9 threshold) keep their "
+            "explanations trustworthy even at extreme depths.",
+            fn=S.fig_tree_quality_vs_depth,
         ),
     ]
 
+    backend_charts = [
+        dict(
+            section_id="rq4-scaling-section",
+            title="Runtime vs Number of Features",
+            subtitle="The real complexity axis. Each line is one backend; a steep slope "
+
+            "means the method becomes a computational bottleneck as the "
+            "explanation problem grows in dimensionality. Flat lines scale "
+            "gracefully.",
+            fn=S.fig_tree_runtime_vs_features,
+        ),
+        dict(
+            section_id="rq4-order-section",
+            title="Cost of Interaction Order (1 → 2)",
+            subtitle="Moving from main effects (order 1) to pairwise interactions "
+            "(order 2) is the single biggest cost jump in the benchmark. "
+            "Bars compare median runtime per library at each order (log scale).",
+            fn=S.fig_tree_order_cost,
+        ),
+        dict(
+            section_id="rq4-tradeoff-section",
+            title="Speed vs Accuracy Trade-off",
+            subtitle="Runtime (log x) against approximation quality (Spearman ρ) per "
+            "backend. The sweet spot is the upper-left — fast and faithful. "
+            "Points below ρ = 0.9 lose rank fidelity.",
+            fn=S.fig_tree_accuracy_vs_runtime,
+        ),
+        dict(
+            section_id="rq4-ranking-section",
+            title="Approximation Quality by Backend",
+            subtitle="Median Spearman ρ per algorithm variant across all settings in the "
+            "current selection. Faded bars flag backends that produced no valid "
+            "output; the dotted line marks the ρ = 0.9 fidelity threshold.",
+            fn=S.fig_tree_quality_ranking,
+        ),
+    ]
+
+    # Depth charts lead when the data supports them; otherwise the backend-level
+    # charts (which still render on the old CSV) carry the page.
+    return (depth_charts + backend_charts) if has_depth else backend_charts
+
 
 _INTERP = (
-    "How to read this page: the failure heatmap is the key chart — find the first red cell "
-    "in each row to locate a library's breaking point. Then check the runtime chart to see "
-    "if a method that doesn't break is also fast."
+    "How to read this page: the first three charts answer RQ4 head-on — runtime-vs-depth "
+    "(with worst-case whiskers) shows how each backend scales as trees deepen, the "
+    "depth-scaling-factor bars rank how much cost blows up from shallow to deep trees, and "
+    "quality-vs-depth confirms fidelity survives. The remaining charts add context: how cost "
+    "scales with feature count, the jump from main effects to pairwise interactions, and the "
+    "overall speed-vs-accuracy trade-off (upper-left = fast and faithful)."
 )
 
 
 def layout(**kwargs):
-    df, src = S.try_load_data(_CSV)
+    df, src = S.try_load_data(_CSV, _CSV_FALLBACK)
 
     if src is None:
         return html.Div([
@@ -107,10 +171,11 @@ def layout(**kwargs):
             _schema_hint(),
         ])
 
-    datasets  = [{"label": "All datasets", "value": "__all__"}] + \
-               [{"label": d, "value": d} for d in sorted(df["dataset"].dropna().unique())]
-    libs      = sorted(df["library"].dropna().unique())
-    comp_col  = S._complexity_col(df)
+    datasets = [{"label": "All datasets", "value": "__all__"}] + \
+        [{"label": d, "value": d}
+            for d in sorted(df["dataset"].dropna().unique())]
+    libs = sorted(df["library"].dropna().unique())
+    comp_col = S._complexity_col(df)
     charts_man = _build_charts(comp_col)
 
     comp_vals = sorted(df[comp_col].dropna().unique()) if not df.empty else []
@@ -139,7 +204,8 @@ def layout(**kwargs):
         S.data_summary_card(df),
         S.charts_toc(charts_man),
         S.filter_bar(
-            S.filter_dropdown("Dataset", "rq4-ds", datasets, "__all__", "220px"),
+            S.filter_dropdown("Dataset", "rq4-ds",
+                              datasets, "__all__", "220px"),
             S.filter_checklist(
                 "Library",
                 "rq4-lib",
@@ -212,52 +278,66 @@ def _schema_hint() -> html.Div:
     Input("rq4-complexity", "value"),
 )
 def update_rq4(ds, libs, comp_vals):
-    df, src = S.try_load_data(_CSV)
+    df, src = S.try_load_data(_CSV, _CSV_FALLBACK)
     if src is None or df.empty:
         return html.Div(), html.Div()
 
-    comp_col      = S._complexity_col(df)
-    charts_man    = _build_charts(comp_col)
+    comp_col = S._complexity_col(df)
+    charts_man = _build_charts(comp_col)
 
-    if ds != "__all__": df = df[df["dataset"] == ds]
-    if libs:            df = df[df["library"].isin(libs)]
-    if comp_vals:       df = df[df[comp_col].isin(comp_vals)]
+    if ds != "__all__":
+        df = df[df["dataset"] == ds]
+    if libs:
+        df = df[df["library"].isin(libs)]
+    if comp_vals:
+        df = df[df[comp_col].isin(comp_vals)]
 
-    lb = S.compute_leaderboard(df)
+    # ── KPIs — describe the axes that actually vary in the tree benchmark ──
+    def _label(backend) -> str:
+        return backend.replace("_", " ") if isinstance(backend, str) else "—"
 
-    # ── KPIs ──────────────────────────────────────────────────────────────
-    n_complexity = df[comp_col].dropna().nunique() if not df.empty else 0
-    max_comp     = df[comp_col].max() if not df.empty and df[comp_col].notna().any() else "—"
-    n_libs       = df["library"].dropna().nunique() if not df.empty else 0
+    n_backends = df["backend"].dropna().nunique(
+    ) if "backend" in df.columns and not df.empty else 0
 
-    most_robust = "—"
-    if not df.empty and df[comp_col].notna().any():
-        try:
-            max_comp_val = pd.to_numeric(df[comp_col], errors="coerce").max()
-            hi_sub = df[pd.to_numeric(df[comp_col], errors="coerce") == max_comp_val]
-        except Exception:
-            hi_sub = df[df[comp_col] == df[comp_col].max()]
-        if not hi_sub.empty:
-            fr_by_method = hi_sub.groupby("method")["is_failure"].mean()
-            robust = fr_by_method[fr_by_method < 0.5]
-            if not robust.empty:
-                most_robust = robust.idxmin()
+    feat_range = "—"
+    if "n_features" in df.columns:
+        feats = pd.to_numeric(df["n_features"], errors="coerce").dropna()
+        if not feats.empty:
+            lo, hi = int(feats.min()), int(feats.max())
+            feat_range = f"{lo}" if lo == hi else f"{lo}–{hi}"
+
+    # Fastest backend that actually returns valid values.
+    fastest = "—"
+    valid = df[~df["is_failure"] &
+               df["runtime_s"].notna()] if not df.empty else df
+    if not valid.empty and "backend" in valid.columns:
+        rt_by_backend = valid.groupby("backend")["runtime_s"].median()
+        if not rt_by_backend.empty:
+            fastest = _label(rt_by_backend.idxmin())
+
+    # Count of backends that never produce a valid explanation (breaking points).
+    n_broken = 0
+    if not df.empty and "backend" in df.columns:
+        fr_by_backend = df.groupby("backend")["is_failure"].mean()
+        n_broken = int((fr_by_backend >= 0.5).sum())
 
     kpis = S.kpi_row(
-        S.kpi_card(str(n_complexity), f"{comp_col} settings"),
-        S.kpi_card(str(max_comp),     f"Highest {comp_col} benchmarked"),
-        S.kpi_card(str(n_libs),       "Libraries compared"),
-        S.kpi_card(most_robust,       f"Most robust at max {comp_col}", S.GREEN),
+        S.kpi_card(str(n_backends),  "Algorithm variants (backends)"),
+        S.kpi_card(feat_range,       "Feature counts benchmarked"),
+        S.kpi_card(fastest,          "Fastest valid backend", S.GREEN),
+        S.kpi_card(str(n_broken),    "Backends with no valid output",
+                   S.RED if n_broken else S.TEXT2),
     )
 
     # ── Warnings ──────────────────────────────────────────────────────────
     warns = []
     if df.empty:
-        warns.append(S.warning_note("No data matches the current filter selection."))
-    elif n_complexity < 2:
         warns.append(S.warning_note(
-            f"Only one '{comp_col}' value in the current selection. "
-            "Select more values in the filter above to see scaling trends."
+            "No data matches the current filter selection."))
+    elif n_backends < 2:
+        warns.append(S.warning_note(
+            "Only one algorithm variant in the current selection. "
+            "Widen the Library filter above to compare backends."
         ))
 
     # ── Charts — driven by _build_charts() manifest above ───────────────────
