@@ -17,9 +17,7 @@ import shared as S
 dash.register_page(__name__, path="/", name="Home", title="Benchmark Explorer")
 
 _HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_CSV     = os.path.join(_HERE, "results_config-dimensionality.csv")
-_CSV_FB  = os.path.join(_HERE, "results_config-accuracy.csv")
-_CSV_FB2 = os.path.join(_HERE, "results.csv")   # final fallback
+_CSV  = os.path.join(_HERE, "results", "rq1_dimensionality.csv")
 
 # ── Metric reference rows ─────────────────────────────────────────────────────
 _METRIC_ROWS = [
@@ -37,7 +35,7 @@ _METRIC_ROWS = [
 
 
 def layout(**kwargs):  # called on every page visit → always fresh data
-    df, src = S.try_load_data(_CSV, _CSV_FB, _CSV_FB2)
+    df, src = S.try_load_data(_CSV)
 
     # Build filter options from actual data
     all_opt   = [{"label": "All", "value": "__all__"}]
@@ -157,7 +155,7 @@ def layout(**kwargs):  # called on every page visit → always fresh data
     Input("home-mdl-select", "value"),
 )
 def update_home(ds, mdl):
-    df, _ = S.try_load_data(_CSV, _CSV_FB, _CSV_FB2)
+    df, _ = S.try_load_data(_CSV)
 
     if ds  != "__all__": df = df[df["dataset"] == ds]
     if mdl != "__all__": df = df[df["model"]   == mdl]

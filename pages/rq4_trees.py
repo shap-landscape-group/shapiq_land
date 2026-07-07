@@ -25,9 +25,8 @@ dash.register_page(
     title="RQ4 — Tree Models",
 )
 
-_HERE   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_CSV    = os.path.join(_HERE, "results_config-tree.csv")
-_CSV_FB = os.path.join(_HERE, "results_trees.csv")
+_HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_CSV  = os.path.join(_HERE, "results", "rq4_trees.csv")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -98,7 +97,7 @@ _INTERP = (
 
 
 def layout(**kwargs):
-    df, src = S.try_load_data(_CSV, _CSV_FB)
+    df, src = S.try_load_data(_CSV)
 
     if src is None:
         return html.Div([
@@ -213,7 +212,7 @@ def _schema_hint() -> html.Div:
     Input("rq4-complexity", "value"),
 )
 def update_rq4(ds, libs, comp_vals):
-    df, src = S.try_load_data(_CSV, _CSV_FB)
+    df, src = S.try_load_data(_CSV)
     if src is None or df.empty:
         return html.Div(), html.Div()
 

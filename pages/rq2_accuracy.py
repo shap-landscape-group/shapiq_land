@@ -21,10 +21,8 @@ dash.register_page(
     title="RQ2 — Approximation Accuracy",
 )
 
-_HERE    = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_CSV     = os.path.join(_HERE, "results_config-accuracy.csv")
-_CSV_FB  = os.path.join(_HERE, "results_accuracy.csv")
-_CSV_FB2 = os.path.join(_HERE, "results.csv")
+_HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_CSV  = os.path.join(_HERE, "results", "rq2_accuracy.csv")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -122,7 +120,7 @@ _INTERP = (
 # ═════════════════════════════════════════════════════════════════════════════
 
 def layout(**kwargs):
-    df, src = S.try_load_data(_CSV, _CSV_FB, _CSV_FB2)
+    df, src = S.try_load_data(_CSV)
 
     datasets = [{"label": "All datasets", "value": "__all__"}] + \
                [{"label": d, "value": d} for d in sorted(df["dataset"].dropna().unique())]
@@ -172,7 +170,7 @@ def layout(**kwargs):
     Input("rq2-budget", "value"),
 )
 def update_rq2(ds, mdl, budgets):
-    df, _ = S.try_load_data(_CSV, _CSV_FB, _CSV_FB2)
+    df, _ = S.try_load_data(_CSV)
 
     if ds  != "__all__": df = df[df["dataset"] == ds]
     if mdl != "__all__": df = df[df["model"]   == mdl]

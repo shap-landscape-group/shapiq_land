@@ -20,10 +20,8 @@ dash.register_page(
     title="RQ1 — Dimensionality",
 )
 
-_HERE    = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_CSV     = os.path.join(_HERE, "results_config-dimensionality.csv")
-_CSV_FB  = os.path.join(_HERE, "results_dimensionality.csv")
-_CSV_FB2 = os.path.join(_HERE, "results.csv")
+_HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_CSV  = os.path.join(_HERE, "results", "rq1_dimensionality.csv")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -85,7 +83,7 @@ _INTERP = (
 # ═════════════════════════════════════════════════════════════════════════════
 
 def layout(**kwargs):
-    df, src = S.try_load_data(_CSV, _CSV_FB, _CSV_FB2)
+    df, src = S.try_load_data(_CSV)
 
     datasets = [{"label": "All datasets", "value": "__all__"}] + \
                [{"label": d, "value": d} for d in sorted(df["dataset"].dropna().unique())]
@@ -152,7 +150,7 @@ def _apply_filters(df, ds, mdl, nf_vals, approxs):
     Input("rq1-approx",  "value"),
 )
 def update_rq1(ds, mdl, nf_vals, approxs):
-    df, _ = S.try_load_data(_CSV, _CSV_FB, _CSV_FB2)
+    df, _ = S.try_load_data(_CSV)
     fdf   = _apply_filters(df, ds, mdl, nf_vals or [], approxs or [])
 
     # ── KPIs ──────────────────────────────────────────────────────────────

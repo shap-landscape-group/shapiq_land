@@ -80,6 +80,7 @@ Scope: model-agnostic methods only (captum excluded). No interaction terms.
 ### Charts
 
 #### 1. Runtime vs Number of Features
+
 `fn: fig_runtime_vs_features`
 
 - **X-axis:** `n_features` (log scale)
@@ -92,6 +93,7 @@ Scope: model-agnostic methods only (captum excluded). No interaction terms.
   aggregate seeds → median runtime. Plot as line with markers.
 
 #### 2. Spearman ρ vs Number of Features
+
 `fn: fig_rho_vs_features`
 
 - **X-axis:** `n_features`
@@ -103,6 +105,7 @@ Scope: model-agnostic methods only (captum excluded). No interaction terms.
 - **Processing:** Same grouping as chart 1 but aggregating `mean_sample_rho`.
 
 #### 3. Failure Rate Heatmap
+
 `fn: fig_failure_heatmap_by_features`
 
 - **Rows:** library × approximator combination
@@ -163,6 +166,7 @@ All metrics should be cross-compared with `runtime_s` and `n_model_evals`.
 ### Charts
 
 #### 1. Speed–Accuracy Pareto Frontier
+
 `fn: fig_pareto(_agg(df))`
 
 - **X-axis:** median `runtime_s`
@@ -174,6 +178,7 @@ All metrics should be cross-compared with `runtime_s` and `n_model_evals`.
   each. Mark Pareto front.
 
 #### 2. Spearman ρ vs Budget
+
 `fn: fig_budget_rho`
 
 - **X-axis:** `budget` (model evaluation budget)
@@ -184,6 +189,7 @@ All metrics should be cross-compared with `runtime_s` and `n_model_evals`.
   plateaus? A flat line at the left = already converged at low budget.
 
 #### 3. Runtime vs Budget
+
 `fn: fig_runtime_vs_budget`
 
 - **X-axis:** `budget`
@@ -193,6 +199,7 @@ All metrics should be cross-compared with `runtime_s` and `n_model_evals`.
   library?
 
 #### 4. ρ Convergence Curve
+
 `fn: fig_metric_vs_budget(df, "mean_sample_rho")`
 
 - **X-axis:** `budget`
@@ -201,6 +208,7 @@ All metrics should be cross-compared with `runtime_s` and `n_model_evals`.
 - **What it answers:** How quickly does quality converge with more computation?
 
 #### 5. Spearman ρ Distribution
+
 `fn: fig_distribution`
 
 - **Chart type:** box + strip plot
@@ -210,6 +218,7 @@ All metrics should be cross-compared with `runtime_s` and `n_model_evals`.
 - **What it answers:** How consistent is each method? Wide spread = unreliable.
 
 #### 6. Method Ranking by Spearman ρ
+
 `fn: fig_leaderboard_bars(compute_leaderboard(df))`
 
 - **Chart type:** horizontal bar chart
@@ -261,6 +270,7 @@ Feature count is fixed — the sweep is over model architecture type.
 ### Charts
 
 #### 1. Runtime Ranking — Fastest to Slowest
+
 `fn: fig_runtime_ranking`
 
 - **Chart type:** horizontal bar chart sorted by median runtime
@@ -270,6 +280,7 @@ Feature count is fixed — the sweep is over model architecture type.
   neural networks? Short bar = fastest.
 
 #### 2. Runtime Distribution per Library
+
 `fn: fig_runtime_boxplots`
 
 - **Chart type:** box plot (log scale)
@@ -279,6 +290,7 @@ Feature count is fixed — the sweep is over model architecture type.
   high outliers = inconsistent performance.
 
 #### 3. Speed vs Accuracy Scatter
+
 `fn: fig_rho_vs_runtime`
 
 - **X-axis:** `runtime_s` per run
@@ -288,6 +300,7 @@ Feature count is fixed — the sweep is over model architecture type.
   top-left (fast AND accurate).
 
 #### 4. Pareto Frontier — Speed vs Accuracy
+
 `fn: fig_pareto(_agg(df))`
 
 - Same construction as RQ2 Pareto chart.
@@ -337,10 +350,12 @@ The complexity axis auto-detects from the CSV: `tree_depth` → `max_depth` →
 `n_estimators` → `model`. Charts are built dynamically via `_build_charts(comp_col)`.
 
 ### Tab 1 — Path-dependent
+
 Backends: `shap_tree`, `shapiq_tree`, `woodelf`, `fasttreeshap` (all
 path-dependent mode).
 
 #### 1. Failure Rate Heatmap
+
 `fn: fig_failure_vs_complexity`
 
 - **Rows:** library
@@ -350,6 +365,7 @@ path-dependent mode).
   red cell is the breaking point.
 
 #### 2. Runtime vs Complexity
+
 `fn: fig_runtime_vs_complexity`
 
 - **X-axis:** complexity axis (max_depth)
@@ -360,6 +376,7 @@ path-dependent mode).
 - **Note:** Same chart should also be produced with `n_model_evals` on Y.
 
 #### 3. Spearman ρ vs Complexity
+
 `fn: fig_rho_vs_complexity`
 
 - **X-axis:** complexity axis
@@ -369,12 +386,14 @@ path-dependent mode).
   (Less relevant for exact methods but included as a correctness sanity check.)
 
 #### 4. Method Quality Ranking
+
 `fn: fig_leaderboard_bars(compute_leaderboard(df))`
 
 - Median `mean_sample_rho` aggregated across the current filter selection.
 - **What it answers:** Which tree library delivers the best quality overall?
 
 ### Tab 2 — Interventional
+
 Backends: `woodelf_interventional`, `shapiq_tree_interventional`
 (ignore `shap_true_value`).
 
@@ -382,10 +401,12 @@ Charts mirror Tab 1 charts 2 and 3 (Runtime vs depth, Runtime vs n_features).
 The question is whether interventional computation costs more than path-dependent.
 
 ### Tab 3 — Interactions (order-2 pairwise)
+
 Backends: `shapiq_tree`, `woodelf`, `fasttreeshap` — interaction order = 2.
 Feature cap at `interaction_max_features = 32` (quadratic blowup).
 
-#### Planned charts (not yet implemented):
+#### Planned charts (not yet implemented)
+
 1. **Cross-library agreement heatmap** — cells = mean `mean_abs_diff` (or
    `sign_agreement`) between each pair of libraries. One heatmap per model family.
    Answers: do the exact interaction methods agree with each other?

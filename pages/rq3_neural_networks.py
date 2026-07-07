@@ -24,9 +24,8 @@ dash.register_page(
     title="RQ3 — Neural Networks",
 )
 
-_HERE   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_CSV    = os.path.join(_HERE, "results_config-neural-networks-RQ3.csv")
-_CSV_FB = os.path.join(_HERE, "results_nn.csv")
+_HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_CSV  = os.path.join(_HERE, "results", "rq3_neural_networks.csv")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -106,7 +105,7 @@ _INTERP = (
 
 
 def layout(**kwargs):
-    df, src = S.try_load_data(_CSV, _CSV_FB)
+    df, src = S.try_load_data(_CSV)
 
     if src is None:
         return html.Div([
@@ -206,7 +205,7 @@ def _schema_hint() -> html.Div:
     Input("rq3-budget", "value"),
 )
 def update_rq3(ds, libs, budgets):
-    df, src = S.try_load_data(_CSV, _CSV_FB)
+    df, src = S.try_load_data(_CSV)
     if src is None or df.empty:
         return html.Div(), html.Div()
 
