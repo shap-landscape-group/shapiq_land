@@ -214,6 +214,90 @@ def fig_matrix(df: pd.DataFrame) -> go.Figure:
     return fig
 
 
+def fig_tree_case_agreement_heatmap(df: pd.DataFrame) -> go.Figure:
+    """Heatmap: pairwise agreement between libraries for the selected tree case."""
+    if df.empty:
+        return fig_empty()
+
+    work = df.copy()
+    work = work[work["is_failure"].fillna(False) != True]
+    metric = "sign_agreement"
+    if metric not in work.columns:
+        metric = "mean_sample_rho" if "mean_sample_rho" in work.columns else None
+    if metric is None:
+        return fig_empty()
+
+    work[metric] = pd.to_numeric(work[metric], errors="coerce")
+    work = work.dropna(subset=[metric])
+    if work.empty:
+        return fig_empty()
+
+    config_cols = [
+        col for col in [
+            "dataset", "model", "order", "n_background", "n_features",
+            "n_samples", "learning_rate", "max_depth", "n_estimators",
+            "budget", "seed", "computation_type", "imputer", "n_eval",
+            "approximator"
+        ] if col in work.columns
+    ]
+    if not config_cols:
+        config_cols = ["dataset", "model"]
+
+    work = work.copy()
+    work["_config_key"] = work[config_cols].apply(
+        lambda row: " | ".join(str(value) for value in row), axis=1
+    )
+
+    libs = sorted(work["library"].dropna().astype(str).unique())
+    if len(libs) < 2:
+        return fig_empty()
+
+    pivot = (
+        work.groupby(["_config_key", "library"])[metric]
+        .mean()
+        .reset_index()
+        .pivot(index="_config_key", columns="library", values=metric)
+    )
+    if pivot.empty:
+        return fig_empty()
+
+    pivot = pivot.reindex(columns=libs)
+    values = []
+    for lib_a in libs:
+        row = []
+        for lib_b in libs:
+            shared = pivot[[lib_a, lib_b]].dropna()
+            if shared.empty or shared.shape[0] < 2:
+                row.append(np.nan)
+            else:
+                row.append(
+                    float(np.nanmean(np.abs(shared[lib_a].to_numpy() - shared[lib_b].to_numpy()))))
+        values.append(row)
+
+    z = np.array(values, dtype=float)
+    text = [[f"{v:.3f}" if not np.isnan(v) else "—" for v in row] for row in z]
+
+    fig = go.Figure(go.Heatmap(
+        z=z, x=libs, y=libs,
+        text=text, texttemplate="%{text}",
+        colorscale="Blues",
+        zmin=0, zmax=1,
+        colorbar=dict(title="Mean |Δ|", thickness=14, len=0.8),
+        hovertemplate=(
+            "Library A: <b>%{y}</b><br>"
+            "Library B: <b>%{x}</b><br>"
+            "Mean agreement gap: %{z:.3f}<extra></extra>"
+        ),
+    ))
+    fig.update_layout(
+        **_CHART_LAYOUT, height=320,
+        xaxis=dict(title="Library", gridcolor="rgba(0,0,0,0)"),
+        yaxis=dict(title="Library", gridcolor="rgba(0,0,0,0)"),
+        margin=dict(l=90, r=16, t=20, b=60),
+    )
+    return fig
+
+
 def fig_raw_scatter(df: pd.DataFrame) -> go.Figure:
     """Log-log scatter: relative MAE vs runtime per backend+approximator combo."""
     if df.empty:
