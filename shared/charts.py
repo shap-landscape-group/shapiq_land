@@ -23,7 +23,8 @@ def _lib_color(lib: str) -> str:
 
 def fig_empty(message: str = "No data available for the current filter selection") -> go.Figure:
     return go.Figure(layout=dict(
-        title=dict(text=message, font=dict(size=13, color=TEXT2), x=0.5, xanchor="center"),
+        title=dict(text=message, font=dict(
+            size=13, color=TEXT2), x=0.5, xanchor="center"),
         **_CHART_LAYOUT,
     ))
 
@@ -33,8 +34,8 @@ def fig_leaderboard_bars(lb: pd.DataFrame) -> go.Figure:
     if lb.empty:
         return fig_empty()
 
-    lb        = lb.sort_values("rho_median", ascending=True).reset_index(drop=True)
-    colors    = [_lib_color(lib) for lib in lb["library"]]
+    lb = lb.sort_values("rho_median", ascending=True).reset_index(drop=True)
+    colors = [_lib_color(lib) for lib in lb["library"]]
     fail_pcts = lb["failure_rate"] * 100
 
     annotations = []
@@ -53,7 +54,8 @@ def fig_leaderboard_bars(lb: pd.DataFrame) -> go.Figure:
 
     fig = go.Figure(go.Bar(
         y=lb["method"], x=lb["rho_median"], orientation="h",
-        marker=dict(color=colors, opacity=0.85, line=dict(color="white", width=0.5)),
+        marker=dict(color=colors, opacity=0.85,
+                    line=dict(color="white", width=0.5)),
         text=lb["rho_median"].round(3).astype(str),
         textposition="outside", textfont=dict(size=11, color=TEXT),
         hovertemplate=(
@@ -63,7 +65,7 @@ def fig_leaderboard_bars(lb: pd.DataFrame) -> go.Figure:
             "Failure: %{customdata[2]:.0f}%<extra></extra>"
         ),
         customdata=lb[["runtime_median", "mae_median", "failure_rate"]]
-            .assign(failure_rate=fail_pcts).values,
+        .assign(failure_rate=fail_pcts).values,
     ))
     fig.update_layout(
         **_CHART_LAYOUT,
@@ -92,13 +94,14 @@ def fig_pareto(agg: pd.DataFrame) -> go.Figure:
         fig.add_trace(go.Scatter(
             x=dom["runtime_median"], y=dom["rho_median"], mode="markers",
             name="Dominated",
-            marker=dict(color=MUTED, size=9, opacity=0.55, line=dict(color="white", width=1)),
+            marker=dict(color=MUTED, size=9, opacity=0.55,
+                        line=dict(color="white", width=1)),
             hovertemplate=(
                 "<b>%{customdata[0]}</b><br>Runtime: %{x:.3f} s<br>"
                 "Spearman ρ: %{y:.3f}<br>Failure: %{customdata[1]:.0f}%<extra></extra>"
             ),
             customdata=dom[["method", "failure_rate"]]
-                .assign(failure_rate=dom["failure_rate"] * 100).values,
+            .assign(failure_rate=dom["failure_rate"] * 100).values,
         ))
 
     par = agg[agg["is_pareto"]].sort_values("runtime_median")
@@ -112,7 +115,8 @@ def fig_pareto(agg: pd.DataFrame) -> go.Figure:
         fig.add_trace(go.Scatter(
             x=par["runtime_median"], y=par["rho_median"], mode="markers+text",
             name="Pareto-optimal",
-            marker=dict(color=colors, size=14, line=dict(color="white", width=2)),
+            marker=dict(color=colors, size=14,
+                        line=dict(color="white", width=2)),
             text=par["method"], textposition="top center",
             textfont=dict(size=9, color=TEXT2),
             hovertemplate=(
@@ -120,8 +124,9 @@ def fig_pareto(agg: pd.DataFrame) -> go.Figure:
                 "Spearman ρ: %{y:.3f}<br>Sign agr.: %{customdata[1]:.3f}<br>"
                 "Rel. MAE: %{customdata[3]:.4f}<br>Failure: %{customdata[2]:.0f}%<extra></extra>"
             ),
-            customdata=par[["method", "sign_median", "failure_rate", "mae_median"]]
-                .assign(failure_rate=par["failure_rate"] * 100).values,
+            customdata=par[["method", "sign_median",
+                            "failure_rate", "mae_median"]]
+            .assign(failure_rate=par["failure_rate"] * 100).values,
         ))
 
     fig.update_layout(
@@ -145,12 +150,13 @@ def fig_distribution(df: pd.DataFrame) -> go.Figure:
     )
     fig = go.Figure()
     for method in order:
-        sub   = df[df["method"] == method]
+        sub = df[df["method"] == method]
         color = _lib_color(sub["library"].iloc[0])
         fig.add_trace(go.Box(
             y=sub["mean_sample_rho"], name=method,
             boxpoints="all", jitter=0.35, pointpos=0,
-            marker=dict(color=color, size=4, opacity=0.45, line=dict(color="white", width=0.5)),
+            marker=dict(color=color, size=4, opacity=0.45,
+                        line=dict(color="white", width=0.5)),
             line=dict(color=color, width=2), fillcolor="rgba(0,0,0,0)",
             whiskerwidth=0.6,
             hovertemplate=f"<b>{method}</b><br>Spearman ρ: %{{y:.3f}}<extra></extra>",
@@ -185,9 +191,9 @@ def fig_matrix(df: pd.DataFrame) -> go.Figure:
     )
     if pivot.empty:
         return fig_empty()
-    z    = pivot.values
+    z = pivot.values
     text = [[f"{v:.3f}" if not np.isnan(v) else "—" for v in row] for row in z]
-    fig  = go.Figure(go.Heatmap(
+    fig = go.Figure(go.Heatmap(
         z=z, x=list(pivot.columns), y=list(pivot.index),
         text=text, texttemplate="%{text}",
         colorscale=[[0, "#FEE2E2"], [0.5, "#93C5FD"], [1, "#1E3A8A"]],
@@ -223,12 +229,13 @@ def fig_raw_scatter(df: pd.DataFrame) -> go.Figure:
     fig = go.Figure()
 
     for combo, grp in df.groupby("combo"):
-        lib    = grp["library"].iloc[0]
-        approx = grp["approximator"].iloc[0] if grp["approximator"].notna().any() else "?"
-        color  = _lib_color(lib)
+        lib = grp["library"].iloc[0]
+        approx = grp["approximator"].iloc[0] if grp["approximator"].notna(
+        ).any() else "?"
+        color = _lib_color(lib)
         symbol = shape_map.get(approx, "circle")
-        sizes  = grp["n_features"].fillna(4).clip(lower=4)
-        sizes  = 7 + (sizes / sizes.max()) * 14
+        sizes = grp["n_features"].fillna(4).clip(lower=4)
+        sizes = 7 + (sizes / sizes.max()) * 14
         fig.add_trace(go.Scatter(
             x=grp["runtime_s"], y=grp["relative_mae"],
             mode="markers", name=combo,
@@ -239,7 +246,8 @@ def fig_raw_scatter(df: pd.DataFrame) -> go.Figure:
                 "Relative MAE: %{y:.2e}<br>Budget: %{customdata[1]}<br>"
                 "n_features: %{customdata[2]}<br>Dataset: %{customdata[3]}<extra></extra>"
             ),
-            customdata=grp[["method", "budget", "n_features", "dataset"]].values,
+            customdata=grp[["method", "budget",
+                            "n_features", "dataset"]].values,
         ))
 
     fig.add_hline(
@@ -254,7 +262,8 @@ def fig_raw_scatter(df: pd.DataFrame) -> go.Figure:
         legend=dict(title=dict(text="Backend, Approximator", font=dict(size=11)),
                     font=dict(size=11), bgcolor="rgba(255,255,255,0.85)",
                     bordercolor=BORDER, borderwidth=1),
-        xaxis=dict(title="Runtime (seconds)", type="log", gridcolor=BORDER, zeroline=False),
+        xaxis=dict(title="Runtime (seconds)", type="log",
+                   gridcolor=BORDER, zeroline=False),
         yaxis=dict(title="Relative MAE  (lower = better)", type="log",
                    gridcolor=BORDER, zeroline=False),
     )
@@ -279,7 +288,8 @@ def fig_budget_rho(df: pd.DataFrame) -> go.Figure:
         fig.add_trace(go.Scatter(
             x=mdf["budget"], y=mdf["q"], mode="lines+markers", name=method,
             line=dict(color=_lib_color(lib), width=2),
-            marker=dict(size=8, color=_lib_color(lib), line=dict(color="white", width=1.5)),
+            marker=dict(size=8, color=_lib_color(lib),
+                        line=dict(color="white", width=1.5)),
             hovertemplate=f"<b>{method}</b><br>Budget: %{{x}}<br>Spearman ρ: %{{y:.3f}}<extra></extra>",
         ))
     fig.add_hline(
@@ -314,13 +324,16 @@ def fig_runtime_vs_budget(df: pd.DataFrame) -> go.Figure:
         fig.add_trace(go.Scatter(
             x=mdf["budget"], y=mdf["rt"], mode="lines+markers", name=method,
             line=dict(color=_lib_color(lib), width=2),
-            marker=dict(size=8, color=_lib_color(lib), line=dict(color="white", width=1.5)),
+            marker=dict(size=8, color=_lib_color(lib),
+                        line=dict(color="white", width=1.5)),
             hovertemplate=f"<b>{method}</b><br>Budget: %{{x}}<br>Runtime: %{{y:.3f}} s<extra></extra>",
         ))
     fig.update_layout(
         **_CHART_LAYOUT, height=400, margin=_MARGIN, legend=_LEGEND_H,
-        xaxis=dict(title="Budget (model evaluations)", gridcolor=BORDER, zeroline=False),
-        yaxis=dict(title="Median runtime (s)", gridcolor=BORDER, zeroline=False),
+        xaxis=dict(title="Budget (model evaluations)",
+                   gridcolor=BORDER, zeroline=False),
+        yaxis=dict(title="Median runtime (s)",
+                   gridcolor=BORDER, zeroline=False),
     )
     return fig
 
@@ -346,13 +359,16 @@ def fig_metric_vs_budget(df: pd.DataFrame, metric: str = "mean_sample_rho") -> g
         fig.add_trace(go.Scatter(
             x=mdf["budget"], y=mdf["val"], mode="lines+markers", name=method,
             line=dict(color=_lib_color(lib), width=2),
-            marker=dict(size=8, color=_lib_color(lib), line=dict(color="white", width=1.5)),
+            marker=dict(size=8, color=_lib_color(lib),
+                        line=dict(color="white", width=1.5)),
             hovertemplate=f"<b>{method}</b><br>Budget: %{{x}}<br>{metric}: %{{y:.3f}}<extra></extra>",
         ))
     fig.update_layout(
         **_CHART_LAYOUT, height=380, margin=_MARGIN, legend=_LEGEND_H,
-        xaxis=dict(title="Budget (model evaluations)", gridcolor=BORDER, zeroline=False),
-        yaxis=dict(title=label_map.get(metric, metric), gridcolor=BORDER, zeroline=False),
+        xaxis=dict(title="Budget (model evaluations)",
+                   gridcolor=BORDER, zeroline=False),
+        yaxis=dict(title=label_map.get(metric, metric),
+                   gridcolor=BORDER, zeroline=False),
     )
     return fig
 
@@ -375,12 +391,14 @@ def fig_runtime_vs_features(df: pd.DataFrame) -> go.Figure:
         fig.add_trace(go.Scatter(
             x=mdf["n_features"], y=mdf["rt"], mode="lines+markers", name=method,
             line=dict(color=_lib_color(lib), width=2),
-            marker=dict(size=8, color=_lib_color(lib), line=dict(color="white", width=1.5)),
+            marker=dict(size=8, color=_lib_color(lib),
+                        line=dict(color="white", width=1.5)),
             hovertemplate=f"<b>{method}</b><br>n_features: %{{x}}<br>Runtime: %{{y:.3f}} s<extra></extra>",
         ))
     fig.update_layout(
         **_CHART_LAYOUT, height=400, margin=_MARGIN, legend=_LEGEND_H,
-        xaxis=dict(title="Number of features", gridcolor=BORDER, zeroline=False, type="log"),
+        xaxis=dict(title="Number of features", gridcolor=BORDER,
+                   zeroline=False, type="log"),
         yaxis=dict(title="Median runtime (s) — log scale", gridcolor=BORDER,
                    zeroline=False, type="log"),
     )
@@ -403,7 +421,8 @@ def fig_rho_vs_features(df: pd.DataFrame) -> go.Figure:
         fig.add_trace(go.Scatter(
             x=mdf["n_features"], y=mdf["q"], mode="lines+markers", name=method,
             line=dict(color=_lib_color(lib), width=2),
-            marker=dict(size=8, color=_lib_color(lib), line=dict(color="white", width=1.5)),
+            marker=dict(size=8, color=_lib_color(lib),
+                        line=dict(color="white", width=1.5)),
             hovertemplate=f"<b>{method}</b><br>n_features: %{{x}}<br>Spearman ρ: %{{y:.3f}}<extra></extra>",
         ))
     fig.add_hline(
@@ -414,7 +433,8 @@ def fig_rho_vs_features(df: pd.DataFrame) -> go.Figure:
     )
     fig.update_layout(
         **_CHART_LAYOUT, height=400, margin=_MARGIN, legend=_LEGEND_H,
-        xaxis=dict(title="Number of features", gridcolor=BORDER, zeroline=False, type="log"),
+        xaxis=dict(title="Number of features", gridcolor=BORDER,
+                   zeroline=False, type="log"),
         yaxis=dict(title="Median Spearman ρ  (higher = better)",
                    range=[0, 1.08], gridcolor=BORDER, zeroline=False),
     )
@@ -427,12 +447,14 @@ def fig_failure_heatmap_by_features(df: pd.DataFrame) -> go.Figure:
     if sub.empty:
         return fig_empty()
     pivot = (
-        sub.groupby(["method", "n_features"]).agg(fr=("is_failure", "mean")).reset_index()
+        sub.groupby(["method", "n_features"]).agg(
+            fr=("is_failure", "mean")).reset_index()
         .pivot(index="method", columns="n_features", values="fr")
     )
-    z    = pivot.values * 100
-    text = [[f"{v:.0f}%" if not np.isnan(v) else "—" for v in row] for row in z]
-    fig  = go.Figure(go.Heatmap(
+    z = pivot.values * 100
+    text = [[f"{v:.0f}%" if not np.isnan(
+        v) else "—" for v in row] for row in z]
+    fig = go.Figure(go.Heatmap(
         z=z, x=[str(int(c)) for c in pivot.columns], y=list(pivot.index),
         text=text, texttemplate="%{text}",
         colorscale=[[0, "#D1FAE5"], [0.5, "#FEF3C7"], [1, "#FEE2E2"]],
@@ -459,7 +481,7 @@ def fig_speed_ranking_at_nfeatures(df: pd.DataFrame, n: int | None = None) -> go
     if sub.empty:
         return fig_empty()
     target = n if n is not None else int(sub["n_features"].max())
-    sub    = sub[sub["n_features"] == target]
+    sub = sub[sub["n_features"] == target]
     if sub.empty:
         return fig_empty(f"No data for n_features = {target}")
     grp = (
@@ -470,7 +492,8 @@ def fig_speed_ranking_at_nfeatures(df: pd.DataFrame, n: int | None = None) -> go
     colors = [_lib_color(lib) for lib in grp["library"]]
     fig = go.Figure(go.Bar(
         y=grp["method"], x=grp["rt"], orientation="h",
-        marker=dict(color=colors, opacity=0.85, line=dict(color="white", width=0.5)),
+        marker=dict(color=colors, opacity=0.85,
+                    line=dict(color="white", width=0.5)),
         text=grp["rt"].round(3).astype(str) + " s",
         textposition="outside", textfont=dict(size=11, color=TEXT),
         hovertemplate=(
@@ -508,7 +531,8 @@ def fig_runtime_ranking(df: pd.DataFrame) -> go.Figure:
     colors = [_lib_color(lib) for lib in grp["library"]]
     fig = go.Figure(go.Bar(
         y=grp["method"], x=grp["rt"], orientation="h",
-        marker=dict(color=colors, opacity=0.85, line=dict(color="white", width=0.5)),
+        marker=dict(color=colors, opacity=0.85,
+                    line=dict(color="white", width=0.5)),
         text=grp["rt"].round(3).astype(str) + " s",
         textposition="outside", textfont=dict(size=11, color=TEXT),
         hovertemplate=(
@@ -519,7 +543,8 @@ def fig_runtime_ranking(df: pd.DataFrame) -> go.Figure:
     ))
     fig.update_layout(
         **_CHART_LAYOUT, height=max(260, len(grp) * 32 + 60),
-        xaxis=dict(title="Median runtime (s)", gridcolor=BORDER, zeroline=False),
+        xaxis=dict(title="Median runtime (s)",
+                   gridcolor=BORDER, zeroline=False),
         yaxis=dict(gridcolor="rgba(0,0,0,0)", automargin=True),
         margin=dict(l=10, r=20, t=30, b=48),
         showlegend=False,
@@ -532,7 +557,8 @@ def fig_runtime_boxplots(df: pd.DataFrame) -> go.Figure:
     sub = df[df["runtime_s"].notna()].copy()
     if sub.empty:
         return fig_empty()
-    order = sub.groupby("library")["runtime_s"].median().sort_values().index.tolist()
+    order = sub.groupby("library")[
+        "runtime_s"].median().sort_values().index.tolist()
     fig = go.Figure()
     for lib in order:
         ldf = sub[sub["library"] == lib]
@@ -603,7 +629,7 @@ def fig_runtime_vs_complexity(df: pd.DataFrame) -> go.Figure:
         return fig_empty()
     try:
         sub[col] = pd.to_numeric(sub[col])
-        x_type   = "linear"
+        x_type = "linear"
     except (ValueError, TypeError):
         x_type = "category"
     grp = (
@@ -617,14 +643,16 @@ def fig_runtime_vs_complexity(df: pd.DataFrame) -> go.Figure:
         fig.add_trace(go.Scatter(
             x=mdf[col], y=mdf["rt"], mode="lines+markers", name=method,
             line=dict(color=_lib_color(lib), width=2),
-            marker=dict(size=8, color=_lib_color(lib), line=dict(color="white", width=1.5)),
+            marker=dict(size=8, color=_lib_color(lib),
+                        line=dict(color="white", width=1.5)),
             hovertemplate=f"<b>{method}</b><br>{col}: %{{x}}<br>Runtime: %{{y:.3f}} s<extra></extra>",
         ))
     label = col.replace("_", " ").title()
     fig.update_layout(
         **_CHART_LAYOUT, height=400, margin=_MARGIN, legend=_LEGEND_H,
         xaxis=dict(title=label, gridcolor=BORDER, zeroline=False, type=x_type),
-        yaxis=dict(title="Median runtime (s)", gridcolor=BORDER, zeroline=False),
+        yaxis=dict(title="Median runtime (s)",
+                   gridcolor=BORDER, zeroline=False),
     )
     return fig
 
@@ -640,13 +668,15 @@ def fig_failure_vs_complexity(df: pd.DataFrame) -> go.Figure:
     except (ValueError, TypeError):
         pass
     pivot = (
-        sub.groupby(["method", col]).agg(fr=("is_failure", "mean")).reset_index()
+        sub.groupby(["method", col]).agg(
+            fr=("is_failure", "mean")).reset_index()
         .pivot(index="method", columns=col, values="fr")
     )
-    z     = pivot.values * 100
-    text  = [[f"{v:.0f}%" if not np.isnan(v) else "—" for v in row] for row in z]
+    z = pivot.values * 100
+    text = [[f"{v:.0f}%" if not np.isnan(
+        v) else "—" for v in row] for row in z]
     label = col.replace("_", " ").title()
-    fig   = go.Figure(go.Heatmap(
+    fig = go.Figure(go.Heatmap(
         z=z, x=[str(c) for c in pivot.columns], y=list(pivot.index),
         text=text, texttemplate="%{text}",
         colorscale=[[0, "#D1FAE5"], [0.5, "#FEF3C7"], [1, "#FEE2E2"]],
@@ -674,7 +704,7 @@ def fig_rho_vs_complexity(df: pd.DataFrame) -> go.Figure:
         return fig_empty("Not enough complexity variation to show a trend")
     try:
         sub[col] = pd.to_numeric(sub[col])
-        x_type   = "linear"
+        x_type = "linear"
     except (ValueError, TypeError):
         x_type = "category"
     grp = (
@@ -688,13 +718,514 @@ def fig_rho_vs_complexity(df: pd.DataFrame) -> go.Figure:
         fig.add_trace(go.Scatter(
             x=mdf[col], y=mdf["q"], mode="lines+markers", name=method,
             line=dict(color=_lib_color(lib), width=2),
-            marker=dict(size=8, color=_lib_color(lib), line=dict(color="white", width=1.5)),
+            marker=dict(size=8, color=_lib_color(lib),
+                        line=dict(color="white", width=1.5)),
             hovertemplate=f"<b>{method}</b><br>{col}: %{{x}}<br>Spearman ρ: %{{y:.3f}}<extra></extra>",
         ))
     label = col.replace("_", " ").title()
     fig.update_layout(
         **_CHART_LAYOUT, height=400, margin=_MARGIN, legend=_LEGEND_H,
         xaxis=dict(title=label, gridcolor=BORDER, zeroline=False, type=x_type),
+        yaxis=dict(title="Median Spearman ρ  (higher = better)",
+                   range=[0, 1.08], gridcolor=BORDER, zeroline=False),
+    )
+    return fig
+
+
+# ── RQ4 (backend-level): richer views for tree-explanation benchmarks ─────────
+#
+# The tree CSVs have an empty `approximator`, so the generic `method` column
+# collapses to "library / ?" and merges genuinely different algorithms
+# (e.g. shap_tree_path_dependent @0.02s with shap_interaction @0.3s).
+# These helpers instead key off the real `backend` column and expose the axes
+# that actually vary in the data: the algorithm variant, the number of features
+# (the true complexity axis), and the interaction order.
+
+_RUNTIME_FLOOR = 1e-3   # display floor so log-scaled bars/lines survive 0.0 values
+
+
+def _tree_col(df: pd.DataFrame, name: str) -> pd.Series:
+    """Return a column if present, else a '?'/NaN-filled fallback series."""
+    if name in df.columns:
+        return df[name]
+    fill = np.nan if name in ("runtime_s", "n_features", "order") else "?"
+    return pd.Series(fill, index=df.index)
+
+
+def _tree_backend_label(backend: str) -> str:
+    return backend.replace("_", " ") if isinstance(backend, str) else "?"
+
+
+def fig_tree_runtime_by_backend(df: pd.DataFrame) -> go.Figure:
+    """Horizontal log-scale bars: median runtime per backend (the algorithm variant).
+
+    This is the headline chart — it exposes the enormous runtime spread that the
+    old library-grouped line chart hid (e.g. shapiq interactions in the tens of
+    seconds vs. tree-path methods in the milliseconds). Backends that return no
+    valid values (fasttreeshap here) are flagged rather than shown as "fastest".
+    """
+    sub = df.copy()
+    sub["backend"] = _tree_col(sub, "backend")
+    sub["runtime_s"] = pd.to_numeric(
+        _tree_col(sub, "runtime_s"), errors="coerce")
+    sub = sub[sub["runtime_s"].notna()]
+    if sub.empty:
+        return fig_empty()
+
+    grp = (
+        sub.groupby(["backend", "library"])
+        .agg(rt=("runtime_s", "median"),
+             fr=("is_failure", "mean"),
+             n=("runtime_s", "count"))
+        .reset_index()
+        .sort_values("rt", ascending=True)
+    )
+    grp["failed"] = grp["fr"] >= 0.5
+    grp["rt_disp"] = grp["rt"].clip(lower=_RUNTIME_FLOOR)
+    grp["label"] = grp["backend"].map(_tree_backend_label)
+
+    colors = [_lib_color(l) for l in grp["library"]]
+    patterns = ["/" if f else "" for f in grp["failed"]]
+    opac = [0.35 if f else 0.9 for f in grp["failed"]]
+    bartext = [
+        "✕ no valid output" if f else f"{rt:.3g} s"
+        for f, rt in zip(grp["failed"], grp["rt"])
+    ]
+
+    fig = go.Figure(go.Bar(
+        y=grp["label"], x=grp["rt_disp"], orientation="h",
+        marker=dict(color=colors, opacity=opac,
+                    line=dict(color="white", width=0.5),
+                    pattern=dict(shape=patterns, fgcolor=RED, size=4)),
+        text=bartext, textposition="outside", textfont=dict(size=11, color=TEXT),
+        customdata=np.stack(
+            [grp["library"], (grp["fr"] * 100), grp["n"]], axis=1),
+        hovertemplate=(
+            "<b>%{y}</b><br>Library: %{customdata[0]}<br>"
+            "Median runtime: %{x:.4g} s<br>"
+            "Failure: %{customdata[1]:.0f}%<br>"
+            "Runs: %{customdata[2]}<extra></extra>"
+        ),
+    ))
+    fig.update_layout(
+        **_CHART_LAYOUT,
+        height=max(280, len(grp) * 34 + 70),
+        xaxis=dict(title="Median runtime (s) — log scale", type="log",
+                   gridcolor=BORDER, zeroline=False),
+        yaxis=dict(gridcolor="rgba(0,0,0,0)", automargin=True),
+        margin=dict(l=10, r=110, t=20, b=48),
+        showlegend=False,
+    )
+    return fig
+
+
+def fig_tree_runtime_vs_features(df: pd.DataFrame) -> go.Figure:
+    """Runtime vs number of explained features (log-log) — the true scaling axis.
+
+    n_features is the dimensionality of the explanation problem and the axis that
+    actually drives cost for tree explainers, so a steep slope here is the real
+    "computational bottleneck as complexity grows" signal.
+    """
+    sub = df.copy()
+    sub["backend"] = _tree_col(sub, "backend")
+    sub["n_features"] = pd.to_numeric(
+        _tree_col(sub, "n_features"), errors="coerce")
+    sub["runtime_s"] = pd.to_numeric(
+        _tree_col(sub, "runtime_s"),  errors="coerce")
+    sub = sub[sub["n_features"].notna() & sub["runtime_s"].notna()
+              & ~sub["is_failure"]]
+    if sub.empty or sub["n_features"].nunique() < 2:
+        return fig_empty("Not enough n_features variation to show scaling")
+
+    grp = (
+        sub.groupby(["backend", "library", "n_features"])
+        .agg(rt=("runtime_s", "median")).reset_index()
+    )
+    fig = go.Figure()
+    for backend, bdf in grp.groupby("backend"):
+        lib = bdf["library"].iloc[0]
+        bdf = bdf.sort_values("n_features")
+        fig.add_trace(go.Scatter(
+            x=bdf["n_features"], y=bdf["rt"].clip(lower=_RUNTIME_FLOOR),
+            mode="lines+markers", name=_tree_backend_label(backend),
+            line=dict(color=_lib_color(lib), width=2),
+            marker=dict(size=8, color=_lib_color(lib),
+                        line=dict(color="white", width=1.5)),
+            hovertemplate=(
+                f"<b>{_tree_backend_label(backend)}</b><br>"
+                "n_features: %{x}<br>Runtime: %{y:.4g} s<extra></extra>"
+            ),
+        ))
+    fig.update_layout(
+        **_CHART_LAYOUT, height=430, margin=_MARGIN, legend=_LEGEND_H,
+        xaxis=dict(title="Number of features (log scale)", type="log",
+                   gridcolor=BORDER, zeroline=False),
+        yaxis=dict(title="Median runtime (s) — log scale", type="log",
+                   gridcolor=BORDER, zeroline=False),
+    )
+    return fig
+
+
+def fig_tree_order_cost(df: pd.DataFrame) -> go.Figure:
+    """Grouped bars: median runtime at interaction order 1 vs order 2, per library.
+
+    Moving from main effects (order 1) to pairwise interactions (order 2) is the
+    single biggest cost jump in the data — this makes that explosion explicit.
+    """
+    sub = df.copy()
+    sub["order"] = pd.to_numeric(_tree_col(sub, "order"), errors="coerce")
+    sub["runtime_s"] = pd.to_numeric(
+        _tree_col(sub, "runtime_s"), errors="coerce")
+    sub = sub[sub["order"].notna() & sub["runtime_s"].notna()
+              & ~sub["is_failure"]]
+    if sub.empty or sub["order"].nunique() < 2:
+        return fig_empty("Need both interaction orders (1 and 2) to compare")
+
+    grp = (
+        sub.groupby(["library", "order"])
+        .agg(rt=("runtime_s", "median")).reset_index()
+    )
+    order_vals = sorted(grp["order"].dropna().unique())
+    order_name = {1: "Order 1 · main effects",
+                  2: "Order 2 · pairwise interactions"}
+    order_shade = {1: 0.55, 2: 1.0}
+    libs = sorted(grp["library"].unique())
+
+    fig = go.Figure()
+    for o in order_vals:
+        odf = grp[grp["order"] == o].set_index("library").reindex(libs)
+        fig.add_trace(go.Bar(
+            x=libs, y=odf["rt"].clip(lower=_RUNTIME_FLOOR).values,
+            name=order_name.get(int(o), f"Order {int(o)}"),
+            marker=dict(color=[_lib_color(l) for l in libs],
+                        opacity=order_shade.get(int(o), 0.8),
+                        line=dict(color="white", width=0.5),
+                        pattern=dict(shape=["" if o == order_vals[0] else "x"] * len(libs),
+                                     fgcolor="white", size=3)),
+            text=[f"{v:.3g} s" if pd.notna(
+                v) else "" for v in odf["rt"].values],
+            textposition="outside", textfont=dict(size=10, color=TEXT),
+            hovertemplate="<b>%{x}</b><br>" +
+            order_name.get(int(o), f"Order {int(o)}")
+                          + "<br>Median runtime: %{y:.4g} s<extra></extra>",
+        ))
+    fig.update_layout(
+        **_CHART_LAYOUT, height=420, margin=_MARGIN, legend=_LEGEND_H,
+        barmode="group",
+        xaxis=dict(title="Library", gridcolor="rgba(0,0,0,0)"),
+        yaxis=dict(title="Median runtime (s) — log scale", type="log",
+                   gridcolor=BORDER, zeroline=False),
+    )
+    return fig
+
+
+def fig_tree_accuracy_vs_runtime(df: pd.DataFrame) -> go.Figure:
+    """Scatter: runtime (log x) vs approximation quality (Spearman ρ) per backend.
+
+    Answers the "efficient *without* losing accuracy" half of the question — a
+    good backend sits in the upper-left (fast and faithful).
+    """
+    sub = df.copy()
+    sub["backend"] = _tree_col(sub, "backend")
+    sub["runtime_s"] = pd.to_numeric(
+        _tree_col(sub, "runtime_s"),       errors="coerce")
+    sub["mean_sample_rho"] = pd.to_numeric(
+        _tree_col(sub, "mean_sample_rho"), errors="coerce")
+    sub = sub[sub["runtime_s"].notna() & sub["mean_sample_rho"].notna()]
+    if sub.empty:
+        return fig_empty("No runs with both runtime and quality recorded")
+
+    grp = (
+        sub.groupby(["backend", "library"])
+        .agg(rt=("runtime_s", "median"),
+             rho=("mean_sample_rho", "median")).reset_index()
+    )
+    fig = go.Figure()
+    for lib, ldf in grp.groupby("library"):
+        fig.add_trace(go.Scatter(
+            x=ldf["rt"].clip(lower=_RUNTIME_FLOOR), y=ldf["rho"],
+            mode="markers+text", name=lib,
+            marker=dict(color=_lib_color(lib), size=13,
+                        line=dict(color="white", width=1.5)),
+            text=[_tree_backend_label(b).replace(
+                f"{lib} ", "") for b in ldf["backend"]],
+            textposition="top center", textfont=dict(size=9, color=TEXT2),
+            customdata=ldf["backend"].map(
+                _tree_backend_label).values.reshape(-1, 1),
+            hovertemplate=(
+                "<b>%{customdata[0]}</b><br>Runtime: %{x:.4g} s<br>"
+                "Spearman ρ: %{y:.3f}<extra></extra>"
+            ),
+        ))
+    fig.add_hline(
+        y=RHO_GOOD, line=dict(color=GREEN, width=1.2, dash="dot"),
+        annotation_text=f"ρ = {RHO_GOOD}", annotation_position="bottom right",
+        annotation_font=dict(size=10, color=GREEN),
+    )
+    fig.update_layout(
+        **_CHART_LAYOUT, height=440, margin=_MARGIN, legend=_LEGEND_H,
+        xaxis=dict(title="Median runtime (s) — log scale  (left = faster)",
+                   type="log", gridcolor=BORDER, zeroline=False),
+        yaxis=dict(title="Median Spearman ρ  (higher = better)",
+                   range=[0, 1.08], gridcolor=BORDER, zeroline=False),
+    )
+    return fig
+
+
+def fig_tree_quality_ranking(df: pd.DataFrame) -> go.Figure:
+    """Horizontal bars: median Spearman ρ per backend, failure flagged on the right.
+
+    Backend-level replacement for the generic leaderboard, which can't be used
+    here because the tree CSV leaves ``approximator`` empty (its groupby key
+    would drop every row). Failed backends are shown at ρ = 0 with a marker.
+    """
+    sub = df.copy()
+    sub["backend"] = _tree_col(sub, "backend")
+    sub["mean_sample_rho"] = pd.to_numeric(_tree_col(sub, "mean_sample_rho"),
+                                           errors="coerce")
+    if sub.empty:
+        return fig_empty()
+
+    grp = (
+        sub.groupby(["backend", "library"])
+        .agg(rho=("mean_sample_rho", "median"),
+             fr=("is_failure", "mean"))
+        .reset_index()
+    )
+    grp["failed"] = grp["fr"] >= 0.5
+    grp["rho_disp"] = grp["rho"].fillna(0.0).clip(lower=0.0)
+    grp = grp.sort_values("rho_disp", ascending=True).reset_index(drop=True)
+    grp["label"] = grp["backend"].map(_tree_backend_label)
+
+    colors = [_lib_color(l) for l in grp["library"]]
+    opac = [0.35 if f else 0.9 for f in grp["failed"]]
+    bartext = [
+        "✕ no valid output" if f else f"{r:.3f}"
+        for f, r in zip(grp["failed"], grp["rho"])
+    ]
+
+    fig = go.Figure(go.Bar(
+        y=grp["label"], x=grp["rho_disp"], orientation="h",
+        marker=dict(color=colors, opacity=opac,
+                    line=dict(color="white", width=0.5)),
+        text=bartext, textposition="outside", textfont=dict(size=11, color=TEXT),
+        customdata=np.stack([grp["library"], grp["fr"] * 100], axis=1),
+        hovertemplate=(
+            "<b>%{y}</b><br>Library: %{customdata[0]}<br>"
+            "Median Spearman ρ: %{x:.3f}<br>"
+            "Failure: %{customdata[1]:.0f}%<extra></extra>"
+        ),
+    ))
+    fig.add_vline(
+        x=RHO_GOOD, line=dict(color=GREEN, width=1.2, dash="dot"),
+        annotation_text=f"ρ = {RHO_GOOD}", annotation_position="top",
+        annotation_font=dict(size=10, color=GREEN),
+    )
+    fig.update_layout(
+        **_CHART_LAYOUT,
+        height=max(280, len(grp) * 34 + 70),
+        xaxis=dict(title="Median Spearman ρ  (0–1, higher = better)",
+                   range=[0, 1.15], gridcolor=BORDER, zeroline=False),
+        yaxis=dict(gridcolor="rgba(0,0,0,0)", automargin=True),
+        margin=dict(l=10, r=110, t=30, b=48),
+        showlegend=False,
+    )
+    return fig
+
+
+# ── RQ4 (tree-depth): the axis that actually answers the research question ────
+#
+# The merged tree CSV finally carries a real ``max_depth`` column (4 → 80), so
+# these helpers plot cost and fidelity *as a function of tree depth* — the exact
+# "which library handles extreme tree depths efficiently" question. They key off
+# the ``backend`` column (the algorithm variant) because ``approximator`` is
+# empty in the tree CSVs.
+
+def _depth_col(df: pd.DataFrame) -> str:
+    """Return the tree-depth column name if present, else ''."""
+    for col in ("max_depth", "tree_depth", "depth"):
+        if col in df.columns and df[col].notna().any():
+            return col
+    return ""
+
+
+def fig_tree_runtime_vs_depth(df: pd.DataFrame) -> go.Figure:
+    """Runtime vs tree depth (log y) — one line per backend.
+
+    The headline RQ4 chart: a steep, upward slope means the backend gets more
+    expensive as trees deepen (a scaling bottleneck), while a flat line means the
+    method is depth-insensitive. Only valid (non-failing) runs are drawn.
+    """
+    depth = _depth_col(df)
+    if not depth:
+        return fig_empty("This dataset has no tree-depth column")
+
+    sub = df.copy()
+    sub["backend"] = _tree_col(sub, "backend")
+    sub[depth] = pd.to_numeric(sub[depth], errors="coerce")
+    sub["runtime_s"] = pd.to_numeric(
+        _tree_col(sub, "runtime_s"), errors="coerce")
+    sub = sub[sub[depth].notna() & sub["runtime_s"].notna()
+              & ~sub["is_failure"]]
+    if sub.empty or sub[depth].nunique() < 2:
+        return fig_empty("Not enough tree-depth variation to show a trend")
+
+    grp = (
+        sub.groupby(["backend", "library", depth])
+        .agg(rt=("runtime_s", "median")).reset_index()
+    )
+    fig = go.Figure()
+    for backend, bdf in grp.groupby("backend"):
+        lib = bdf["library"].iloc[0]
+        bdf = bdf.sort_values(depth)
+        fig.add_trace(go.Scatter(
+            x=bdf[depth], y=bdf["rt"].clip(lower=_RUNTIME_FLOOR),
+            mode="lines+markers", name=_tree_backend_label(backend),
+            line=dict(color=_lib_color(lib), width=2),
+            marker=dict(size=8, color=_lib_color(lib),
+                        line=dict(color="white", width=1.5)),
+            hovertemplate=(
+                f"<b>{_tree_backend_label(backend)}</b><br>"
+                "Tree depth: %{x}<br>Runtime: %{y:.4g} s<extra></extra>"
+            ),
+        ))
+    fig.update_layout(
+        **_CHART_LAYOUT, height=440, margin=_MARGIN, legend=_LEGEND_H,
+        xaxis=dict(title="Maximum tree depth",
+                   gridcolor=BORDER, zeroline=False),
+        yaxis=dict(title="Median runtime (s) — log scale", type="log",
+                   gridcolor=BORDER, zeroline=False),
+    )
+    return fig
+
+
+def fig_tree_depth_scaling_factor(df: pd.DataFrame) -> go.Figure:
+    """Horizontal bars: runtime blow-up from the shallowest to the deepest tree.
+
+    For each backend we divide its median runtime at the largest depth by the
+    median at the smallest depth. A factor near 1× means depth-robust (ideal for
+    "extreme tree depths"); a large factor flags a backend whose cost explodes as
+    trees grow. This is the single clearest ranking for the RQ4 question.
+    """
+    depth = _depth_col(df)
+    if not depth:
+        return fig_empty("This dataset has no tree-depth column")
+
+    sub = df.copy()
+    sub["backend"] = _tree_col(sub, "backend")
+    sub[depth] = pd.to_numeric(sub[depth], errors="coerce")
+    sub["runtime_s"] = pd.to_numeric(
+        _tree_col(sub, "runtime_s"), errors="coerce")
+    sub = sub[sub[depth].notna() & sub["runtime_s"].notna()
+              & ~sub["is_failure"]]
+    if sub.empty or sub[depth].nunique() < 2:
+        return fig_empty("Not enough tree-depth variation to compute scaling")
+
+    d_lo, d_hi = sub[depth].min(), sub[depth].max()
+    grp = (
+        sub.groupby(["backend", "library", depth])
+        .agg(rt=("runtime_s", "median")).reset_index()
+    )
+    rows = []
+    for backend, bdf in grp.groupby("backend"):
+        lib = bdf["library"].iloc[0]
+        lo = bdf.loc[bdf[depth] == d_lo, "rt"]
+        hi = bdf.loc[bdf[depth] == d_hi, "rt"]
+        if lo.empty or hi.empty:
+            continue
+        lo_v = max(float(lo.iloc[0]), _RUNTIME_FLOOR)
+        hi_v = max(float(hi.iloc[0]), _RUNTIME_FLOOR)
+        rows.append(dict(backend=backend, library=lib,
+                         factor=hi_v / lo_v, lo=lo_v, hi=hi_v))
+    if not rows:
+        return fig_empty("No backend spans both the shallowest and deepest tree")
+
+    gr = pd.DataFrame(rows).sort_values("factor", ascending=True)
+    gr["label"] = gr["backend"].map(_tree_backend_label)
+    colors = [_lib_color(l) for l in gr["library"]]
+
+    fig = go.Figure(go.Bar(
+        y=gr["label"], x=gr["factor"], orientation="h",
+        marker=dict(color=colors, opacity=0.9,
+                    line=dict(color="white", width=0.5)),
+        text=[f"{f:.1f}×" for f in gr["factor"]],
+        textposition="outside", textfont=dict(size=11, color=TEXT),
+        customdata=np.stack([gr["lo"], gr["hi"]], axis=1),
+        hovertemplate=(
+            "<b>%{y}</b><br>"
+            f"Runtime at depth {int(d_lo)}: %{{customdata[0]:.4g}} s<br>"
+            f"Runtime at depth {int(d_hi)}: %{{customdata[1]:.4g}} s<br>"
+            "Blow-up factor: %{x:.2f}×<extra></extra>"
+        ),
+    ))
+    fig.add_vline(
+        x=1.0, line=dict(color=GREEN, width=1.2, dash="dot"),
+        annotation_text="1× · depth-robust", annotation_position="top",
+        annotation_font=dict(size=10, color=GREEN),
+    )
+    fig.update_layout(
+        **_CHART_LAYOUT,
+        height=max(280, len(gr) * 34 + 80),
+        xaxis=dict(title=f"Runtime blow-up, depth {int(d_lo)} → {int(d_hi)}  "
+                   "(lower = handles depth better)",
+                   gridcolor=BORDER, zeroline=False),
+        yaxis=dict(gridcolor="rgba(0,0,0,0)", automargin=True),
+        margin=dict(l=10, r=90, t=30, b=48),
+        showlegend=False,
+    )
+    return fig
+
+
+def fig_tree_quality_vs_depth(df: pd.DataFrame) -> go.Figure:
+    """Spearman ρ vs tree depth — does approximation fidelity survive deep trees?
+
+    The efficiency question is only half the story: a backend that stays fast but
+    loses rank fidelity as trees deepen is still a poor choice. Lines that stay
+    near the top (and above the ρ = 0.9 line) keep their explanations trustworthy
+    at extreme depths.
+    """
+    depth = _depth_col(df)
+    if not depth:
+        return fig_empty("This dataset has no tree-depth column")
+
+    sub = df.copy()
+    sub["backend"] = _tree_col(sub, "backend")
+    sub[depth] = pd.to_numeric(sub[depth], errors="coerce")
+    sub["mean_sample_rho"] = pd.to_numeric(
+        _tree_col(sub, "mean_sample_rho"), errors="coerce")
+    sub = sub[sub[depth].notna() & sub["mean_sample_rho"].notna()
+              & ~sub["is_failure"]]
+    if sub.empty or sub[depth].nunique() < 2:
+        return fig_empty("Not enough tree-depth variation to show a trend")
+
+    grp = (
+        sub.groupby(["backend", "library", depth])
+        .agg(rho=("mean_sample_rho", "median")).reset_index()
+    )
+    fig = go.Figure()
+    for backend, bdf in grp.groupby("backend"):
+        lib = bdf["library"].iloc[0]
+        bdf = bdf.sort_values(depth)
+        fig.add_trace(go.Scatter(
+            x=bdf[depth], y=bdf["rho"],
+            mode="lines+markers", name=_tree_backend_label(backend),
+            line=dict(color=_lib_color(lib), width=2),
+            marker=dict(size=8, color=_lib_color(lib),
+                        line=dict(color="white", width=1.5)),
+            hovertemplate=(
+                f"<b>{_tree_backend_label(backend)}</b><br>"
+                "Tree depth: %{x}<br>Spearman ρ: %{y:.3f}<extra></extra>"
+            ),
+        ))
+    fig.add_hline(
+        y=RHO_GOOD, line=dict(color=GREEN, width=1.2, dash="dot"),
+        annotation_text=f"ρ = {RHO_GOOD}", annotation_position="bottom right",
+        annotation_font=dict(size=10, color=GREEN),
+    )
+    fig.update_layout(
+        **_CHART_LAYOUT, height=440, margin=_MARGIN, legend=_LEGEND_H,
+        xaxis=dict(title="Maximum tree depth",
+                   gridcolor=BORDER, zeroline=False),
         yaxis=dict(title="Median Spearman ρ  (higher = better)",
                    range=[0, 1.08], gridcolor=BORDER, zeroline=False),
     )
