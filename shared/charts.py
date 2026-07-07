@@ -1072,29 +1072,40 @@ def fig_tree_runtime_vs_depth(df: pd.DataFrame) -> go.Figure:
 
     grp = (
         sub.groupby(["backend", "library", depth])
-        .agg(rt=("runtime_s", "median")).reset_index()
+        .agg(rt_med=("runtime_s", "median"),
+             rt_max=("runtime_s", "max")).reset_index()
     )
     fig = go.Figure()
     for backend, bdf in grp.groupby("backend"):
         lib = bdf["library"].iloc[0]
         bdf = bdf.sort_values(depth)
+        med = bdf["rt_med"].clip(lower=_RUNTIME_FLOOR)
+        mx = bdf["rt_max"].clip(lower=_RUNTIME_FLOOR)
+        # Upper whisker reaches the slowest run at that depth — this is what
+        # surfaces the "shapiq takes 100 s on deep trees" worst cases that a
+        # median alone completely hides.
         fig.add_trace(go.Scatter(
-            x=bdf[depth], y=bdf["rt"].clip(lower=_RUNTIME_FLOOR),
+            x=bdf[depth], y=med,
             mode="lines+markers", name=_tree_backend_label(backend),
             line=dict(color=_lib_color(lib), width=2),
             marker=dict(size=8, color=_lib_color(lib),
                         line=dict(color="white", width=1.5)),
+            error_y=dict(type="data", symmetric=False,
+                         array=(mx - med).values, arrayminus=[0] * len(med),
+                         color=_lib_color(lib), thickness=1.2, width=4),
+            customdata=np.stack([mx.values], axis=1),
             hovertemplate=(
                 f"<b>{_tree_backend_label(backend)}</b><br>"
-                "Tree depth: %{x}<br>Runtime: %{y:.4g} s<extra></extra>"
+                "Tree depth: %{x}<br>Median: %{y:.4g} s<br>"
+                "Worst case: %{customdata[0]:.4g} s<extra></extra>"
             ),
         ))
     fig.update_layout(
-        **_CHART_LAYOUT, height=440, margin=_MARGIN, legend=_LEGEND_H,
+        **_CHART_LAYOUT, height=460, margin=_MARGIN, legend=_LEGEND_H,
         xaxis=dict(title="Maximum tree depth",
                    gridcolor=BORDER, zeroline=False),
-        yaxis=dict(title="Median runtime (s) — log scale", type="log",
-                   gridcolor=BORDER, zeroline=False),
+        yaxis=dict(title="Runtime (s) — log scale  ·  marker = median, whisker = worst case",
+                   type="log", gridcolor=BORDER, zeroline=False),
     )
     return fig
 
@@ -1222,11 +1233,19 @@ def fig_tree_quality_vs_depth(df: pd.DataFrame) -> go.Figure:
         annotation_text=f"ρ = {RHO_GOOD}", annotation_position="bottom right",
         annotation_font=dict(size=10, color=GREEN),
     )
+    # Auto-zoom the y-axis to the actual data band (ρ is typically 0.9–1.0 for
+    # tree explainers). A fixed 0–1 range would crush every line against the
+    # top and hide the differences the user cares about; we still keep the
+    # ρ = 0.9 reference line in view so "good vs. degraded" stays readable.
+    y_lo = float(grp["rho"].min())
+    y_hi = float(grp["rho"].max())
+    pad = max((y_hi - y_lo) * 0.15, 0.005)
+    y_range = [min(y_lo - pad, RHO_GOOD - 0.02), min(y_hi + pad, 1.01)]
     fig.update_layout(
         **_CHART_LAYOUT, height=440, margin=_MARGIN, legend=_LEGEND_H,
         xaxis=dict(title="Maximum tree depth",
                    gridcolor=BORDER, zeroline=False),
-        yaxis=dict(title="Median Spearman ρ  (higher = better)",
-                   range=[0, 1.08], gridcolor=BORDER, zeroline=False),
+        yaxis=dict(title="Median Spearman ρ  (higher = better, zoomed to data)",
+                   range=y_range, gridcolor=BORDER, zeroline=False),
     )
     return fig

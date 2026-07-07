@@ -110,20 +110,10 @@ def _build_charts(comp_col: str) -> list:
 
     backend_charts = [
         dict(
-            section_id="rq4-runtime-section",
-            title="Runtime by Algorithm (Backend)",
-            subtitle="Median wall-clock time per algorithm variant, log scale. "
-            "This is the headline result: exact tree-path methods finish in "
-            "milliseconds while shapiq's interaction backend runs tens of seconds "
-            "slower. Hatched, faded bars mark backends that returned no valid "
-
-            "values (a breaking point rather than genuine speed).",
-            fn=S.fig_tree_runtime_by_backend,
-        ),
-        dict(
             section_id="rq4-scaling-section",
             title="Runtime vs Number of Features",
             subtitle="The real complexity axis. Each line is one backend; a steep slope "
+
             "means the method becomes a computational bottleneck as the "
             "explanation problem grows in dimensionality. Flat lines scale "
             "gracefully.",
@@ -161,12 +151,12 @@ def _build_charts(comp_col: str) -> list:
 
 
 _INTERP = (
-    "How to read this page: start with the runtime-by-backend chart to see the raw speed "
-
-    "hierarchy across algorithm variants, then use the runtime-vs-features chart to judge "
-    "how each one scales. The interaction-order chart isolates the cost of going from main "
-    "effects to pairwise interactions, and the speed-vs-accuracy scatter shows which "
-    "backends stay both fast and faithful (upper-left)."
+    "How to read this page: the first three charts answer RQ4 head-on — runtime-vs-depth "
+    "(with worst-case whiskers) shows how each backend scales as trees deepen, the "
+    "depth-scaling-factor bars rank how much cost blows up from shallow to deep trees, and "
+    "quality-vs-depth confirms fidelity survives. The remaining charts add context: how cost "
+    "scales with feature count, the jump from main effects to pairwise interactions, and the "
+    "overall speed-vs-accuracy trade-off (upper-left = fast and faithful)."
 )
 
 
