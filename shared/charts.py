@@ -1110,6 +1110,82 @@ def fig_tree_runtime_vs_depth(df: pd.DataFrame) -> go.Figure:
     return fig
 
 
+def fig_tree_mean_runtime_vs_depth(df: pd.DataFrame) -> go.Figure:
+    """Mean runtime vs tree depth (log y) — one line per backend.
+
+    Companion to fig_tree_runtime_vs_depth.  The median chart shows the
+    "typical" run; this chart shows the *mean*, which is pulled up by outlier
+    runs and therefore better reflects real-world expected cost.  When median
+    and mean diverge strongly (as for shapiq interaction at deep trees) it is a
+    clear sign the distribution is right-skewed and the occasional slow run
+    dominates the average.  Whiskers here span mean ± 1 standard deviation so
+    you can see the spread directly.
+    """
+    depth = _depth_col(df)
+    if not depth:
+        return fig_empty("This dataset has no tree-depth column")
+
+    sub = df.copy()
+    sub["backend"] = _tree_col(sub, "backend")
+    sub[depth] = pd.to_numeric(sub[depth], errors="coerce")
+    sub["runtime_s"] = pd.to_numeric(
+        _tree_col(sub, "runtime_s"), errors="coerce")
+    sub = sub[sub[depth].notna() & sub["runtime_s"].notna()
+              & ~sub["is_failure"]]
+    if sub.empty or sub[depth].nunique() < 2:
+        return fig_empty("Not enough tree-depth variation to show a trend")
+
+    grp = (
+        sub.groupby(["backend", "library", depth])
+        .agg(rt_mean=("runtime_s", "mean"),
+             rt_std=("runtime_s", "std"),
+             rt_max=("runtime_s", "max")).reset_index()
+    )
+    # Fill NaN std (single-run groups) with 0
+    grp["rt_std"] = grp["rt_std"].fillna(0.0)
+
+    fig = go.Figure()
+    for backend, bdf in grp.groupby("backend"):
+        lib = bdf["library"].iloc[0]
+        bdf = bdf.sort_values(depth)
+        mean = bdf["rt_mean"].clip(lower=_RUNTIME_FLOOR)
+        std = bdf["rt_std"]
+        mx = bdf["rt_max"].clip(lower=_RUNTIME_FLOOR)
+
+        # Upper whisker = +1 std (or clipped to max), lower whisker = -1 std
+        # but never below the display floor.
+        # absolute delta above mean
+        upper = (mean + std - mean).clip(lower=0).values
+        lower = (mean - (mean - std).clip(lower=_RUNTIME_FLOOR)
+                 ).values  # absolute delta below mean
+
+        fig.add_trace(go.Scatter(
+            x=bdf[depth], y=mean,
+            mode="lines+markers", name=_tree_backend_label(backend),
+            line=dict(color=_lib_color(lib), width=2),
+            marker=dict(size=8, color=_lib_color(lib),
+                        line=dict(color="white", width=1.5)),
+            error_y=dict(type="data", symmetric=False,
+                         array=upper, arrayminus=lower,
+                         color=_lib_color(lib), thickness=1.2, width=4),
+            customdata=np.stack([mx.values, std.values], axis=1),
+            hovertemplate=(
+                f"<b>{_tree_backend_label(backend)}</b><br>"
+                "Tree depth: %{x}<br>Mean: %{y:.4g} s<br>"
+                "Std dev: %{customdata[1]:.4g} s<br>"
+                "Worst case: %{customdata[0]:.4g} s<extra></extra>"
+            ),
+        ))
+    fig.update_layout(
+        **_CHART_LAYOUT, height=460, margin=_MARGIN, legend=_LEGEND_H,
+        xaxis=dict(title="Maximum tree depth",
+                   gridcolor=BORDER, zeroline=False),
+        yaxis=dict(title="Runtime (s) — log scale  ·  marker = mean, whisker = ±1 std dev",
+                   type="log", gridcolor=BORDER, zeroline=False),
+    )
+    return fig
+
+
 def fig_tree_depth_scaling_factor(df: pd.DataFrame) -> go.Figure:
     """Horizontal bars: runtime blow-up from the shallowest to the deepest tree.
 

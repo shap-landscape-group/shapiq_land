@@ -48,6 +48,7 @@ from .charts import (
     fig_tree_accuracy_vs_runtime,
     fig_tree_quality_ranking,
     fig_tree_runtime_vs_depth,
+    fig_tree_mean_runtime_vs_depth,
     fig_tree_depth_scaling_factor,
     fig_tree_quality_vs_depth,
     _complexity_col,   # used by pages/rq4_trees.py as S._complexity_col

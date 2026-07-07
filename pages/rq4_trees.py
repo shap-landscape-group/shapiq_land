@@ -79,12 +79,13 @@ def _build_charts(comp_col: str) -> list:
     depth_charts = [
         dict(
             section_id="rq4-depth-runtime-section",
-            title="Runtime vs Tree Depth",
+            title="Runtime vs Tree Depth (Median)",
             subtitle="The direct answer to RQ4. Each line is one algorithm backend; "
             "the x-axis is the maximum tree depth (4 → 80) and the y-axis is median "
             "runtime on a log scale. A rising line means the method gets more "
             "expensive as trees deepen — a potential bottleneck for deep models — "
-            "while a flat line means the backend is depth-robust.",
+            "while a flat line means the backend is depth-robust. "
+            "Whiskers reach the worst-case (slowest) run at each depth.",
             fn=S.fig_tree_runtime_vs_depth,
         ),
         dict(
