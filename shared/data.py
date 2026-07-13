@@ -77,7 +77,7 @@ def load_data(path: str) -> pd.DataFrame:
 
     if "computation_type" in df.columns:
         approx_df = df[df["computation_type"] == "approximation"].copy()
-        if approx_df.empty and not df.empty and "pairwise_metrics" in df.columns:
+        if approx_df.empty and not df.empty:
             # Tree / exact-method CSVs have no "approximation" rows; all methods are
             # "true_value" types being compared against a common reference.
             # Keep every row EXCEPT the primary reference itself (backend ends in _true_value).
