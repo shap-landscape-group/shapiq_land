@@ -90,6 +90,13 @@ def _load(path: str) -> pd.DataFrame:
     return pd.DataFrame()
 
 
+def _band_fill(hex_color: str, alpha: float = 0.13) -> str:
+    """Convert #RRGGBB to rgba(r,g,b,alpha) — Plotly rejects 8-digit hex."""
+    h = hex_color.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return f"rgba({r},{g},{b},{alpha})"
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Local layout helpers
 # ─────────────────────────────────────────────────────────────────────────────
@@ -158,6 +165,53 @@ def _col_note(*parts: str) -> html.Div:
         "borderBottom": f"1px solid {S.BORDER}",
         "background": S.BG,
         "letterSpacing": "0.01em",
+    })
+
+
+def _filter_bar() -> html.Div:
+    """Dataset / model / approximator filter row rendered IN the page so
+    IDs always exist in the DOM at load time (avoids topbar timing race)."""
+    df = _load(_CONVERGENCE)
+    datasets = [{"label": "All datasets", "value": "__all__"}] + \
+               [{"label": d, "value": d} for d in sorted(df["dataset"].dropna().unique())] \
+               if not df.empty else [{"label": "All datasets", "value": "__all__"}]
+    models   = [{"label": "All models", "value": "__all__"}] + \
+               [{"label": m, "value": m} for m in sorted(df["model"].dropna().unique())] \
+               if not df.empty else [{"label": "All models", "value": "__all__"}]
+    approxs  = sorted(df["approximator"].dropna().unique()) if not df.empty else []
+
+    lbl_style = {"fontSize": "10px", "fontWeight": "700", "color": S.TEXT2,
+                 "textTransform": "uppercase", "letterSpacing": "0.06em",
+                 "marginBottom": "3px"}
+    return html.Div([
+        html.Div([
+            html.Div("Dataset", style=lbl_style),
+            dcc.Dropdown(id="rq2-ds", options=datasets, value="__all__",
+                         clearable=False,
+                         style={"width": "150px", "fontSize": "12px", "minHeight": "28px"}),
+        ], style={"marginRight": "12px"}),
+        html.Div([
+            html.Div("Model", style=lbl_style),
+            dcc.Dropdown(id="rq2-mdl", options=models, value="__all__",
+                         clearable=False,
+                         style={"width": "140px", "fontSize": "12px", "minHeight": "28px"}),
+        ], style={"marginRight": "16px"}),
+        html.Div([
+            html.Div("Approximator", style=lbl_style),
+            dcc.Checklist(
+                id="rq2-approx",
+                options=[{"label": f" {a}", "value": a} for a in approxs],
+                value=list(approxs),
+                inline=True,
+                inputStyle={"marginRight": "3px"},
+                labelStyle={"marginRight": "8px", "fontSize": "12px", "cursor": "pointer"},
+            ),
+        ]),
+    ], style={
+        "display": "flex", "alignItems": "flex-end", "flexWrap": "wrap",
+        "gap": "4px", "padding": "10px 16px 10px",
+        "background": S.BG, "borderBottom": f"1px solid {S.BORDER}",
+        "marginBottom": "4px",
     })
 
 
@@ -268,7 +322,7 @@ def _build_convergence_figure(pooled: pd.DataFrame, metric: str) -> go.Figure:
         fig.add_trace(go.Scatter(
             x=pd.concat([mdf["budget"], mdf["budget"][::-1]]),
             y=pd.concat([mdf[q75], mdf[q25][::-1]]),
-            fill="toself", fillcolor=color + "22",
+                fill="toself", fillcolor=_band_fill(color),
             line=dict(width=0), hoverinfo="skip",
             legendgroup=method, showlegend=False,
         ))
@@ -765,9 +819,9 @@ def layout(**kwargs):
     Output("rq2-f3-chart", "children"),
     Output("rq2-f4-chart", "children"),
     Output("rq2-f5-chart", "children"),
-    Input("rq2-ds", "value"),
-    Input("rq2-mdl", "value"),
-    Input("rq2-approx", "value"),
+    Input("rq2-ds", "data"),
+    Input("rq2-mdl", "data"),
+    Input("rq2-approx", "data"),
     Input("rq2-conv-metric", "value"),
     Input("rq2-stability-budget", "value"),
 )

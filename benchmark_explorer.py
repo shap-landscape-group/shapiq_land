@@ -153,6 +153,13 @@ app.layout = html.Div(
     [
         dcc.Location(id="url"),
         dcc.Store(id="sidebar-is-open", data=True),
+        # Filter stores — always in layout so chart callbacks never race the topbar
+        dcc.Store(id="rq1-ds",    data="__all__"),
+        dcc.Store(id="rq1-mdl",   data="__all__"),
+        dcc.Store(id="rq1-approx", data=None),   # None → all approximators
+        dcc.Store(id="rq2-ds",    data="__all__"),
+        dcc.Store(id="rq2-mdl",   data="__all__"),
+        dcc.Store(id="rq2-approx", data=None),
 
         # Advisor overlay + panel
         html.Div(id="advisor-overlay", className="advisor-overlay", n_clicks=0,
@@ -405,9 +412,9 @@ def _render_page_topbar(pathname):
         )
 
     # ── RQ1 ───────────────────────────────────────────────────────────────
-    # Options come from the CONVERTED table (results_converters/
-    # rq1_results_converter.py output), not the raw CSV — the page loads
-    # the same file, so filter options always match plottable values.
+    # Visible controls use -ctl suffix IDs; they sync into dcc.Store nodes
+    # (rq1-ds, rq1-mdl, rq1-approx) that live in the main layout and are
+    # always present, so the chart callback never races the topbar.
     if pathname == "/rq1":
         _csv = os.path.join(_RESULTS, "converted", "rq1_scaling_aggregated.csv")
         df = pd.read_csv(_csv) if os.path.exists(_csv) else pd.DataFrame(
@@ -424,20 +431,20 @@ def _render_page_topbar(pathname):
             _src_tag(src),
             html.Div([
                 _lbl("Dataset"),
-                dcc.Dropdown(id="rq1-ds", options=datasets, value="__all__",
+                dcc.Dropdown(id="rq1-ds-ctl", options=datasets, value="__all__",
                              clearable=False,
                              style={"width": "150px", "fontSize": "12px", "minHeight": "28px"}),
             ], style={"marginRight": "4px"}),
             html.Div([
                 _lbl("Model"),
-                dcc.Dropdown(id="rq1-mdl", options=models, value="__all__",
+                dcc.Dropdown(id="rq1-mdl-ctl", options=models, value="__all__",
                              clearable=False,
                              style={"width": "140px", "fontSize": "12px", "minHeight": "28px"}),
             ], style={"marginRight": "4px"}),
             html.Div([
                 _lbl("Approximator"),
                 dcc.Checklist(
-                    id="rq1-approx",
+                    id="rq1-approx-ctl",
                     options=[{"label": f" {a}", "value": a} for a in approxs],
                     value=list(approxs),
                     inline=True,
@@ -448,10 +455,6 @@ def _render_page_topbar(pathname):
         ]
 
     # ── RQ2 ───────────────────────────────────────────────────────────────
-    # Options come from the CONVERTED table (results_converters/
-    # rq2_results_converter.py output). n_background is constant (100) in
-    # the new data and budget toggles moved into the affected chart cards,
-    # so the topbar carries dataset / model / approximator only.
     if pathname == "/rq2":
         _csv = os.path.join(_RESULTS, "converted", "rq2_convergence_aggregated.csv")
         df = pd.read_csv(_csv) if os.path.exists(_csv) else pd.DataFrame(
@@ -468,20 +471,20 @@ def _render_page_topbar(pathname):
             _src_tag(src),
             html.Div([
                 _lbl("Dataset"),
-                dcc.Dropdown(id="rq2-ds", options=datasets, value="__all__",
+                dcc.Dropdown(id="rq2-ds-ctl", options=datasets, value="__all__",
                              clearable=False,
                              style={"width": "150px", "fontSize": "12px", "minHeight": "28px"}),
             ], style={"marginRight": "4px"}),
             html.Div([
                 _lbl("Model"),
-                dcc.Dropdown(id="rq2-mdl", options=models, value="__all__",
+                dcc.Dropdown(id="rq2-mdl-ctl", options=models, value="__all__",
                              clearable=False,
                              style={"width": "140px", "fontSize": "12px", "minHeight": "28px"}),
             ], style={"marginRight": "4px"}),
             html.Div([
                 _lbl("Approximator"),
                 dcc.Checklist(
-                    id="rq2-approx",
+                    id="rq2-approx-ctl",
                     options=[{"label": f" {a}", "value": a} for a in approxs],
                     value=list(approxs),
                     inline=True,
@@ -535,6 +538,29 @@ def _render_page_topbar(pathname):
         ]
 
     return []
+
+
+# ── Topbar → Store sync callbacks ─────────────────────────────────────────────
+# The -ctl controls live in the dynamic topbar slot; the stores are always in
+# the main layout.  suppress_callback_exceptions handles the case where the
+# topbar hasn't rendered the -ctl element yet.
+@app.callback(Output("rq1-ds",    "data"), Input("rq1-ds-ctl",    "value"), prevent_initial_call=True)
+def _sync_rq1_ds(v):    return v or "__all__"
+
+@app.callback(Output("rq1-mdl",   "data"), Input("rq1-mdl-ctl",   "value"), prevent_initial_call=True)
+def _sync_rq1_mdl(v):   return v or "__all__"
+
+@app.callback(Output("rq1-approx","data"), Input("rq1-approx-ctl","value"), prevent_initial_call=True)
+def _sync_rq1_approx(v): return v  # None or list — page handles both
+
+@app.callback(Output("rq2-ds",    "data"), Input("rq2-ds-ctl",    "value"), prevent_initial_call=True)
+def _sync_rq2_ds(v):    return v or "__all__"
+
+@app.callback(Output("rq2-mdl",   "data"), Input("rq2-mdl-ctl",   "value"), prevent_initial_call=True)
+def _sync_rq2_mdl(v):   return v or "__all__"
+
+@app.callback(Output("rq2-approx","data"), Input("rq2-approx-ctl","value"), prevent_initial_call=True)
+def _sync_rq2_approx(v): return v
 
 
 # ── Dev server ────────────────────────────────────────────────────────────────

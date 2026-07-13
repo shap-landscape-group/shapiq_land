@@ -91,6 +91,13 @@ def _load(path: str) -> pd.DataFrame:
     return pd.DataFrame()
 
 
+def _band_fill(hex_color: str, alpha: float = 0.13) -> str:
+    """Convert #RRGGBB to rgba(r,g,b,alpha) — Plotly rejects 8-digit hex."""
+    h = hex_color.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return f"rgba({r},{g},{b},{alpha})"
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Local layout helpers (unchanged style from the previous page version)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -164,6 +171,53 @@ def _col_note(*parts: str) -> html.Div:
         "borderBottom": f"1px solid {S.BORDER}",
         "background": S.BG,
         "letterSpacing": "0.01em",
+    })
+
+
+def _filter_bar() -> html.Div:
+    """Dataset / model / approximator filter row, rendered IN the page so
+    IDs always exist in the DOM at load time (avoids topbar timing race)."""
+    df = _load(_AGGREGATED)
+    datasets  = [{"label": "All datasets", "value": "__all__"}] + \
+                [{"label": d, "value": d} for d in sorted(df["dataset"].dropna().unique())] \
+                if not df.empty else [{"label": "All datasets", "value": "__all__"}]
+    models    = [{"label": "All models", "value": "__all__"}] + \
+                [{"label": m, "value": m} for m in sorted(df["model"].dropna().unique())] \
+                if not df.empty else [{"label": "All models", "value": "__all__"}]
+    approxs   = sorted(df["approximator"].dropna().unique()) if not df.empty else []
+
+    lbl_style = {"fontSize": "10px", "fontWeight": "700", "color": S.TEXT2,
+                 "textTransform": "uppercase", "letterSpacing": "0.06em",
+                 "marginBottom": "3px"}
+    return html.Div([
+        html.Div([
+            html.Div("Dataset", style=lbl_style),
+            dcc.Dropdown(id="rq1-ds", options=datasets, value="__all__",
+                         clearable=False,
+                         style={"width": "150px", "fontSize": "12px", "minHeight": "28px"}),
+        ], style={"marginRight": "12px"}),
+        html.Div([
+            html.Div("Model", style=lbl_style),
+            dcc.Dropdown(id="rq1-mdl", options=models, value="__all__",
+                         clearable=False,
+                         style={"width": "140px", "fontSize": "12px", "minHeight": "28px"}),
+        ], style={"marginRight": "16px"}),
+        html.Div([
+            html.Div("Approximator", style=lbl_style),
+            dcc.Checklist(
+                id="rq1-approx",
+                options=[{"label": f" {a}", "value": a} for a in approxs],
+                value=list(approxs),
+                inline=True,
+                inputStyle={"marginRight": "3px"},
+                labelStyle={"marginRight": "8px", "fontSize": "12px", "cursor": "pointer"},
+            ),
+        ]),
+    ], style={
+        "display": "flex", "alignItems": "flex-end", "flexWrap": "wrap",
+        "gap": "4px", "padding": "10px 16px 10px",
+        "background": S.BG, "borderBottom": f"1px solid {S.BORDER}",
+        "marginBottom": "4px",
     })
 
 
@@ -263,7 +317,7 @@ def _scaling_traces(sub: pd.DataFrame, metric: str, showlegend: bool):
             traces.append(go.Scatter(
                 x=pd.concat([mdf["n_features"], mdf["n_features"][::-1]]),
                 y=pd.concat([yhi, ylo[::-1]]),
-                fill="toself", fillcolor=color + "22",
+                fill="toself", fillcolor=_band_fill(color),
                 line=dict(width=0), hoverinfo="skip",
                 legendgroup=method, showlegend=False,
             ))
@@ -375,45 +429,105 @@ def _build_runtime_scaling_figure(agg: pd.DataFrame, dataset: str,
 #     budgets at fixed dimensionality).
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _build_budget_effect_figure(agg: pd.DataFrame, dataset: str) -> go.Figure:
+def _build_budget_effect_figure(agg: pd.DataFrame, dataset: str,
+                                view: str = "box") -> go.Figure:
+    """
+    RQ1-F2 — Does doubling the budget (512 → 1024) double the runtime?
+
+    A ratio of exactly 2 means runtime grows linearly with budget (all cost is
+    model evaluations). Ratio < 2 means fixed overhead (coalition construction,
+    Python startup, etc.) dominates — doubling the budget costs less than 2×.
+    Ratio >> 2 signals an anomaly (near-zero denominator) and those cells are
+    excluded.
+
+    view='box'     → distribution of ratios per method across all cells
+    view='scatter' → ratio vs n_features, one dot per dataset×model cell,
+                     coloured by method — reveals whether the ratio changes
+                     with dimensionality
+    """
     if agg.empty:
         return S.fig_empty()
     sub = agg if dataset == "__all__" else agg[agg["dataset"] == dataset]
 
     cell_keys = ["dataset", "model", "n_features", "method", "library"]
-    wide = sub.pivot_table(index=cell_keys, columns="budget",
-                           values="runtime_median").reset_index()
+
+    # Exclude cells where runtime_median is unreliable:
+    #   time_cap_count > 0  → runtime truncated at ~600s cap
+    #   evals_missing_count > 0 → structural failure (budget < 2M+2), leaving
+    #     near-zero runtimes that make the ratio meaningless.
+    clean = sub[
+        (sub["time_cap_count"] == 0) &
+        (sub["evals_missing_count"] == 0)
+    ]
+
+    wide = clean.pivot_table(index=cell_keys, columns="budget",
+                             values="runtime_median").reset_index()
     if 512 not in wide.columns or 1024 not in wide.columns:
         return S.fig_empty("Need both budgets in the current filter")
     wide = wide.dropna(subset=[512, 1024])
     wide["ratio"] = wide[1024] / wide[512]
 
-    fig = go.Figure()
     order = (wide.groupby("method")["ratio"].median()
              .sort_values().index.tolist())
-    for method in order:
-        mdf = wide[wide["method"] == method]
-        color = _lib_color(mdf["library"].iloc[0])
-        fig.add_trace(go.Box(
-            y=mdf["ratio"], name=method,
-            marker_color=color, line_color=color,
-            boxpoints="all", jitter=0.35, pointpos=0,
-            marker=dict(size=4, opacity=0.5),
-            fillcolor="rgba(0,0,0,0)",
-            hovertemplate=f"<b>{method}</b><br>runtime ×%{{y:.2f}} at 2× budget<extra></extra>",
-            showlegend=False,
-        ))
+
+    fig = go.Figure()
+
+    if view == "scatter":
+        for method in order:
+            mdf = wide[wide["method"] == method].sort_values("n_features")
+            color = _lib_color(mdf["library"].iloc[0])
+            dash = "dash" if mdf["method"].iloc[0].endswith("permutation") else "solid"
+            fig.add_trace(go.Scatter(
+                x=mdf["n_features"], y=mdf["ratio"],
+                mode="markers+lines", name=method,
+                line=dict(color=color, dash=dash, width=1.2),
+                marker=dict(color=color, size=5, opacity=0.7),
+                hovertemplate=(
+                    f"<b>{method}</b><br>"
+                    "n_features=%{x}<br>ratio=%{y:.2f}<extra></extra>"
+                ),
+            ))
+        fig.update_layout(
+            **S._CHART_LAYOUT, height=400,
+            margin=dict(l=55, r=16, t=36, b=50),
+            xaxis=dict(title="n_features", gridcolor=S.BORDER),
+            yaxis=dict(title="runtime(1024) / runtime(512)",
+                       gridcolor=S.BORDER, zeroline=False),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02,
+                        xanchor="left", x=0, font=dict(size=11)),
+        )
+    else:  # box
+        for method in order:
+            mdf = wide[wide["method"] == method]
+            color = _lib_color(mdf["library"].iloc[0])
+            fig.add_trace(go.Box(
+                y=mdf["ratio"], name=method,
+                marker_color=color, line_color=color,
+                boxpoints="all", jitter=0.35, pointpos=0,
+                marker=dict(size=4, opacity=0.5),
+                fillcolor="rgba(0,0,0,0)",
+                hovertemplate=(
+                    f"<b>{method}</b><br>"
+                    "ratio=%{y:.2f}<extra></extra>"
+                ),
+                showlegend=False,
+            ))
+        fig.update_layout(
+            **S._CHART_LAYOUT, height=400,
+            margin=dict(l=55, r=16, t=36, b=90),
+            xaxis=dict(tickangle=-25, gridcolor="rgba(0,0,0,0)", automargin=True),
+            yaxis=dict(title="runtime(1024) / runtime(512)",
+                       gridcolor=S.BORDER, zeroline=False),
+        )
+
     fig.add_hline(y=2.0, line=dict(color=S.TEXT2, width=1.2, dash="dot"),
-                  annotation_text="2× — linear budget scaling",
+                  annotation_text="ratio = 2 → linear scaling",
                   annotation_position="top right",
                   annotation_font=dict(size=10, color=S.TEXT2))
-    fig.update_layout(
-        **S._CHART_LAYOUT, height=400,
-        margin=dict(l=55, r=16, t=36, b=90),
-        xaxis=dict(tickangle=-25, gridcolor="rgba(0,0,0,0)", automargin=True),
-        yaxis=dict(title="runtime(1024) / runtime(512)",
-                   gridcolor=S.BORDER, zeroline=False),
-    )
+    fig.add_hline(y=1.0, line=dict(color=S.BORDER, width=0.8, dash="dot"),
+                  annotation_text="ratio = 1 → no extra cost",
+                  annotation_position="bottom right",
+                  annotation_font=dict(size=10, color=S.TEXT2))
     return fig
 
 
@@ -696,13 +810,19 @@ def layout(**kwargs):
         # RQ1-F2
         S.section(
             "RQ1-F2 · Budget effect on runtime (512 → 1024)",
-            "Each point = one dataset × model × n_features cell. Ratio ≈ 2 "
-            "means runtime scales linearly with budget; below 2 means fixed "
-            "overhead dominates.",
+            "If doubling the budget doubles the runtime (ratio = 2), all cost "
+            "is model evaluations and there is no fixed overhead. "
+            "Ratio < 2 means startup / coalition construction dominates — "
+            "doubling the budget is cheaper than 2×. "
+            "Use 'By n_features' to see whether this changes with dimensionality.",
             html.Div([
+                _axis_toggle("rq1-f2-view",
+                             {"box": "Distribution (box)", "scatter": "By n_features"},
+                             "box", label="View"),
                 _col_note(
                     "source: converted/rq1_scaling_aggregated.csv",
                     "ratio = runtime_median(1024) / runtime_median(512) per experiment cell",
+                    "cells with failed or time-capped runs excluded (ratio undefined there)",
                 ),
                 html.Div(id="rq1-f2-chart", style={"padding": "8px"}),
             ]),
@@ -767,8 +887,9 @@ def layout(**kwargs):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _apply_filters(df, ds, mdl, approxs):
-    """Topbar filtering. Model pooling note: when mdl == '__all__' the
-    figure builders pool models by median and say so on the chart."""
+    """Filter by topbar store values. approxs may be None (= all) or a list."""
+    ds = ds or "__all__"
+    mdl = mdl or "__all__"
     if ds != "__all__" and "dataset" in df.columns:
         df = df[df["dataset"] == ds]
     if mdl != "__all__" and "model" in df.columns:
@@ -784,17 +905,19 @@ def _apply_filters(df, ds, mdl, approxs):
     Output("rq1-f3-chart", "children"),
     Output("rq1-f4-chart", "children"),
     Output("rq1-f5-chart", "children"),
-    Input("rq1-ds", "value"),
-    Input("rq1-mdl", "value"),
-    Input("rq1-approx", "value"),
+    Input("rq1-ds", "data"),
+    Input("rq1-mdl", "data"),
+    Input("rq1-approx", "data"),
     Input("rq1-cost-metric", "value"),
     Input("rq1-budget", "value"),
+    Input("rq1-f2-view", "value"),
 )
-def update_rq1(ds, mdl, approxs, cost_metric, budget):
+def update_rq1(ds, mdl, approxs, cost_metric, budget, f2_view):
     ds = ds or "__all__"
     mdl = mdl or "__all__"
     cost_metric = cost_metric or "runtime_s"
     budget = int(budget or 512)
+    f2_view = f2_view or "box"
 
     agg = _load(_AGGREGATED)
     feas = _load(_FEASIBILITY)
@@ -826,7 +949,7 @@ def update_rq1(ds, mdl, approxs, cost_metric, budget):
 
     return (
         _g(_build_runtime_scaling_figure(f1_input, ds, cost_metric)),
-        _g(_build_budget_effect_figure(agg_f, ds)),
+        _g(_build_budget_effect_figure(agg_f, ds, f2_view)),
         _g(_build_feasibility_heatmap(feas_f, ds)),
         _g(_build_agreement_figure(f1_input, ds)),
         # F5 deliberately unfiltered — single-seed stress test (see comment).
