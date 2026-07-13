@@ -1,18 +1,12 @@
 """
 pages/rq3_neural_networks.py  —  RQ3: Neural Networks
-
-Edit the PAGE CONFIGURATION block below to change what is shown.
-The layout / filter / callback logic beneath it should rarely need touching.
-
-Data file: results_config-neural-networks-RQ3.csv (falls back to results_nn.csv).
-No fallback to results.csv because the NN benchmark is architecturally distinct.
 """
 import os
 import sys
 
 import dash
 import numpy as np
-import plotly.graph_objects as go
+import pandas as pd
 from dash import Input, Output, callback, dcc, html
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -26,11 +20,30 @@ dash.register_page(
 )
 
 _HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_CSV  = os.path.join(_HERE, "results", "rq3_neural_networks.csv")
+_CSVS = [
+    os.path.join(_HERE, "results", "rq3_results_config-neural-networks-cpu.csv"),
+]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  Local helpers — config card
+#  PAGE CONFIGURATION
+# ─────────────────────────────────────────────────────────────────────────────
+
+_RQ_HEADER = (
+    "RQ3", "Neural Networks & Captum",
+    "As a user with a neural network model, I want to find the fastest explanation method "
+    "while maintaining high game-theoretic alignment and axiomatic integrity."
+)
+
+_INTERP = (
+    "How to read this page: Start with the Spearman Rank Alignment to ensure the explainer captures the correct semantics. "
+    "Check the Logarithmic Runtime comparison to evaluate the operational throughput gains of backpropagation, "
+    "and use the Axiomatic Integrity box plot to verify whether additivity constraints are strictly preserved."
+)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Local helpers — config & guidance cards
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _pill(text: str, bg: str, color: str) -> html.Span:
@@ -53,43 +66,53 @@ def _col(heading, items, bg, color) -> html.Div:
     ], style={"flex": "1", "minWidth": "160px"})
 
 
-def _fig_coverage(df) -> go.Figure:
-    """Dataset \u00d7 model heatmap \u2014 run count per cell."""
-    if df.empty or "model" not in df.columns:
-        return S.fig_empty("No data")
-    counts = df.groupby(["dataset", "model"]).size().reset_index(name="n")
-    pivot  = counts.pivot(index="dataset", columns="model", values="n").fillna(0)
-    z      = pivot.values
-    text   = [[f"{int(v)}" for v in row] for row in z]
-    fig    = go.Figure(go.Heatmap(
-        z=z, x=list(pivot.columns), y=list(pivot.index),
-        text=text, texttemplate="%{text}",
-        colorscale=[[0, "#EEF2FF"], [1, S.ACCENT]],
-        showscale=False,
-        hovertemplate="Dataset: <b>%{y}</b><br>Model: <b>%{x}</b><br>Runs: %{z}<extra></extra>",
-    ))
-    fig.update_layout(
-        **S._CHART_LAYOUT, height=150,
-        margin=dict(l=10, r=10, t=4, b=36),
-        xaxis=dict(title="model type", gridcolor="rgba(0,0,0,0)", tickfont=dict(size=10)),
-        yaxis=dict(gridcolor="rgba(0,0,0,0)", automargin=True, tickfont=dict(size=10)),
-    )
-    return fig
-
-
 def _config_card(df) -> html.Div:
-    """Compact benchmark overview \u2014 config + experiment coverage heatmap."""
-    left  = _col("Swept",
-                 ["3 datasets", "3 model types", "6 libraries",
-                  "7 approximators", "3 seeds (10 planned)"],
-                 "#EEF2FF", S.ACCENT)
-    mid   = _col("Fixed",
-                 ["budget = 512", "n_background = 200",
-                  "n_eval = 100", "imputer = marginal", "GPU (CUDA)"],
-                 "#F1F5F9", S.TEXT2)
+    """Compact benchmark overview — config + experiment coverage."""
+    if df.empty:
+        left_items = ["—"]
+        mid_items = ["—"]
+    else:
+        n_ds = df["dataset"].nunique()
+        n_models = df["model"].nunique()
+        n_libs = df["library"].nunique()
+        n_approx = df["approximator"].nunique()
+        n_seeds = df["seed"].nunique()
+        
+        # Helper to format unique configuration parameters
+        budget = df["budget"].dropna().unique()
+        budget_str = f"budget = {budget[0]}" if len(budget) == 1 else "budget = variable"
+        
+        n_bg = df["n_background"].dropna().unique()
+        nbg_str = f"n_background = {n_bg[0]}" if len(n_bg) == 1 else "n_background = variable"
+        
+        n_ev = df["n_eval"].dropna().unique()
+        nev_str = f"n_eval = {n_ev[0]}" if len(n_ev) == 1 else "n_eval = variable"
+        
+        imp = df["imputer"].dropna().unique()
+        imp_str = f"imputer = {imp[0]}" if len(imp) == 1 else "imputer = variable"
+        
+        dev = df["device"].dropna().unique()
+        dev_str = f"Device = {dev[0].upper()}" if len(dev) == 1 else "Device = variable"
+
+        left_items = [
+            f"{n_ds} datasets",
+            f"{n_models} model types (MLP, CNN-1D, Transformer)",
+            f"{n_libs} libraries",
+            f"{n_approx} approximators",
+            f"{n_seeds} seeds"
+        ]
+        mid_items = [
+            budget_str,
+            nbg_str,
+            nev_str,
+            imp_str,
+            dev_str
+        ]
+
+    left  = _col("Swept", left_items, "#EEF2FF", S.ACCENT)
+    mid   = _col("Fixed", mid_items, "#F1F5F9", S.TEXT2)
     right = _col("Measured",
-                 ["runtime_s", "n_model_evals",
-                  "relative_mae", "mean_sample_rho"],
+                 ["runtime_s", "n_model_evals", "relative_mae", "mean_sample_rho", "relative_additivity_gap"],
                  "#F0FDF4", S.GREEN)
     return html.Div([
         html.Div([
@@ -99,16 +122,7 @@ def _config_card(df) -> html.Div:
             }),
             html.Div([left, mid, right],
                      style={"display": "flex", "gap": "20px", "flexWrap": "wrap"}),
-        ], style={"flex": "1.4", "minWidth": "280px"}),
-        html.Div([
-            html.Div("Experiment coverage  (runs per cell)", style={
-                "fontSize": "10px", "fontWeight": "700", "color": S.TEXT2,
-                "textTransform": "uppercase", "letterSpacing": "0.07em",
-                "marginBottom": "6px",
-            }),
-            dcc.Graph(figure=_fig_coverage(df), config={"displayModeBar": False},
-                      style={"height": "150px"}),
-        ], style={"flex": "1", "minWidth": "240px"}),
+        ], style={"flex": "1", "minWidth": "280px"}),
     ], style={
         "display": "flex", "gap": "32px", "flexWrap": "wrap",
         "background": S.CARD, "borderRadius": "12px",
@@ -117,111 +131,90 @@ def _config_card(df) -> html.Div:
     })
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-#  PAGE CONFIGURATION — edit here to change what the page shows
-# ═════════════════════════════════════════════════════════════════════════════
+def _guidance_box(focus: str) -> html.Div:
+    if focus == "speed":
+        title = "⚡ Speed Focus: Recommend SHAP (DeepSHAP)"
+        body = "DeepSHAP matches the millisecond-level throughput of Captum's backpropagation gradients (~0.15s vs ~0.06s) while securing a much higher 99.1% Spearman rank correlation alignment with the exact Shapley values. If execution speed is critical and model architecture allows, DeepSHAP is the optimal choice."
+        color = S.GREEN
+        bg = "#ECFDF5"
+        border = "#10B981"
+    elif focus == "axiomatic":
+        title = "📐 Axiomatic Completeness Focus: Warn against Captum wrappers"
+        body = "If mathematical consistency and local accuracy (additivity) are critical, avoid Captum's standard wrappers (gradient_shap and deep_lift_shap) as they exhibit significant relative additivity gap violations (exceeding 50% on average). Instead, use model-agnostic samplers (such as lightshap or shapiq) or DeepSHAP, which enforce strict or near-perfect additivity."
+        color = S.RED
+        bg = "#FEF2F2"
+        border = "#EF4444"
+    else:  # interaction
+        title = "🔍 Higher-Order Interactions Focus: Highlight shapIQ"
+        body = "For explaining complex neural layer interactions (e.g. order-2 pairwise effects), shapIQ is the unique pipeline in this benchmark capable of mining multi-variable feature dependencies beyond basic additive attributions."
+        color = S.ACCENT
+        bg = "#EFF6FF"
+        border = "#4B6DD4"
 
-_RQ_HEADER = (
-    "RQ3", "Neural Networks",
-    "As a user with a neural network, I want to know which library is the fastest?"
-)
-
-# Notes shown on the page directly below the research question.
-_REMARKS = [
-    "Benchmark: 3 models (MLP, Transformer, CNN-1D) \u00d7 3 datasets \u00d7 6 libraries \u2014 3 seeds (10 planned).",
-    "Budget fixed at 512. GPU (CUDA) backend. n_background\u202f=\u202f200, n_eval\u202f=\u202f100.",
-    "Open question: ShapIQ supports ProxySHAP \u2014 would this also be interesting?",
-]
-
-
-def _agg(df):
-    """Aggregate raw runs to one row per method — used by the Pareto chart."""
-    if df.empty:
-        return df
-    return (
-        df.groupby(["method", "library", "approximator"])
-        .agg(
-            rho_median=    ("mean_sample_rho", "median"),
-            mae_median=    ("relative_mae",    "median"),
-            runtime_median=("runtime_s",       "median"),
-            sign_median=   ("sign_agreement",  "median"),
-            failure_rate=  ("is_failure",      "mean"),
-        )
-        .reset_index()
+    return html.Div(
+        [
+            html.Div(title, style={"fontSize": "14px", "fontWeight": "700", "color": color, "marginBottom": "6px"}),
+            html.P(body, style={"fontSize": "13px", "color": S.TEXT, "margin": "0", "lineHeight": "1.6"}),
+        ],
+        style={
+            "background": bg,
+            "border": f"1px solid {border}",
+            "borderLeft": f"4px solid {border}",
+            "borderRadius": "8px",
+            "padding": "16px 20px",
+            "marginTop": "12px",
+            "boxShadow": "0 1px 3px rgba(0,0,0,0.05)",
+        }
     )
 
 
-# Charts rendered in order.
-#   title      — section heading shown on the page
-#   subtitle   — one-line description below the heading
-#   fn         — callable(df) -> Plotly Figure  (use lambdas for extra args or pre-aggregation)
-#   section_id — stable DOM id for advisor deep-links and TOC anchors
-_CHARTS = [
-    dict(
-        section_id = "rq3-runtime-section",
-        title      = "Runtime Ranking — Fastest to Slowest",
-        subtitle   = "Bars sorted by median runtime. "
-                     "The shortest bar is the fastest library for your neural network.",
-        fn         = S.fig_runtime_ranking,
-    ),
-    dict(
-        section_id = "rq3-boxplot-section",
-        title      = "Runtime Distribution per Library",
-        subtitle   = "Box plots on a log scale show the spread. "
-                     "Wide boxes or high outliers indicate inconsistent performance.",
-        fn         = S.fig_runtime_boxplots,
-    ),
-    dict(
-        section_id = "rq3-scatter-section",
-        title      = "Speed vs Accuracy",
-        subtitle   = "Does being fast come at the cost of accuracy? "
-                     "Each dot is one benchmark run. Ideally: fast AND high ρ.",
-        fn         = S.fig_rho_vs_runtime,
-    ),
-    dict(
-        section_id = "rq3-pareto-section",
-        title      = "Pareto Frontier — Speed vs Accuracy",
-        subtitle   = "Colored = Pareto-optimal (no other method is both faster AND more accurate). "
-                     "Gray = dominated.",
-        fn         = lambda df: S.fig_pareto(_agg(df)),
-    ),
-    dict(
-        section_id = "rq3-failure-section",
-        title      = "Failure Rate by Model Type",
-        subtitle   = "Fraction of failed runs per method \u00d7 model type. "
-                     "Red cells mark where a method becomes unreliable for a specific architecture.",
-        fn         = S.fig_failure_vs_complexity,
-    ),
-]
-
-_INTERP = (
-    "How to read this page: if runtime is your only concern, pick the method with the shortest "
-    "bar in the ranking chart. Then check the Speed vs Accuracy scatter to confirm it doesn't "
-    "sacrifice too much quality for that speed gain."
-)
-
+# ─────────────────────────────────────────────────────────────────────────────
+#  Layout
+# ─────────────────────────────────────────────────────────────────────────────
 
 def layout(**kwargs):
-    df, src = S.try_load_data(_CSV)
+    df, src = S.try_load_data(*_CSVS)
 
     if src is None:
         return html.Div([
             S.rq_header(*_RQ_HEADER),
-            S.missing_data_banner(_CSV),
+            S.missing_data_banner(_CSVS[0]),
             _schema_hint(),
         ])
-
-    datasets = [{"label": "All datasets", "value": "__all__"}] + \
-               [{"label": d, "value": d} for d in sorted(df["dataset"].dropna().unique())]
-    models   = sorted(df["model"].dropna().unique()) if not df.empty else []
-    libs     = sorted(df["library"].dropna().unique())
 
     return html.Div([
         S.rq_header(*_RQ_HEADER),
         _config_card(df),
+        
+        # Practitioner guidance selection (hidden for now)
+        html.Div(
+            S.section(
+                "Practitioner Guidance Summary",
+                "Select your analytical priority below to view dynamic recommendation highlights.",
+                html.Div([
+                    html.Div([
+                        html.Label("Analytical Focus:", style={"fontWeight": "600", "fontSize": "12px", "color": S.TEXT2, "marginRight": "14px"}),
+                        dcc.RadioItems(
+                            id="rq3-focus-select",
+                            options=[
+                                {"label": " Focus on Speed", "value": "speed"},
+                                {"label": " Focus on Axiomatic Completeness", "value": "axiomatic"},
+                                {"label": " Focus on Higher-Order Interactions", "value": "interaction"},
+                            ],
+                            value="speed",
+                            inline=True,
+                            inputStyle={"marginRight": "4px"},
+                            labelStyle={"marginRight": "20px", "fontSize": "13px", "fontWeight": "500", "cursor": "pointer"}
+                        ),
+                    ], style={"borderBottom": f"1px solid {S.BORDER}", "paddingBottom": "12px"}),
+                    html.Div(id="rq3-guidance-content"),
+                ], style={"padding": "20px"}),
+                section_id="rq3-guidance-section",
+            ),
+            style={"display": "none"}
+        ),
 
-        # ── Dynamic content ───────────────────────────────────────────────────
-        html.Div(id="rq3-kpis"),
+        # ── Dynamic content ────────────────────────────────────────────────────
         html.Div(id="rq3-charts"),
     ])
 
@@ -229,13 +222,14 @@ def layout(**kwargs):
 def _schema_hint() -> html.Div:
     """Hint shown when data file is missing."""
     rows = [
-        ("dataset",    "name of the NN benchmark dataset"),
-        ("model",      "neural network type: mlp, resnet50, bert-tiny, etc."),
-        ("library",    "explanation library: shap, captum, shapiq, etc."),
-        ("approximator", "method used: kernel, gradient, deep, etc."),
-        ("runtime_s",  "wall-clock seconds"),
+        ("dataset",      "name of the NN benchmark dataset"),
+        ("model",        "neural network type: mlp, cnn_1d, transformer, etc."),
+        ("library",      "explanation library: shap, captum, shapiq, etc."),
+        ("approximator", "method used: kernel, permutation, gradient, etc."),
+        ("runtime_s",    "wall-clock seconds"),
         ("relative_mae", "approximation error vs exact values (optional but recommended)"),
-        ("sign_agreement / mean_sample_rho", "accuracy proxies (optional)"),
+        ("mean_sample_rho", "Spearman rank correlation coefficient"),
+        ("relative_additivity_gap", "axiomatic integrity violation gap metric"),
     ]
     th_s = {"fontSize": "10px", "fontWeight": "600", "color": S.TEXT2,
             "textTransform": "uppercase", "letterSpacing": "0.05em",
@@ -245,7 +239,7 @@ def _schema_hint() -> html.Div:
             "borderBottom": f"1px solid {S.BORDER}"}
     return S.section(
         "Expected CSV Schema",
-        f"Create results_nn.csv with at least the columns below to populate this page.",
+        "Create results_nn.csv with at least the columns below to populate this page.",
         html.Table(
             [
                 html.Thead(html.Tr([html.Th("Column", style=th_s),
@@ -264,57 +258,78 @@ def _schema_hint() -> html.Div:
     )
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-#  Callback
-# ═════════════════════════════════════════════════════════════════════════════
+# ─────────────────────────────────────────────────────────────────────────────
+#  Callbacks
+# ─────────────────────────────────────────────────────────────────────────────
 
 @callback(
-    Output("rq3-kpis",   "children"),
+    Output("rq3-guidance-content", "children"),
+    Input("rq3-focus-select", "value"),
+)
+def _update_guidance(focus):
+    return _guidance_box(focus or "speed")
+
+
+@callback(
     Output("rq3-charts", "children"),
     Input("rq3-ds",     "value"),
     Input("rq3-model",  "value"),
     Input("rq3-lib",    "value"),
 )
 def update_rq3(ds, models, libs):
-    df, src = S.try_load_data(_CSV)
+    df, src = S.try_load_data(*_CSVS)
     if src is None or df.empty:
-        return html.Div(), html.Div()
+        return html.Div()
 
-    if ds != "__all__": df = df[df["dataset"] == ds]
-    if models:          df = df[df["model"].isin(models)]
-    if libs:            df = df[df["library"].isin(libs)]
-
-    lb = S.compute_leaderboard(df)
-
-    # ── KPIs ──────────────────────────────────────────────────────────────
-    fastest_m   = lb.loc[lb["runtime_median"].idxmin(), "method"] if not lb.empty else "—"
-    fastest_rt  = lb["runtime_median"].min()                       if not lb.empty else float("nan")
-    n_libs      = df["library"].dropna().nunique()                 if not df.empty else 0
-    fail_of_fast = (
-        lb.loc[lb["runtime_median"].idxmin(), "failure_rate"] * 100
-        if not lb.empty else float("nan")
-    )
-
-    kpis = S.kpi_row(
-      )
+    # Apply dropdown and checklist filters
+    if ds != "__all__":
+        df = df[df["dataset"] == ds]
+    if models:
+        df = df[df["model"].isin(models)]
+    if libs:
+        df = df[df["library"].isin(libs)]
 
     warns = []
     if df.empty:
         warns.append(S.warning_note("No data matches the current filter selection."))
 
-    # ── Charts — driven by _CHARTS manifest above ──────────────────────────
     charts = html.Div([
         *warns,
-        *[
-            S.section(
-                c["title"], c["subtitle"],
-                dcc.Graph(figure=c["fn"](df),
-                          config={"displayModeBar": False}, style={"padding": "8px"}),
-                section_id=c["section_id"],
-            )
-            for c in _CHARTS
-        ],
-        S.interpretation_note(_INTERP),
+        S.section(
+            "Spearman Rank Alignment (Attribution Agreement)",
+            "Spearman rank correlation coefficient (mean_sample_rho) comparing each explainer "
+            "against the exact oracle (shapiq_true_value) across different neural network architectures.",
+            dcc.Graph(figure=S.fig_rq3_attribution_agreement(df), config={"displayModeBar": False}, style={"padding": "8px"}),
+            section_id="rq3-agreement-section"
+        ),
+        S.section(
+            "Runtime Comparison (Physical Throughput)",
+            "Median execution time (runtime_s) on a logarithmic scale (log10) to illustrate "
+            "the performance differences between gradient-based explainers and model-agnostic permutation loops.",
+            dcc.Graph(figure=S.fig_rq3_runtime_comparison(df), config={"displayModeBar": False}, style={"padding": "8px"}),
+            section_id="rq3-runtime-section"
+        ),
+        S.section(
+            "Axiomatic Integrity & Efficiency Evaluation",
+            "Box-and-whisker plots showing the distribution of relative efficiency violations (relative additivity gap) "
+            "on a logarithmic scale. Gradient wrappers (such as Captum) show significantly higher violations.",
+            dcc.Graph(figure=S.fig_rq3_axiomatic_integrity(df), config={"displayModeBar": False}, style={"padding": "8px"}),
+            section_id="rq3-integrity-section"
+        ),
+        S.section(
+            "High-Dimensional Scalability Wall",
+            "Faceted view showing how dataset dimensionality affects execution runtime (log scale) vs. "
+            "Spearman rank correlation alignment against the exact oracle (shapiq_true_value) for different approximators.",
+            dcc.Graph(figure=S.fig_rq3_scalability_wall(df), config={"displayModeBar": False}, style={"padding": "8px"}),
+            section_id="rq3-scalability-wall-section"
+        ),
+        S.section(
+            "Relative Additivity Violations by Network Topology",
+            "Mean relative additivity gap violations formatted as a percentage across network topologies, grouped by approximator type.",
+            dcc.Graph(figure=S.fig_rq3_topology_violations(df), config={"displayModeBar": False}, style={"padding": "8px"}),
+            section_id="rq3-topology-violations-section"
+        ),
+        S.interpretation_note(_INTERP)
     ])
 
-    return kpis, charts
+    return charts

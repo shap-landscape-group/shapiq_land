@@ -59,6 +59,14 @@ from .charts import (
     fig_tree_case_agreement_heatmap,
     _complexity_col,   # used by pages/rq4_trees.py as S._complexity_col
     _depth_col,        # used by pages/rq4_trees.py as S._depth_col
+    fig_hardware_comparison,
+    fig_hardware_speedup,
+    fig_rho_vs_runtime_by_hardware,
+    fig_rq3_attribution_agreement,
+    fig_rq3_runtime_comparison,
+    fig_rq3_axiomatic_integrity,
+    fig_rq3_scalability_wall,
+    fig_rq3_topology_violations,
 )
 
 

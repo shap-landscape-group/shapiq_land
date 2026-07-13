@@ -48,6 +48,12 @@ _NAV_PAGES = [
         "title":    "Tree Models",
         "subtitle": "Which library handles extreme tree depths without hitting bottlenecks or breaking?",
     },
+    {
+        "path":     "/rq5",
+        "rq":       "RQ5",
+        "title":    "GPU vs CPU",
+        "subtitle": "How much speedup does running neural network explanations on GPU provide compared to CPU?",
+    },
 ]
 
 
@@ -519,15 +525,17 @@ def _render_page_topbar(pathname):
 
     # ── RQ3 ───────────────────────────────────────────────────────────────
     if pathname == "/rq3":
-        _csv = os.path.join(_RESULTS, "rq3_neural_networks.csv")
-        df, src = S.try_load_data(_csv)
-
+        df, src = S.try_load_data(
+            os.path.join(_RESULTS, "rq3_results_config-neural-networks-cpu.csv"),
+        )
+ 
         datasets = [{"label": "All datasets", "value": "__all__"}] + \
                    [{"label": d, "value": d} for d in sorted(df["dataset"].dropna().unique())]
         models   = sorted(df["model"].dropna().unique())   if not df.empty else []
         libs     = sorted(df["library"].dropna().unique()) if not df.empty else []
+        seeds    = sorted([int(s) for s in df["seed"].dropna().unique()]) if not df.empty else [0, 1, 2]
         _mlbl    = {"mlp": "MLP", "transformer": "Transformer", "cnn_1d": "CNN-1D"}
-
+ 
         return [
             _src_tag(src),
             html.Div([
@@ -549,15 +557,53 @@ def _render_page_topbar(pathname):
             ], style={"marginRight": "4px"}),
             html.Div([
                 _lbl("Library"),
-                dcc.Checklist(
+                dcc.Dropdown(
                     id="rq3-lib",
-                    options=[{"label": f" {lib}", "value": lib} for lib in libs],
-                    value=list(libs),
-                    inline=True,
-                    inputStyle={"marginRight": "3px"},
-                    labelStyle={"marginRight": "8px", "fontSize": "12px", "cursor": "pointer"},
+                    options=[{"label": lib, "value": lib} for lib in libs],
+                    value=None,
+                    multi=True,
+                    clearable=True,
+                    placeholder="All libraries",
+                    style={"width": "240px", "fontSize": "12px", "minHeight": "28px"},
                 ),
             ]),
+        ]
+
+    # ── RQ5 ───────────────────────────────────────────────────────────────
+    if pathname == "/rq5":
+        _csv = os.path.join(_RESULTS, "rq5_gpu_cpu_comparison.csv")
+        df, src = S.try_load_data(_csv)
+
+        datasets = [{"label": "All datasets", "value": "__all__"}]
+        models   = [{"label": "All models",   "value": "__all__"}]
+        devices  = [{"label": "All devices",  "value": "__all__"}]
+
+        if not df.empty:
+            datasets += [{"label": d, "value": d} for d in sorted(df["dataset"].dropna().unique())]
+            models   += [{"label": m, "value": m} for m in sorted(df["model"].dropna().unique())]
+            if "device" in df.columns:
+                devices += [{"label": dev.upper(), "value": dev} for dev in sorted(df["device"].dropna().unique())]
+
+        return [
+            _src_tag(src),
+            html.Div([
+                _lbl("Dataset"),
+                dcc.Dropdown(id="rq5-ds", options=datasets, value="__all__",
+                             clearable=False,
+                             style={"width": "150px", "fontSize": "12px", "minHeight": "28px"}),
+            ], style={"marginRight": "4px"}),
+            html.Div([
+                _lbl("Model"),
+                dcc.Dropdown(id="rq5-mdl", options=models, value="__all__",
+                             clearable=False,
+                             style={"width": "140px", "fontSize": "12px", "minHeight": "28px"}),
+            ], style={"marginRight": "4px"}),
+            html.Div([
+                _lbl("Device"),
+                dcc.Dropdown(id="rq5-device", options=devices, value="__all__",
+                             clearable=False,
+                             style={"width": "120px", "fontSize": "12px", "minHeight": "28px"}),
+            ], style={"marginRight": "4px"}),
         ]
 
     return []
