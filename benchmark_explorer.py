@@ -7,6 +7,7 @@ Deploy:        gunicorn benchmark_explorer:server --bind 0.0.0.0:$PORT
 import os
 
 import dash
+import pandas as pd
 from dash import html, dcc, callback, Input, Output, State, page_container, page_registry
 import shared as S
 
@@ -152,6 +153,13 @@ app.layout = html.Div(
     [
         dcc.Location(id="url"),
         dcc.Store(id="sidebar-is-open", data=True),
+        # Filter stores — always in layout so chart callbacks never race the topbar
+        dcc.Store(id="rq1-ds",    data="__all__"),
+        dcc.Store(id="rq1-mdl",   data="__all__"),
+        dcc.Store(id="rq1-approx", data=None),   # None → all approximators
+        dcc.Store(id="rq2-ds",    data="__all__"),
+        dcc.Store(id="rq2-mdl",   data="__all__"),
+        dcc.Store(id="rq2-approx", data=None),
 
         # Advisor overlay + panel
         html.Div(id="advisor-overlay", className="advisor-overlay", n_clicks=0,
@@ -404,46 +412,39 @@ def _render_page_topbar(pathname):
         )
 
     # ── RQ1 ───────────────────────────────────────────────────────────────
+    # Visible controls use -ctl suffix IDs; they sync into dcc.Store nodes
+    # (rq1-ds, rq1-mdl, rq1-approx) that live in the main layout and are
+    # always present, so the chart callback never races the topbar.
     if pathname == "/rq1":
-        _csv = os.path.join(_RESULTS, "rq1_dimensionality.csv")
-        df, src = S.try_load_data(_csv)
+        _csv = os.path.join(_RESULTS, "converted", "rq1_scaling_aggregated.csv")
+        df = pd.read_csv(_csv) if os.path.exists(_csv) else pd.DataFrame(
+            columns=["dataset", "model", "approximator"])
+        src = _csv if os.path.exists(_csv) else None
 
         datasets = [{"label": "All datasets", "value": "__all__"}] + \
                    [{"label": d, "value": d} for d in sorted(df["dataset"].dropna().unique())]
         models   = [{"label": "All models",   "value": "__all__"}] + \
                    [{"label": m, "value": m} for m in sorted(df["model"].dropna().unique())]
         approxs  = sorted(df["approximator"].dropna().unique()) if not df.empty else []
-        n_feats  = sorted(df["n_features"].dropna().unique())   if not df.empty else []
 
         return [
             _src_tag(src),
             html.Div([
                 _lbl("Dataset"),
-                dcc.Dropdown(id="rq1-ds", options=datasets, value="__all__",
+                dcc.Dropdown(id="rq1-ds-ctl", options=datasets, value="__all__",
                              clearable=False,
                              style={"width": "150px", "fontSize": "12px", "minHeight": "28px"}),
             ], style={"marginRight": "4px"}),
             html.Div([
                 _lbl("Model"),
-                dcc.Dropdown(id="rq1-mdl", options=models, value="__all__",
+                dcc.Dropdown(id="rq1-mdl-ctl", options=models, value="__all__",
                              clearable=False,
                              style={"width": "140px", "fontSize": "12px", "minHeight": "28px"}),
             ], style={"marginRight": "4px"}),
             html.Div([
-                _lbl("n_features"),
-                dcc.Checklist(
-                    id="rq1-nf",
-                    options=[{"label": f" {int(n)}", "value": n} for n in n_feats],
-                    value=list(n_feats),
-                    inline=True,
-                    inputStyle={"marginRight": "3px"},
-                    labelStyle={"marginRight": "8px", "fontSize": "12px", "cursor": "pointer"},
-                ),
-            ], style={"marginRight": "4px"}),
-            html.Div([
                 _lbl("Approximator"),
                 dcc.Checklist(
-                    id="rq1-approx",
+                    id="rq1-approx-ctl",
                     options=[{"label": f" {a}", "value": a} for a in approxs],
                     value=list(approxs),
                     inline=True,
@@ -455,59 +456,35 @@ def _render_page_topbar(pathname):
 
     # ── RQ2 ───────────────────────────────────────────────────────────────
     if pathname == "/rq2":
-        _csv = os.path.join(_RESULTS, "rq2_accuracy.csv")
-        df, src = S.try_load_data(_csv)
+        _csv = os.path.join(_RESULTS, "converted", "rq2_convergence_aggregated.csv")
+        df = pd.read_csv(_csv) if os.path.exists(_csv) else pd.DataFrame(
+            columns=["dataset", "model", "approximator"])
+        src = _csv if os.path.exists(_csv) else None
 
         datasets = [{"label": "All datasets", "value": "__all__"}] + \
                    [{"label": d, "value": d} for d in sorted(df["dataset"].dropna().unique())]
         models   = [{"label": "All models",   "value": "__all__"}] + \
                    [{"label": m, "value": m} for m in sorted(df["model"].dropna().unique())]
-        n_bgs    = sorted(df["n_background"].dropna().unique().astype(int)) \
-                   if "n_background" in df.columns and not df.empty else []
-        budgets  = sorted(df["budget"].dropna().unique().astype(int)) \
-                   if "budget" in df.columns and not df.empty else []
         approxs  = sorted(df["approximator"].dropna().unique()) if not df.empty else []
 
         return [
             _src_tag(src),
             html.Div([
                 _lbl("Dataset"),
-                dcc.Dropdown(id="rq2-ds", options=datasets, value="__all__",
+                dcc.Dropdown(id="rq2-ds-ctl", options=datasets, value="__all__",
                              clearable=False,
                              style={"width": "150px", "fontSize": "12px", "minHeight": "28px"}),
             ], style={"marginRight": "4px"}),
             html.Div([
                 _lbl("Model"),
-                dcc.Dropdown(id="rq2-mdl", options=models, value="__all__",
+                dcc.Dropdown(id="rq2-mdl-ctl", options=models, value="__all__",
                              clearable=False,
                              style={"width": "140px", "fontSize": "12px", "minHeight": "28px"}),
             ], style={"marginRight": "4px"}),
             html.Div([
-                _lbl("n_background"),
-                dcc.Checklist(
-                    id="rq2-nbg",
-                    options=[{"label": f" {n}", "value": n} for n in n_bgs],
-                    value=list(n_bgs),
-                    inline=True,
-                    inputStyle={"marginRight": "3px"},
-                    labelStyle={"marginRight": "8px", "fontSize": "12px", "cursor": "pointer"},
-                ),
-            ], style={"marginRight": "4px"}),
-            html.Div([
-                _lbl("Budget"),
-                dcc.Checklist(
-                    id="rq2-budget-filt",
-                    options=[{"label": f" {b}", "value": b} for b in budgets],
-                    value=list(budgets),
-                    inline=True,
-                    inputStyle={"marginRight": "3px"},
-                    labelStyle={"marginRight": "8px", "fontSize": "12px", "cursor": "pointer"},
-                ),
-            ], style={"marginRight": "4px"}),
-            html.Div([
                 _lbl("Approximator"),
                 dcc.Checklist(
-                    id="rq2-approx",
+                    id="rq2-approx-ctl",
                     options=[{"label": f" {a}", "value": a} for a in approxs],
                     value=list(approxs),
                     inline=True,
@@ -561,6 +538,29 @@ def _render_page_topbar(pathname):
         ]
 
     return []
+
+
+# ── Topbar → Store sync callbacks ─────────────────────────────────────────────
+# The -ctl controls live in the dynamic topbar slot; the stores are always in
+# the main layout.  suppress_callback_exceptions handles the case where the
+# topbar hasn't rendered the -ctl element yet.
+@app.callback(Output("rq1-ds",    "data"), Input("rq1-ds-ctl",    "value"), prevent_initial_call=True)
+def _sync_rq1_ds(v):    return v or "__all__"
+
+@app.callback(Output("rq1-mdl",   "data"), Input("rq1-mdl-ctl",   "value"), prevent_initial_call=True)
+def _sync_rq1_mdl(v):   return v or "__all__"
+
+@app.callback(Output("rq1-approx","data"), Input("rq1-approx-ctl","value"), prevent_initial_call=True)
+def _sync_rq1_approx(v): return v  # None or list — page handles both
+
+@app.callback(Output("rq2-ds",    "data"), Input("rq2-ds-ctl",    "value"), prevent_initial_call=True)
+def _sync_rq2_ds(v):    return v or "__all__"
+
+@app.callback(Output("rq2-mdl",   "data"), Input("rq2-mdl-ctl",   "value"), prevent_initial_call=True)
+def _sync_rq2_mdl(v):   return v or "__all__"
+
+@app.callback(Output("rq2-approx","data"), Input("rq2-approx-ctl","value"), prevent_initial_call=True)
+def _sync_rq2_approx(v): return v
 
 
 # ── Dev server ────────────────────────────────────────────────────────────────

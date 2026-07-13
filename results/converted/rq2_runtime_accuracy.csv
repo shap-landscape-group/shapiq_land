@@ -1,0 +1,501 @@
+dataset,model,library,backend,approximator,budget,method,is_reference,seed_count,runtime_median,runtime_q25,runtime_q75,relative_mae_median,rho_median
+ames_housing,decision_tree,dalex,dalex_approx,permutation,128.0,dalex / permutation,False,10,0.91725,0.89815,0.923475,0.2301136633228602,0.9349650349650351
+ames_housing,decision_tree,dalex,dalex_approx,permutation,512.0,dalex / permutation,False,10,3.4804,3.391025,3.51345,0.1125898902352899,0.9772727272727275
+ames_housing,decision_tree,dalex,dalex_approx,permutation,2048.0,dalex / permutation,False,10,13.6329,13.47235,13.80255,0.05824908648195212,0.9916083916083916
+ames_housing,decision_tree,lightshap,lightshap_approx,kernel,128.0,lightshap / kernel,False,10,3.048,3.003775,3.0671,0.04200587656419308,0.9877622377622379
+ames_housing,decision_tree,lightshap,lightshap_approx,kernel,512.0,lightshap / kernel,False,10,8.60565,8.26785,10.0944,0.02406824266508167,0.9905594405594407
+ames_housing,decision_tree,lightshap,lightshap_approx,kernel,2048.0,lightshap / kernel,False,10,14.9125,11.09205,16.005074999999998,0.023058894070225704,0.9923076923076923
+ames_housing,decision_tree,lightshap,lightshap_approx,permutation,128.0,lightshap / permutation,False,10,2.9539,2.869275,3.076325,0.03709497698640976,0.9944055944055945
+ames_housing,decision_tree,lightshap,lightshap_approx,permutation,512.0,lightshap / permutation,False,10,8.20385,7.8377,9.636175,0.022933036842231358,0.9957980615875353
+ames_housing,decision_tree,lightshap,lightshap_approx,permutation,2048.0,lightshap / permutation,False,10,14.01655,10.668375,15.225275,0.020470890779656296,0.9971978898294689
+ames_housing,decision_tree,shap,shap_approx,kernel,128.0,shap / kernel,False,10,0.0513,0.051025,0.052475,0.15244282710862167,0.9281975705483088
+ames_housing,decision_tree,shap,shap_approx,kernel,512.0,shap / kernel,False,10,0.11865,0.117625,0.12035,0.06835987205678512,0.9746074490757244
+ames_housing,decision_tree,shap,shap_approx,kernel,2048.0,shap / kernel,False,10,0.44694999999999996,0.440525,0.450975,0.023245836373022744,0.9929962688696058
+ames_housing,decision_tree,shap,shap_approx,permutation,128.0,shap / permutation,False,10,0.04765,0.0476,0.04815,0.17040282583019467,0.9594405594405597
+ames_housing,decision_tree,shap,shap_approx,permutation,512.0,shap / permutation,False,10,0.16310000000000002,0.16205,0.16495,0.0935115554147541,0.9786713286713289
+ames_housing,decision_tree,shap,shap_approx,permutation,2048.0,shap / permutation,False,10,0.6367499999999999,0.632475,0.6413,0.043739482459454956,0.9919433198380567
+ames_housing,decision_tree,shapiq,shapiq_approx,kernel,128.0,shapiq / kernel,False,10,0.49460000000000004,0.488675,0.501475,0.25311354727005186,0.8870629370629372
+ames_housing,decision_tree,shapiq,shapiq_approx,kernel,512.0,shapiq / kernel,False,10,0.64185,0.6261,0.64635,0.11279562025355173,0.9573426573426576
+ames_housing,decision_tree,shapiq,shapiq_approx,kernel,2048.0,shapiq / kernel,False,10,1.3367,1.32805,1.347875,0.0361256266938826,0.9853146853146855
+ames_housing,decision_tree,shapiq,shapiq_approx,permutation,128.0,shapiq / permutation,False,10,2.1871,2.14375,2.2159,0.24063915657693274,0.9209790209790212
+ames_housing,decision_tree,shapiq,shapiq_approx,permutation,512.0,shapiq / permutation,False,10,5.3237000000000005,5.1861,5.371824999999999,0.11411549747916772,0.9713286713286715
+ames_housing,decision_tree,shapiq,shapiq_approx,permutation,2048.0,shapiq / permutation,False,10,17.71865,17.523600000000002,17.823925000000003,0.05299947701955507,0.9908919151024413
+ames_housing,gradient_boosting,dalex,dalex_approx,permutation,128.0,dalex / permutation,False,10,2.3673,2.3538,2.391425,0.10273291972614255,0.9772727272727273
+ames_housing,gradient_boosting,dalex,dalex_approx,permutation,512.0,dalex / permutation,False,10,9.063500000000001,8.991475000000001,9.0942,0.04365961217368652,0.9898417372101584
+ames_housing,gradient_boosting,dalex,dalex_approx,permutation,2048.0,dalex / permutation,False,10,36.1149,35.953075,36.45375,0.023454044057250253,0.9958041958041959
+ames_housing,gradient_boosting,lightshap,lightshap_approx,kernel,128.0,lightshap / kernel,False,10,1.86165,1.6344750000000001,2.2974,0.022096733613444105,0.9930069930069931
+ames_housing,gradient_boosting,lightshap,lightshap_approx,kernel,512.0,lightshap / kernel,False,10,1.99985,1.633675,2.781175,0.02136691658971052,0.9930069930069931
+ames_housing,gradient_boosting,lightshap,lightshap_approx,kernel,2048.0,lightshap / kernel,False,10,2.00365,1.654325,2.8175,0.02136691658971052,0.9930069930069931
+ames_housing,gradient_boosting,lightshap,lightshap_approx,permutation,128.0,lightshap / permutation,False,10,1.7888,1.5703,2.1885250000000003,0.017961509794622764,0.9958041958041959
+ames_housing,gradient_boosting,lightshap,lightshap_approx,permutation,512.0,lightshap / permutation,False,10,1.9118,1.56345,2.69585,0.01798319419801732,0.9958041958041959
+ames_housing,gradient_boosting,lightshap,lightshap_approx,permutation,2048.0,lightshap / permutation,False,10,1.9147500000000002,1.5655999999999999,2.68365,0.01798319419801732,0.9958041958041959
+ames_housing,gradient_boosting,shap,shap_approx,kernel,128.0,shap / kernel,False,10,0.13635,0.135825,0.13690000000000002,0.06261208364601518,0.978985739502839
+ames_housing,gradient_boosting,shap,shap_approx,kernel,512.0,shap / kernel,False,10,0.36729999999999996,0.361475,0.37815,0.027727941386373266,0.9910698210816754
+ames_housing,gradient_boosting,shap,shap_approx,kernel,2048.0,shap / kernel,False,10,1.33525,1.308525,1.346275,0.010788952136868889,0.9957983747429592
+ames_housing,gradient_boosting,shap,shap_approx,permutation,128.0,shap / permutation,False,10,0.16175,0.160975,0.16265000000000002,0.043288545030550615,0.9905594405594407
+ames_housing,gradient_boosting,shap,shap_approx,permutation,512.0,shap / permutation,False,10,0.5709,0.5675250000000001,0.5769,0.022374131261550072,0.9954545454545456
+ames_housing,gradient_boosting,shap,shap_approx,permutation,2048.0,shap / permutation,False,10,2.2472000000000003,2.2359,2.267775,0.011879986145562222,0.9975524475524478
+ames_housing,gradient_boosting,shapiq,shapiq_approx,kernel,128.0,shapiq / kernel,False,10,1.5442,1.5319,1.565625,0.14581436170807716,0.9520979020979021
+ames_housing,gradient_boosting,shapiq,shapiq_approx,kernel,512.0,shapiq / kernel,False,10,1.8792499999999999,1.870475,1.8882,0.06254039529509313,0.9804195804195805
+ames_housing,gradient_boosting,shapiq,shapiq_approx,kernel,2048.0,shapiq / kernel,False,10,3.30775,3.26825,3.33125,0.0190734523946307,0.9923076923076923
+ames_housing,gradient_boosting,shapiq,shapiq_approx,permutation,128.0,shapiq / permutation,False,10,7.25745,7.1792,7.328325,0.10360664411121837,0.9765734265734267
+ames_housing,gradient_boosting,shapiq,shapiq_approx,permutation,512.0,shapiq / permutation,False,10,17.3244,17.190175,17.507025,0.05394108712614791,0.990909090909091
+ames_housing,gradient_boosting,shapiq,shapiq_approx,permutation,2048.0,shapiq / permutation,False,10,57.90095,57.51,58.394149999999996,0.027199763091277723,0.9958041958041959
+ames_housing,linear_regularized,dalex,dalex_approx,permutation,128.0,dalex / permutation,False,10,0.8841,0.876575,0.88805,7.586514909933026e-15,1.0
+ames_housing,linear_regularized,dalex,dalex_approx,permutation,512.0,dalex / permutation,False,10,3.4917,3.338375,3.52095,7.419200269378641e-15,1.0
+ames_housing,linear_regularized,dalex,dalex_approx,permutation,2048.0,dalex / permutation,False,10,13.18395,13.0765,13.355599999999999,7.45998398420572e-15,1.0
+ames_housing,linear_regularized,lightshap,lightshap_approx,kernel,128.0,lightshap / kernel,False,10,0.051000000000000004,0.050225,0.051475,9.816437787795822e-15,1.0
+ames_housing,linear_regularized,lightshap,lightshap_approx,kernel,512.0,lightshap / kernel,False,10,0.04955,0.0494,0.05005,9.816437787795822e-15,1.0
+ames_housing,linear_regularized,lightshap,lightshap_approx,kernel,2048.0,lightshap / kernel,False,10,0.0495,0.049125,0.049775,9.816437787795822e-15,1.0
+ames_housing,linear_regularized,lightshap,lightshap_approx,permutation,128.0,lightshap / permutation,False,10,0.0701,0.06947500000000001,0.07037500000000001,7.763566841761015e-15,1.0
+ames_housing,linear_regularized,lightshap,lightshap_approx,permutation,512.0,lightshap / permutation,False,10,0.06955,0.06895,0.07,7.763566841761015e-15,1.0
+ames_housing,linear_regularized,lightshap,lightshap_approx,permutation,2048.0,lightshap / permutation,False,10,0.0696,0.069025,0.06997500000000001,7.763566841761015e-15,1.0
+ames_housing,linear_regularized,shap,shap_approx,kernel,128.0,shap / kernel,False,10,0.04755,0.0468,0.048575,0.004908583935408762,0.9963237695942129
+ames_housing,linear_regularized,shap,shap_approx,kernel,512.0,shap / kernel,False,10,0.1178,0.11665,0.11905,0.0033081082208893794,0.9982502173821434
+ames_housing,linear_regularized,shap,shap_approx,kernel,2048.0,shap / kernel,False,10,0.46155,0.456025,0.4646,0.0030709162085856274,0.9982502173821434
+ames_housing,linear_regularized,shap,shap_approx,permutation,128.0,shap / permutation,False,10,0.054599999999999996,0.053675,0.055375,7.61775479501954e-15,1.0
+ames_housing,linear_regularized,shap,shap_approx,permutation,512.0,shap / permutation,False,10,0.15895,0.15525,0.1606,6.623174380704933e-15,1.0
+ames_housing,linear_regularized,shap,shap_approx,permutation,2048.0,shap / permutation,False,10,0.6046,0.594225,0.613125,6.42104300246633e-15,1.0
+ames_housing,linear_regularized,shapiq,shapiq_approx,kernel,128.0,shapiq / kernel,False,10,0.51715,0.512425,0.5247999999999999,1.5398308906701326e-07,1.0
+ames_housing,linear_regularized,shapiq,shapiq_approx,kernel,512.0,shapiq / kernel,False,10,0.64505,0.636275,0.6543749999999999,2.8824389806741376e-07,1.0
+ames_housing,linear_regularized,shapiq,shapiq_approx,kernel,2048.0,shapiq / kernel,False,10,1.29685,1.280775,1.317625,4.2112064022347556e-07,1.0
+ames_housing,linear_regularized,shapiq,shapiq_approx,permutation,128.0,shapiq / permutation,False,10,2.3078000000000003,2.284525,2.320475,7.751363110144612e-15,1.0
+ames_housing,linear_regularized,shapiq,shapiq_approx,permutation,512.0,shapiq / permutation,False,10,5.58925,5.470875,5.60755,7.489889092361248e-15,1.0
+ames_housing,linear_regularized,shapiq,shapiq_approx,permutation,2048.0,shapiq / permutation,False,10,18.6918,18.573625,18.795625,7.734314946114549e-15,1.0
+ames_housing,random_forest,dalex,dalex_approx,permutation,128.0,dalex / permutation,False,10,10.6817,10.582875,10.69975,0.10683359585973987,0.9667832167832169
+ames_housing,random_forest,dalex,dalex_approx,permutation,512.0,dalex / permutation,False,10,41.006699999999995,40.655325000000005,41.41565,0.04658144206937423,0.9905434915961232
+ames_housing,random_forest,dalex,dalex_approx,permutation,2048.0,dalex / permutation,False,10,162.96245,161.58522499999998,164.62355,0.023614490545270816,0.9958041958041959
+ames_housing,random_forest,lightshap,lightshap_approx,kernel,128.0,lightshap / kernel,False,10,6.5709,5.7520999999999995,7.807525,0.027469251281555536,0.9933566433566434
+ames_housing,random_forest,lightshap,lightshap_approx,kernel,512.0,lightshap / kernel,False,10,7.7652,7.108225,9.0529,0.02705564119410371,0.9930069930069931
+ames_housing,random_forest,lightshap,lightshap_approx,kernel,2048.0,lightshap / kernel,False,10,7.809699999999999,7.17685,9.0699,0.027043027967035935,0.9930069930069931
+ames_housing,random_forest,lightshap,lightshap_approx,permutation,128.0,lightshap / permutation,False,10,6.305149999999999,5.680175,7.339725,0.020179074627424944,0.9960623713933305
+ames_housing,random_forest,lightshap,lightshap_approx,permutation,512.0,lightshap / permutation,False,10,7.375249999999999,6.739974999999999,8.699125,0.019943300439817468,0.9954545454545456
+ames_housing,random_forest,lightshap,lightshap_approx,permutation,2048.0,lightshap / permutation,False,10,7.376150000000001,6.7214,8.680275,0.019943300439817468,0.9954545454545456
+ames_housing,random_forest,shap,shap_approx,kernel,128.0,shap / kernel,False,10,0.5991500000000001,0.5922000000000001,0.6021500000000001,0.06914242650245288,0.965850868221495
+ames_housing,random_forest,shap,shap_approx,kernel,512.0,shap / kernel,False,10,1.7277,1.7063249999999999,1.751375,0.032297367515314465,0.9879174519741529
+ames_housing,random_forest,shap,shap_approx,kernel,2048.0,shap / kernel,False,10,6.13585,5.974525,6.262825,0.012002477776483873,0.9938719269550287
+ames_housing,random_forest,shap,shap_approx,permutation,128.0,shap / permutation,False,10,0.83995,0.8321500000000001,0.8449500000000001,0.04746922132985468,0.9873892773892774
+ames_housing,random_forest,shap,shap_approx,permutation,512.0,shap / permutation,False,10,2.9920999999999998,2.9396750000000003,2.9946,0.027503450741856707,0.9951048951048951
+ames_housing,random_forest,shap,shap_approx,permutation,2048.0,shap / permutation,False,10,11.6847,11.600525000000001,11.768550000000001,0.013246833952720027,0.9975524475524478
+ames_housing,random_forest,shapiq,shapiq_approx,kernel,128.0,shapiq / kernel,False,10,7.198,7.173325,7.22015,0.16953275059134965,0.9241258741258742
+ames_housing,random_forest,shapiq,shapiq_approx,kernel,512.0,shapiq / kernel,False,10,8.582450000000001,8.517875,8.680975,0.06630536656908007,0.9762237762237762
+ames_housing,random_forest,shapiq,shapiq_approx,kernel,2048.0,shapiq / kernel,False,10,14.191199999999998,14.094299999999999,14.213524999999999,0.022759738182493872,0.9912587412587414
+ames_housing,random_forest,shapiq,shapiq_approx,permutation,128.0,shapiq / permutation,False,10,33.54115,33.024425,33.784850000000006,0.10918138159254268,0.9699300699300699
+ames_housing,random_forest,shapiq,shapiq_approx,permutation,512.0,shapiq / permutation,False,10,80.4899,79.4775,81.653475,0.05397024014995486,0.9870629370629371
+ames_housing,random_forest,shapiq,shapiq_approx,permutation,2048.0,shapiq / permutation,False,10,269.9507,265.6801,270.58515,0.025860947097351945,0.9940559440559442
+bike,decision_tree,dalex,dalex_approx,permutation,128.0,dalex / permutation,False,10,0.94275,0.9277,0.949075,0.22819748873212814,0.938811188811189
+bike,decision_tree,dalex,dalex_approx,permutation,512.0,dalex / permutation,False,10,3.6847000000000003,3.60235,3.699875,0.1050376167745425,0.9776223776223777
+bike,decision_tree,dalex,dalex_approx,permutation,2048.0,dalex / permutation,False,10,13.953949999999999,13.847199999999999,14.1709,0.05580412987284987,0.9884615384615385
+bike,decision_tree,lightshap,lightshap_approx,kernel,128.0,lightshap / kernel,False,10,2.5376,2.29995,2.755025,0.04053304271180738,0.9821678321678322
+bike,decision_tree,lightshap,lightshap_approx,kernel,512.0,lightshap / kernel,False,10,5.879,4.48095,8.60435,0.03063080727717047,0.9867132867132867
+bike,decision_tree,lightshap,lightshap_approx,kernel,2048.0,lightshap / kernel,False,10,8.093250000000001,7.0808,10.784975,0.029660407836001254,0.9877622377622377
+bike,decision_tree,lightshap,lightshap_approx,permutation,128.0,lightshap / permutation,False,10,2.4259,2.195,2.644375,0.035135358373550266,0.9905594405594407
+bike,decision_tree,lightshap,lightshap_approx,permutation,512.0,lightshap / permutation,False,10,5.6282,4.297325,8.27535,0.0281690689828987,0.9944055944055945
+bike,decision_tree,lightshap,lightshap_approx,permutation,2048.0,lightshap / permutation,False,10,7.8119499999999995,6.875275,10.25275,0.026826957140397248,0.9947552447552448
+bike,decision_tree,shap,shap_approx,kernel,128.0,shap / kernel,False,10,0.051449999999999996,0.050775,0.0524,0.12246268072550173,0.9360784933171153
+bike,decision_tree,shap,shap_approx,kernel,512.0,shap / kernel,False,10,0.11560000000000001,0.114175,0.11672500000000001,0.05554293085852269,0.976008502012401
+bike,decision_tree,shap,shap_approx,kernel,2048.0,shap / kernel,False,10,0.4495,0.442525,0.453175,0.020340486367209743,0.9935216637208597
+bike,decision_tree,shap,shap_approx,permutation,128.0,shap / permutation,False,10,0.04765,0.047525,0.0479,0.14397012571209344,0.9538461538461539
+bike,decision_tree,shap,shap_approx,permutation,512.0,shap / permutation,False,10,0.16325,0.162075,0.16465000000000002,0.07036737128542603,0.9793706293706295
+bike,decision_tree,shap,shap_approx,permutation,2048.0,shap / permutation,False,10,0.6368499999999999,0.6329,0.6419999999999999,0.03602806984081207,0.9923076923076923
+bike,decision_tree,shapiq,shapiq_approx,kernel,128.0,shapiq / kernel,False,10,0.49685,0.492325,0.502,0.22619458890312233,0.8755244755244757
+bike,decision_tree,shapiq,shapiq_approx,kernel,512.0,shapiq / kernel,False,10,0.6366499999999999,0.6318,0.638525,0.085430947130992,0.9608391608391609
+bike,decision_tree,shapiq,shapiq_approx,kernel,2048.0,shapiq / kernel,False,10,1.3364,1.3214000000000001,1.34235,0.03008808072858404,0.9916083916083916
+bike,decision_tree,shapiq,shapiq_approx,permutation,128.0,shapiq / permutation,False,10,2.17645,2.157775,2.2077,0.2126917627687575,0.933916083916084
+bike,decision_tree,shapiq,shapiq_approx,permutation,512.0,shapiq / permutation,False,10,5.261950000000001,5.237325,5.297700000000001,0.10668294804497286,0.9769230769230771
+bike,decision_tree,shapiq,shapiq_approx,permutation,2048.0,shapiq / permutation,False,10,17.880200000000002,17.497049999999998,17.960475,0.05259794647695576,0.9874125874125876
+bike,gradient_boosting,dalex,dalex_approx,permutation,128.0,dalex / permutation,False,10,2.3888,2.37065,2.4012000000000002,0.12491208780044374,0.9758741258741259
+bike,gradient_boosting,dalex,dalex_approx,permutation,512.0,dalex / permutation,False,10,9.20995,9.150025,9.2532,0.053103312733521896,0.9888111888111889
+bike,gradient_boosting,dalex,dalex_approx,permutation,2048.0,dalex / permutation,False,10,36.33385,35.987750000000005,36.5167,0.028576295864607415,0.9958041958041959
+bike,gradient_boosting,lightshap,lightshap_approx,kernel,128.0,lightshap / kernel,False,10,1.63225,1.358275,1.800375,0.03413519748727674,0.9902097902097904
+bike,gradient_boosting,lightshap,lightshap_approx,kernel,512.0,lightshap / kernel,False,10,1.7391999999999999,1.4060000000000001,2.0028,0.03362746445237083,0.9902097902097904
+bike,gradient_boosting,lightshap,lightshap_approx,kernel,2048.0,lightshap / kernel,False,10,1.74305,1.4078,2.006675,0.03362746445237083,0.9902097902097904
+bike,gradient_boosting,lightshap,lightshap_approx,permutation,128.0,lightshap / permutation,False,10,1.5856,1.3144500000000001,1.7602,0.02662755270960928,0.9940559440559442
+bike,gradient_boosting,lightshap,lightshap_approx,permutation,512.0,lightshap / permutation,False,10,1.65875,1.370025,1.9315,0.026202743441061802,0.9944055944055945
+bike,gradient_boosting,lightshap,lightshap_approx,permutation,2048.0,lightshap / permutation,False,10,1.66215,1.3716249999999999,1.9263000000000001,0.026202743441061802,0.9944055944055945
+bike,gradient_boosting,shap,shap_approx,kernel,128.0,shap / kernel,False,10,0.12695,0.12614999999999998,0.12777500000000003,0.06943288811780646,0.9786354762686698
+bike,gradient_boosting,shap,shap_approx,kernel,512.0,shap / kernel,False,10,0.3256,0.323025,0.32915,0.035842561192147904,0.9898438997620833
+bike,gradient_boosting,shap,shap_approx,kernel,2048.0,shap / kernel,False,10,1.1741000000000001,1.1653,1.19455,0.020916546188686096,0.9964989012112977
+bike,gradient_boosting,shap,shap_approx,permutation,128.0,shap / permutation,False,10,0.15275,0.15142499999999998,0.1534,0.04593429282695421,0.9895104895104897
+bike,gradient_boosting,shap,shap_approx,permutation,512.0,shap / permutation,False,10,0.5431999999999999,0.5418999999999999,0.547475,0.023893927900006016,0.9951048951048952
+bike,gradient_boosting,shap,shap_approx,permutation,2048.0,shap / permutation,False,10,2.1421,2.1293249999999997,2.167875,0.011706768613061703,0.9982517482517483
+bike,gradient_boosting,shapiq,shapiq_approx,kernel,128.0,shapiq / kernel,False,10,1.5572,1.541775,1.5633000000000001,0.1569451511903975,0.9307692307692309
+bike,gradient_boosting,shapiq,shapiq_approx,kernel,512.0,shapiq / kernel,False,10,1.83835,1.819025,1.849175,0.060251377161172126,0.983916083916084
+bike,gradient_boosting,shapiq,shapiq_approx,kernel,2048.0,shapiq / kernel,False,10,3.1616999999999997,3.131175,3.177275,0.020219420216964393,0.9951048951048952
+bike,gradient_boosting,shapiq,shapiq_approx,permutation,128.0,shapiq / permutation,False,10,7.3139,7.256,7.324624999999999,0.11830329485693952,0.9727272727272729
+bike,gradient_boosting,shapiq,shapiq_approx,permutation,512.0,shapiq / permutation,False,10,17.4473,17.3726,17.605649999999997,0.05914474711165399,0.9895104895104897
+bike,gradient_boosting,shapiq,shapiq_approx,permutation,2048.0,shapiq / permutation,False,10,58.090149999999994,57.788075,58.5312,0.028845816364136648,0.9958041958041959
+bike,linear_regularized,dalex,dalex_approx,permutation,128.0,dalex / permutation,False,10,0.9035500000000001,0.89695,0.909975,3.920801122561437e-15,1.0
+bike,linear_regularized,dalex,dalex_approx,permutation,512.0,dalex / permutation,False,10,3.39955,3.387525,3.49565,3.815922672762798e-15,1.0
+bike,linear_regularized,dalex,dalex_approx,permutation,2048.0,dalex / permutation,False,10,13.644649999999999,13.56055,13.7172,3.8423284225635445e-15,1.0
+bike,linear_regularized,lightshap,lightshap_approx,kernel,128.0,lightshap / kernel,False,10,0.05135,0.050625,0.05165,6.1212742227559544e-15,1.0
+bike,linear_regularized,lightshap,lightshap_approx,kernel,512.0,lightshap / kernel,False,10,0.05035,0.0502,0.050775,6.1212742227559544e-15,1.0
+bike,linear_regularized,lightshap,lightshap_approx,kernel,2048.0,lightshap / kernel,False,10,0.0503,0.049874999999999996,0.0508,6.1212742227559544e-15,1.0
+bike,linear_regularized,lightshap,lightshap_approx,permutation,128.0,lightshap / permutation,False,10,0.07089999999999999,0.070425,0.0716,3.901477229043705e-15,1.0
+bike,linear_regularized,lightshap,lightshap_approx,permutation,512.0,lightshap / permutation,False,10,0.07089999999999999,0.0705,0.071275,3.901477229043705e-15,1.0
+bike,linear_regularized,lightshap,lightshap_approx,permutation,2048.0,lightshap / permutation,False,10,0.07045,0.070225,0.07105,3.901477229043705e-15,1.0
+bike,linear_regularized,shap,shap_approx,kernel,128.0,shap / kernel,False,10,0.0474,0.0469,0.04775,0.01626455984890177,0.9947475850404517
+bike,linear_regularized,shap,shap_approx,kernel,512.0,shap / kernel,False,10,0.11660000000000001,0.11612499999999999,0.11737500000000001,0.014244999770865966,0.9970242960625513
+bike,linear_regularized,shap,shap_approx,kernel,2048.0,shap / kernel,False,10,0.46635000000000004,0.458725,0.47175,0.01372340906285165,0.9977248225308897
+bike,linear_regularized,shap,shap_approx,permutation,128.0,shap / permutation,False,10,0.054650000000000004,0.053875,0.055225,3.8501521998657864e-15,1.0
+bike,linear_regularized,shap,shap_approx,permutation,512.0,shap / permutation,False,10,0.15910000000000002,0.15735,0.160675,3.687651107486572e-15,1.0
+bike,linear_regularized,shap,shap_approx,permutation,2048.0,shap / permutation,False,10,0.6059,0.5962999999999999,0.610775,3.9041296638846026e-15,1.0
+bike,linear_regularized,shapiq,shapiq_approx,kernel,128.0,shapiq / kernel,False,10,0.5188999999999999,0.515125,0.5218,1.3998778839664424e-07,1.0
+bike,linear_regularized,shapiq,shapiq_approx,kernel,512.0,shapiq / kernel,False,10,0.64855,0.646425,0.6543249999999999,2.6311877682115873e-07,1.0
+bike,linear_regularized,shapiq,shapiq_approx,kernel,2048.0,shapiq / kernel,False,10,1.3098,1.2922,1.3148,3.6413120476142327e-07,1.0
+bike,linear_regularized,shapiq,shapiq_approx,permutation,128.0,shapiq / permutation,False,10,2.30455,2.285575,2.3168,3.9193598685345235e-15,1.0
+bike,linear_regularized,shapiq,shapiq_approx,permutation,512.0,shapiq / permutation,False,10,5.56935,5.5306,5.62535,3.7590834012951594e-15,1.0
+bike,linear_regularized,shapiq,shapiq_approx,permutation,2048.0,shapiq / permutation,False,10,18.6462,18.475775,18.79055,4.29507283132413e-15,1.0
+bike,random_forest,dalex,dalex_approx,permutation,128.0,dalex / permutation,False,10,10.5765,10.530899999999999,10.748875,0.12406874856301132,0.9741258741258743
+bike,random_forest,dalex,dalex_approx,permutation,512.0,dalex / permutation,False,10,40.947649999999996,40.57045,41.255625,0.0550326887797155,0.9895104895104897
+bike,random_forest,dalex,dalex_approx,permutation,2048.0,dalex / permutation,False,10,162.68984999999998,161.597275,163.085375,0.03142249711882128,0.9958041958041959
+bike,random_forest,lightshap,lightshap_approx,kernel,128.0,lightshap / kernel,False,10,6.30425,6.01755,7.87385,0.03298534549530799,0.9884615384615385
+bike,random_forest,lightshap,lightshap_approx,kernel,512.0,lightshap / kernel,False,10,8.65855,6.5862,10.044025000000001,0.03146921077369354,0.9881118881118882
+bike,random_forest,lightshap,lightshap_approx,kernel,2048.0,lightshap / kernel,False,10,8.6599,6.601825,10.041875,0.03146921077369354,0.9881118881118882
+bike,random_forest,lightshap,lightshap_approx,permutation,128.0,lightshap / permutation,False,10,6.002599999999999,5.711975,7.399825,0.025174135132338016,0.9944055944055945
+bike,random_forest,lightshap,lightshap_approx,permutation,512.0,lightshap / permutation,False,10,8.1314,6.27895,9.493925,0.023519752725639005,0.9944055944055945
+bike,random_forest,lightshap,lightshap_approx,permutation,2048.0,lightshap / permutation,False,10,8.14585,6.265775,9.503725000000001,0.023519752725639005,0.9944055944055945
+bike,random_forest,shap,shap_approx,kernel,128.0,shap / kernel,False,10,0.5951500000000001,0.581925,0.60165,0.08022645562990519,0.9542921814939123
+bike,random_forest,shap,shap_approx,kernel,512.0,shap / kernel,False,10,1.7109999999999999,1.676525,1.7428249999999998,0.03515445303577019,0.9856407409520532
+bike,random_forest,shap,shap_approx,kernel,2048.0,shap / kernel,False,10,6.085,5.936775,6.2048499999999995,0.0153976695494703,0.9959735063600439
+bike,random_forest,shap,shap_approx,permutation,128.0,shap / permutation,False,10,0.8385,0.82345,0.851425,0.05708274265421817,0.9891608391608393
+bike,random_forest,shap,shap_approx,permutation,512.0,shap / permutation,False,10,3.00095,2.948025,3.0275,0.028499278881428246,0.9933566433566434
+bike,random_forest,shap,shap_approx,permutation,2048.0,shap / permutation,False,10,11.716149999999999,11.5191,11.831199999999999,0.011830630838528788,0.9989510489510489
+bike,random_forest,shapiq,shapiq_approx,kernel,128.0,shapiq / kernel,False,10,7.16065,7.0741,7.254575,0.16548402819203029,0.9010489510489512
+bike,random_forest,shapiq,shapiq_approx,kernel,512.0,shapiq / kernel,False,10,8.58345,8.471275,8.65985,0.06344727941490486,0.9622377622377623
+bike,random_forest,shapiq,shapiq_approx,kernel,2048.0,shapiq / kernel,False,10,13.97105,13.794725,14.04465,0.021635540770283068,0.9898601398601401
+bike,random_forest,shapiq,shapiq_approx,permutation,128.0,shapiq / permutation,False,10,33.288250000000005,32.988375,33.832300000000004,0.1147394941877828,0.9706293706293707
+bike,random_forest,shapiq,shapiq_approx,permutation,512.0,shapiq / permutation,False,10,80.0424,79.40565000000001,81.7082,0.05918873620947063,0.9923076923076923
+bike,random_forest,shapiq,shapiq_approx,permutation,2048.0,shapiq / permutation,False,10,268.3299,266.211775,271.523075,0.026606400279100835,0.9954545454545456
+covertype,decision_tree,dalex,dalex_approx,permutation,128.0,dalex / permutation,False,10,0.97435,0.9682499999999999,0.9856499999999999,0.4364620502129275,0.8816268090296869
+covertype,decision_tree,dalex,dalex_approx,permutation,512.0,dalex / permutation,False,10,3.68405,3.678325,3.7015,0.20951203161082588,0.9545454545454546
+covertype,decision_tree,dalex,dalex_approx,permutation,2048.0,dalex / permutation,False,10,14.577300000000001,14.49605,14.644275,0.10781322479753011,0.9849650349650351
+covertype,decision_tree,lightshap,lightshap_approx,kernel,128.0,lightshap / kernel,False,10,1.99275,1.9618250000000002,2.014275,0.05874301132903972,0.9867132867132868
+covertype,decision_tree,lightshap,lightshap_approx,kernel,512.0,lightshap / kernel,False,10,7.30705,7.05105,7.521075,0.03195074983794417,0.9944055944055944
+covertype,decision_tree,lightshap,lightshap_approx,kernel,2048.0,lightshap / kernel,False,10,15.905650000000001,14.0483,16.4752,0.023724583573154226,0.9951048951048952
+covertype,decision_tree,lightshap,lightshap_approx,permutation,128.0,lightshap / permutation,False,10,1.851,1.8043,1.8673250000000001,0.05268647726693943,0.9905594405594407
+covertype,decision_tree,lightshap,lightshap_approx,permutation,512.0,lightshap / permutation,False,10,6.7702,6.52655,7.0086,0.02951148946578416,0.9951048951048952
+covertype,decision_tree,lightshap,lightshap_approx,permutation,2048.0,lightshap / permutation,False,10,14.6964,13.215824999999999,15.28525,0.022902689571225765,0.9965034965034966
+covertype,decision_tree,shap,shap_approx,kernel,128.0,shap / kernel,False,10,0.0494,0.049025,0.049975000000000006,0.3440409681893376,0.8705792685274798
+covertype,decision_tree,shap,shap_approx,kernel,512.0,shap / kernel,False,10,0.11224999999999999,0.1121,0.1142,0.1466761747064663,0.9516652072376435
+covertype,decision_tree,shap,shap_approx,kernel,2048.0,shap / kernel,False,10,0.42710000000000004,0.42112499999999997,0.431375,0.06380433292103947,0.9884428468254067
+covertype,decision_tree,shap,shap_approx,permutation,128.0,shap / permutation,False,10,0.0463,0.0458,0.04705,0.28218795439197164,0.9220808334518898
+covertype,decision_tree,shap,shap_approx,permutation,512.0,shap / permutation,False,10,0.15789999999999998,0.156825,0.15940000000000001,0.12995888862092064,0.9692307692307693
+covertype,decision_tree,shap,shap_approx,permutation,2048.0,shap / permutation,False,10,0.6195999999999999,0.6115250000000001,0.629525,0.06381073222919048,0.986013986013986
+covertype,decision_tree,shapiq,shapiq_approx,kernel,128.0,shapiq / kernel,False,10,0.49115,0.482275,0.497525,0.7046222708761701,0.6727272727272728
+covertype,decision_tree,shapiq,shapiq_approx,kernel,512.0,shapiq / kernel,False,10,0.6234999999999999,0.621375,0.638,0.33219745361229147,0.868881118881119
+covertype,decision_tree,shapiq,shapiq_approx,kernel,2048.0,shapiq / kernel,False,10,1.28675,1.28115,1.3126250000000002,0.10415278366020095,0.9723776223776224
+covertype,decision_tree,shapiq,shapiq_approx,permutation,128.0,shapiq / permutation,False,10,2.15415,2.1233500000000003,2.1736,0.48406965518238576,0.8487235159759435
+covertype,decision_tree,shapiq,shapiq_approx,permutation,512.0,shapiq / permutation,False,10,5.18295,5.135775,5.219275,0.22159473498153703,0.9563801230108605
+covertype,decision_tree,shapiq,shapiq_approx,permutation,2048.0,shapiq / permutation,False,10,17.4326,17.248150000000003,17.501099999999997,0.10925159059312604,0.9822542488849864
+covertype,gradient_boosting,dalex,dalex_approx,permutation,128.0,dalex / permutation,False,10,10.48925,10.42915,10.53935,0.2160918369645433,0.9555944055944057
+covertype,gradient_boosting,dalex,dalex_approx,permutation,512.0,dalex / permutation,False,10,40.3305,40.024275,40.480575,0.12070013324011888,0.9793706293706295
+covertype,gradient_boosting,dalex,dalex_approx,permutation,2048.0,dalex / permutation,False,10,159.67865,158.26352500000002,160.3978,0.057311333215783085,0.9902097902097904
+covertype,gradient_boosting,lightshap,lightshap_approx,kernel,128.0,lightshap / kernel,False,10,6.43795,5.5504,8.293875,0.027100517588896623,0.9958041958041959
+covertype,gradient_boosting,lightshap,lightshap_approx,kernel,512.0,lightshap / kernel,False,10,7.1737,5.5699749999999995,8.951875000000001,0.027128929503878862,0.9958041958041959
+covertype,gradient_boosting,lightshap,lightshap_approx,kernel,2048.0,lightshap / kernel,False,10,7.18665,5.575725,9.025974999999999,0.027128929503878862,0.9958041958041959
+covertype,gradient_boosting,lightshap,lightshap_approx,permutation,128.0,lightshap / permutation,False,10,6.0703499999999995,5.3324,7.7526,0.024513966152993935,0.996853146853147
+covertype,gradient_boosting,lightshap,lightshap_approx,permutation,512.0,lightshap / permutation,False,10,6.725,5.2669,8.38585,0.024250788934492493,0.9972027972027974
+covertype,gradient_boosting,lightshap,lightshap_approx,permutation,2048.0,lightshap / permutation,False,10,6.73305,5.2773,8.371925000000001,0.024250788934492493,0.9972027972027974
+covertype,gradient_boosting,shap,shap_approx,kernel,128.0,shap / kernel,False,10,0.5448,0.5380499999999999,0.545875,0.19970415818099715,0.9495636278326284
+covertype,gradient_boosting,shap,shap_approx,kernel,512.0,shap / kernel,False,10,1.6045,1.599125,1.624575,0.09888086593342632,0.9796862659711774
+covertype,gradient_boosting,shap,shap_approx,kernel,2048.0,shap / kernel,False,10,6.0388,6.011875,6.0835,0.04770298551196418,0.9922957424012676
+covertype,gradient_boosting,shap,shap_approx,permutation,128.0,shap / permutation,False,10,0.80365,0.7939,0.805925,0.06426054285720197,0.9902097902097904
+covertype,gradient_boosting,shap,shap_approx,permutation,512.0,shap / permutation,False,10,2.8911,2.8731750000000003,2.9136,0.03255688964504137,0.994055944055944
+covertype,gradient_boosting,shap,shap_approx,permutation,2048.0,shap / permutation,False,10,11.410699999999999,11.286200000000001,11.481575,0.016229786114262994,0.997902097902098
+covertype,gradient_boosting,shapiq,shapiq_approx,kernel,128.0,shapiq / kernel,False,10,7.10375,7.057075,7.160075,0.45828521934099253,0.8381118881118882
+covertype,gradient_boosting,shapiq,shapiq_approx,kernel,512.0,shapiq / kernel,False,10,8.3233,8.24625,8.344975,0.19705054048456117,0.9503496503496505
+covertype,gradient_boosting,shapiq,shapiq_approx,kernel,2048.0,shapiq / kernel,False,10,13.328800000000001,13.2346,13.4008,0.06694186761838894,0.9891608391608393
+covertype,gradient_boosting,shapiq,shapiq_approx,permutation,128.0,shapiq / permutation,False,10,34.10495,33.9087,34.275825,0.24507583729695742,0.9311188811188812
+covertype,gradient_boosting,shapiq,shapiq_approx,permutation,512.0,shapiq / permutation,False,10,81.1292,80.869325,81.49285,0.12186111365809793,0.9772727272727273
+covertype,gradient_boosting,shapiq,shapiq_approx,permutation,2048.0,shapiq / permutation,False,10,269.54245000000003,268.51785,270.914775,0.059704480732464205,0.9912587412587412
+covertype,linear_regularized,dalex,dalex_approx,permutation,128.0,dalex / permutation,False,10,1.0257999999999998,1.01555,1.0521,3.747725522013654e-15,1.0
+covertype,linear_regularized,dalex,dalex_approx,permutation,512.0,dalex / permutation,False,10,3.8923,3.84245,3.982,3.674083448280342e-15,1.0
+covertype,linear_regularized,dalex,dalex_approx,permutation,2048.0,dalex / permutation,False,10,15.5405,15.46485,15.8505,3.6998454369980375e-15,1.0
+covertype,linear_regularized,lightshap,lightshap_approx,kernel,128.0,lightshap / kernel,False,10,0.03535,0.0349,0.03575,5.798446307027304e-15,1.0
+covertype,linear_regularized,lightshap,lightshap_approx,kernel,512.0,lightshap / kernel,False,10,0.034100000000000005,0.034,0.0346,5.798446307027304e-15,1.0
+covertype,linear_regularized,lightshap,lightshap_approx,kernel,2048.0,lightshap / kernel,False,10,0.03405,0.033824999999999994,0.034475000000000006,5.798446307027304e-15,1.0
+covertype,linear_regularized,lightshap,lightshap_approx,permutation,128.0,lightshap / permutation,False,10,0.047,0.046650000000000004,0.047349999999999996,3.93657875893753e-15,1.0
+covertype,linear_regularized,lightshap,lightshap_approx,permutation,512.0,lightshap / permutation,False,10,0.04685,0.04655,0.04725,3.93657875893753e-15,1.0
+covertype,linear_regularized,lightshap,lightshap_approx,permutation,2048.0,lightshap / permutation,False,10,0.0469,0.04655,0.047325,3.93657875893753e-15,1.0
+covertype,linear_regularized,shap,shap_approx,kernel,128.0,shap / kernel,False,10,0.04975,0.04895,0.050275,0.001986053611090703,0.9982502173821434
+covertype,linear_regularized,shap,shap_approx,kernel,512.0,shap / kernel,False,10,0.13465,0.133975,0.135,0.001548073954213375,0.9982502173821434
+covertype,linear_regularized,shap,shap_approx,kernel,2048.0,shap / kernel,False,10,0.5286,0.5228,0.5340750000000001,0.0014986233172401557,0.9982502173821434
+covertype,linear_regularized,shap,shap_approx,permutation,128.0,shap / permutation,False,10,0.057550000000000004,0.057124999999999995,0.0578,3.945598963423649e-15,1.0
+covertype,linear_regularized,shap,shap_approx,permutation,512.0,shap / permutation,False,10,0.16385,0.16305,0.165075,3.5191188712303218e-15,1.0
+covertype,linear_regularized,shap,shap_approx,permutation,2048.0,shap / permutation,False,10,0.63125,0.6290250000000001,0.6352,3.620522071206577e-15,1.0
+covertype,linear_regularized,shapiq,shapiq_approx,kernel,128.0,shapiq / kernel,False,10,0.52155,0.519725,0.52685,1.1070676309153043e-07,1.0
+covertype,linear_regularized,shapiq,shapiq_approx,kernel,512.0,shapiq / kernel,False,10,0.66325,0.652125,0.66965,2.0692150164058984e-07,1.0
+covertype,linear_regularized,shapiq,shapiq_approx,kernel,2048.0,shapiq / kernel,False,10,1.33795,1.3168,1.3545500000000001,1.8194796048744943e-07,1.0
+covertype,linear_regularized,shapiq,shapiq_approx,permutation,128.0,shapiq / permutation,False,10,2.34225,2.2964,2.367125,4.103784401592754e-15,1.0
+covertype,linear_regularized,shapiq,shapiq_approx,permutation,512.0,shapiq / permutation,False,10,5.664,5.559375,5.7524,3.9004615634526446e-15,1.0
+covertype,linear_regularized,shapiq,shapiq_approx,permutation,2048.0,shapiq / permutation,False,10,18.94565,18.690075,19.30845,4.217538020392447e-15,1.0
+covertype,random_forest,dalex,dalex_approx,permutation,128.0,dalex / permutation,False,10,10.2779,10.203325,10.512475,0.45041904084557494,0.7786713286713287
+covertype,random_forest,dalex,dalex_approx,permutation,512.0,dalex / permutation,False,10,39.577650000000006,39.431775,40.41925,0.2564456998013402,0.9178321678321679
+covertype,random_forest,dalex,dalex_approx,permutation,2048.0,dalex / permutation,False,10,157.08225,155.92262499999998,160.58335,0.12181162825364143,0.970979020979021
+covertype,random_forest,lightshap,lightshap_approx,kernel,128.0,lightshap / kernel,False,10,9.370249999999999,8.280325,10.963025,0.03690164121320418,0.9926573426573426
+covertype,random_forest,lightshap,lightshap_approx,kernel,512.0,lightshap / kernel,False,10,13.6751,10.953575,16.643525,0.03511601854616163,0.993006993006993
+covertype,random_forest,lightshap,lightshap_approx,kernel,2048.0,lightshap / kernel,False,10,15.0661,10.96085,17.381875,0.03511601854616163,0.9926573426573426
+covertype,random_forest,lightshap,lightshap_approx,permutation,128.0,lightshap / permutation,False,10,8.818200000000001,7.80525,10.2499,0.02910653776919202,0.9933566433566434
+covertype,random_forest,lightshap,lightshap_approx,permutation,512.0,lightshap / permutation,False,10,12.771,10.32765,15.70015,0.028089578280482544,0.9933566433566434
+covertype,random_forest,lightshap,lightshap_approx,permutation,2048.0,lightshap / permutation,False,10,14.0578,10.33465,16.185975,0.028060454765105394,0.9930069930069931
+covertype,random_forest,shap,shap_approx,kernel,128.0,shap / kernel,False,10,0.5125500000000001,0.506575,0.51805,0.4380252716627818,0.7998260952253069
+covertype,random_forest,shap,shap_approx,kernel,512.0,shap / kernel,False,10,1.49495,1.47465,1.5084,0.19018150872602524,0.9264462543774629
+covertype,random_forest,shap,shap_approx,kernel,2048.0,shap / kernel,False,10,6.23715,6.16955,6.245975,0.07889935469926068,0.9814375821420233
+covertype,random_forest,shap,shap_approx,permutation,128.0,shap / permutation,False,10,0.7685500000000001,0.759575,0.7757499999999999,0.10828659062685528,0.9664335664335665
+covertype,random_forest,shap,shap_approx,permutation,512.0,shap / permutation,False,10,2.74955,2.7185249999999996,2.7718499999999997,0.053681880263789596,0.9867132867132868
+covertype,random_forest,shap,shap_approx,permutation,2048.0,shap / permutation,False,10,10.83525,10.727525,10.888725,0.026790282888398347,0.9954545454545456
+covertype,random_forest,shapiq,shapiq_approx,kernel,128.0,shapiq / kernel,False,10,6.9199,6.898375,7.06155,0.8682430693755849,0.5538461538461539
+covertype,random_forest,shapiq,shapiq_approx,kernel,512.0,shapiq / kernel,False,10,8.190750000000001,8.173275,8.34315,0.4445045187107327,0.8027972027972028
+covertype,random_forest,shapiq,shapiq_approx,kernel,2048.0,shapiq / kernel,False,10,13.249600000000001,13.1823,13.3848,0.15352300340842723,0.9520979020979022
+covertype,random_forest,shapiq,shapiq_approx,permutation,128.0,shapiq / permutation,False,10,31.87385,31.57535,32.368050000000004,0.46409769850347393,0.788811188811189
+covertype,random_forest,shapiq,shapiq_approx,permutation,512.0,shapiq / permutation,False,10,77.4902,76.31555,78.82872499999999,0.23932104053557043,0.9122377622377623
+covertype,random_forest,shapiq,shapiq_approx,permutation,2048.0,shapiq / permutation,False,10,259.3836,256.794125,266.119775,0.11966311762013657,0.967832167832168
+diabetes_130,decision_tree,dalex,dalex_approx,permutation,128.0,dalex / permutation,False,10,0.92345,0.91855,0.93435,0.48989120226562766,0.8152024226574921
+diabetes_130,decision_tree,dalex,dalex_approx,permutation,512.0,dalex / permutation,False,10,3.4981999999999998,3.469125,3.5105500000000003,0.2323615046884697,0.9471864026760881
+diabetes_130,decision_tree,dalex,dalex_approx,permutation,2048.0,dalex / permutation,False,10,13.981,13.893725,14.156375,0.13005551778469643,0.9684415278625005
+diabetes_130,decision_tree,lightshap,lightshap_approx,kernel,128.0,lightshap / kernel,False,10,3.09045,3.066925,3.1100000000000003,0.08180745754111413,0.9691432800998765
+diabetes_130,decision_tree,lightshap,lightshap_approx,kernel,512.0,lightshap / kernel,False,10,11.9523,11.6138,12.33155,0.0444330491980833,0.9874990041297417
+diabetes_130,decision_tree,lightshap,lightshap_approx,kernel,2048.0,lightshap / kernel,False,10,39.23965,30.539925,40.55675,0.028440868534540156,0.9920444586751962
+diabetes_130,decision_tree,lightshap,lightshap_approx,permutation,128.0,lightshap / permutation,False,10,2.97205,2.9465000000000003,2.992825,0.07006595029316831,0.9826038992346369
+diabetes_130,decision_tree,lightshap,lightshap_approx,permutation,512.0,lightshap / permutation,False,10,11.4727,11.05365,11.82635,0.03511562938543482,0.9922202031767996
+diabetes_130,decision_tree,lightshap,lightshap_approx,permutation,2048.0,lightshap / permutation,False,10,37.27695,29.157225,38.686049999999994,0.02350926525404687,0.9944921644780476
+diabetes_130,decision_tree,shap,shap_approx,kernel,128.0,shap / kernel,False,10,0.04915,0.04875,0.04965,0.32883770867389783,0.8588454501828124
+diabetes_130,decision_tree,shap,shap_approx,kernel,512.0,shap / kernel,False,10,0.1077,0.1071,0.1085,0.14057450613612635,0.9439555021656891
+diabetes_130,decision_tree,shap,shap_approx,kernel,2048.0,shap / kernel,False,10,0.41595000000000004,0.41395,0.417975,0.04938349614232244,0.9830137666957844
+diabetes_130,decision_tree,shap,shap_approx,permutation,128.0,shap / permutation,False,10,0.046,0.0458,0.046275,0.3533178757157278,0.8675670385501068
+diabetes_130,decision_tree,shap,shap_approx,permutation,512.0,shap / permutation,False,10,0.157,0.156825,0.15885,0.18175354685489864,0.9451876345149364
+diabetes_130,decision_tree,shap,shap_approx,permutation,2048.0,shap / permutation,False,10,0.6116,0.609675,0.61585,0.09261290772734287,0.9731627269095584
+diabetes_130,decision_tree,shapiq,shapiq_approx,kernel,128.0,shapiq / kernel,False,10,0.48895,0.488275,0.49285,0.546286150523164,0.7454545454545456
+diabetes_130,decision_tree,shapiq,shapiq_approx,kernel,512.0,shapiq / kernel,False,10,0.6256999999999999,0.6198,0.63105,0.24274715128279512,0.9066433566433569
+diabetes_130,decision_tree,shapiq,shapiq_approx,kernel,2048.0,shapiq / kernel,False,10,1.3069,1.3019,1.310525,0.07561137308980764,0.9691340868320942
+diabetes_130,decision_tree,shapiq,shapiq_approx,permutation,128.0,shapiq / permutation,False,10,2.1502,2.138525,2.180675,0.46395220951432853,0.8504832235712112
+diabetes_130,decision_tree,shapiq,shapiq_approx,permutation,512.0,shapiq / permutation,False,10,5.19885,5.146075,5.268924999999999,0.21646482191281896,0.9444014575692616
+diabetes_130,decision_tree,shapiq,shapiq_approx,permutation,2048.0,shapiq / permutation,False,10,17.47755,17.278175,17.6535,0.11285529304530446,0.9722876817086545
+diabetes_130,gradient_boosting,dalex,dalex_approx,permutation,128.0,dalex / permutation,False,10,2.4341,2.4122,2.4456499999999997,0.1916218568802373,0.9534965034965035
+diabetes_130,gradient_boosting,dalex,dalex_approx,permutation,512.0,dalex / permutation,False,10,9.2032,9.1724,9.300175,0.09341463632908278,0.982867132867133
+diabetes_130,gradient_boosting,dalex,dalex_approx,permutation,2048.0,dalex / permutation,False,10,36.48585,36.0617,36.77135,0.056273278552908194,0.9905594405594407
+diabetes_130,gradient_boosting,lightshap,lightshap_approx,kernel,128.0,lightshap / kernel,False,10,3.3851,3.3315,3.58745,0.02427618789244062,0.9954545454545456
+diabetes_130,gradient_boosting,lightshap,lightshap_approx,kernel,512.0,lightshap / kernel,False,10,4.42495,3.65825,4.858750000000001,0.023513850783676286,0.9958041958041959
+diabetes_130,gradient_boosting,lightshap,lightshap_approx,kernel,2048.0,lightshap / kernel,False,10,4.52195,3.6599500000000003,4.9940750000000005,0.0234603491862811,0.9958041958041959
+diabetes_130,gradient_boosting,lightshap,lightshap_approx,permutation,128.0,lightshap / permutation,False,10,3.2417,3.182825,3.478575,0.021817000459225792,0.9965034965034966
+diabetes_130,gradient_boosting,lightshap,lightshap_approx,permutation,512.0,lightshap / permutation,False,10,4.17985,3.439325,4.56985,0.021511859353103405,0.996853146853147
+diabetes_130,gradient_boosting,lightshap,lightshap_approx,permutation,2048.0,lightshap / permutation,False,10,4.1827000000000005,3.4439,4.724125,0.021511859353103405,0.996853146853147
+diabetes_130,gradient_boosting,shap,shap_approx,kernel,128.0,shap / kernel,False,10,0.13135,0.1309,0.131775,0.11537463474559267,0.973031264521963
+diabetes_130,gradient_boosting,shap,shap_approx,kernel,512.0,shap / kernel,False,10,0.35365,0.352025,0.3569,0.06001101356087713,0.9884428468254066
+diabetes_130,gradient_boosting,shap,shap_approx,kernel,2048.0,shap / kernel,False,10,1.2659,1.2597999999999998,1.2686,0.037185221170561195,0.9956232431258747
+diabetes_130,gradient_boosting,shap,shap_approx,permutation,128.0,shap / permutation,False,10,0.1591,0.157725,0.1626,0.07908039396815986,0.983916083916084
+diabetes_130,gradient_boosting,shap,shap_approx,permutation,512.0,shap / permutation,False,10,0.5673,0.55765,0.5735250000000001,0.038487691372786195,0.994755244755245
+diabetes_130,gradient_boosting,shap,shap_approx,permutation,2048.0,shap / permutation,False,10,2.229,2.186875,2.251975,0.020176055943617592,0.9975524475524478
+diabetes_130,gradient_boosting,shapiq,shapiq_approx,kernel,128.0,shapiq / kernel,False,10,1.5491000000000001,1.5261500000000001,1.5589,0.22724501985681772,0.9384615384615386
+diabetes_130,gradient_boosting,shapiq,shapiq_approx,kernel,512.0,shapiq / kernel,False,10,1.8608,1.8383749999999999,1.8659750000000002,0.09276535013838086,0.9790209790209792
+diabetes_130,gradient_boosting,shapiq,shapiq_approx,kernel,2048.0,shapiq / kernel,False,10,3.2378,3.1778250000000003,3.24685,0.029874204035660268,0.9947552447552448
+diabetes_130,gradient_boosting,shapiq,shapiq_approx,permutation,128.0,shapiq / permutation,False,10,7.27745,7.241300000000001,7.318575,0.18914443250400056,0.9520979020979022
+diabetes_130,gradient_boosting,shapiq,shapiq_approx,permutation,512.0,shapiq / permutation,False,10,17.360300000000002,17.20855,17.51155,0.09841708975314163,0.9804195804195805
+diabetes_130,gradient_boosting,shapiq,shapiq_approx,permutation,2048.0,shapiq / permutation,False,10,58.092349999999996,57.387175,58.390325,0.045877973390389945,0.9916083916083916
+diabetes_130,linear_regularized,dalex,dalex_approx,permutation,128.0,dalex / permutation,False,10,0.8963000000000001,0.883675,0.9059250000000001,1.1143601118827657e-14,1.0
+diabetes_130,linear_regularized,dalex,dalex_approx,permutation,512.0,dalex / permutation,False,10,3.391,3.333475,3.4161,1.1170343455212597e-14,1.0
+diabetes_130,linear_regularized,dalex,dalex_approx,permutation,2048.0,dalex / permutation,False,10,13.46745,13.347825,13.5332,1.1126609432321563e-14,1.0
+diabetes_130,linear_regularized,lightshap,lightshap_approx,kernel,128.0,lightshap / kernel,False,10,0.0503,0.04985,0.051074999999999995,1.2769910439637746e-14,1.0
+diabetes_130,linear_regularized,lightshap,lightshap_approx,kernel,512.0,lightshap / kernel,False,10,0.04925,0.0487,0.049725,1.2769910439637746e-14,1.0
+diabetes_130,linear_regularized,lightshap,lightshap_approx,kernel,2048.0,lightshap / kernel,False,10,0.04955,0.048925,0.05015,1.2769910439637746e-14,1.0
+diabetes_130,linear_regularized,lightshap,lightshap_approx,permutation,128.0,lightshap / permutation,False,10,0.0694,0.0693,0.07055,1.1329704670003069e-14,1.0
+diabetes_130,linear_regularized,lightshap,lightshap_approx,permutation,512.0,lightshap / permutation,False,10,0.06995000000000001,0.068925,0.07035,1.1329704670003069e-14,1.0
+diabetes_130,linear_regularized,lightshap,lightshap_approx,permutation,2048.0,lightshap / permutation,False,10,0.0697,0.068725,0.070425,1.1329704670003069e-14,1.0
+diabetes_130,linear_regularized,shap,shap_approx,kernel,128.0,shap / kernel,False,10,0.04875,0.048525,0.048875,0.024095098713633575,0.9950978482746209
+diabetes_130,linear_regularized,shap,shap_approx,kernel,512.0,shap / kernel,False,10,0.12865,0.12805,0.13035,0.021012143852892427,0.9973745592967205
+diabetes_130,linear_regularized,shap,shap_approx,kernel,2048.0,shap / kernel,False,10,0.49375,0.4916,0.49815,0.02003427784934516,0.9982502173821434
+diabetes_130,linear_regularized,shap,shap_approx,permutation,128.0,shap / permutation,False,10,0.05545,0.055025000000000004,0.056225000000000004,1.0766836197133538e-14,1.0
+diabetes_130,linear_regularized,shap,shap_approx,permutation,512.0,shap / permutation,False,10,0.1599,0.158925,0.1622,9.891732362717405e-15,1.0
+diabetes_130,linear_regularized,shap,shap_approx,permutation,2048.0,shap / permutation,False,10,0.60915,0.60315,0.616275,9.529738219575414e-15,1.0
+diabetes_130,linear_regularized,shapiq,shapiq_approx,kernel,128.0,shapiq / kernel,False,10,0.52455,0.5166000000000001,0.5284,1.3382679494938094e-07,1.0
+diabetes_130,linear_regularized,shapiq,shapiq_approx,kernel,512.0,shapiq / kernel,False,10,0.6476500000000001,0.639775,0.651775,2.399011754839854e-07,1.0
+diabetes_130,linear_regularized,shapiq,shapiq_approx,kernel,2048.0,shapiq / kernel,False,10,1.283,1.268025,1.319525,3.362110271120346e-07,1.0
+diabetes_130,linear_regularized,shapiq,shapiq_approx,permutation,128.0,shapiq / permutation,False,10,2.30925,2.29135,2.340975,1.1251729977052425e-14,1.0
+diabetes_130,linear_regularized,shapiq,shapiq_approx,permutation,512.0,shapiq / permutation,False,10,5.65185,5.56915,5.677149999999999,1.0651551781105865e-14,1.0
+diabetes_130,linear_regularized,shapiq,shapiq_approx,permutation,2048.0,shapiq / permutation,False,10,18.83535,18.70225,18.95475,1.0638736201159407e-14,1.0
+diabetes_130,random_forest,dalex,dalex_approx,permutation,128.0,dalex / permutation,False,10,9.9876,9.8331,10.1093,0.3620859486031142,0.9031468531468533
+diabetes_130,random_forest,dalex,dalex_approx,permutation,512.0,dalex / permutation,False,10,38.58485,37.999125,38.85695,0.18259053860948116,0.95979020979021
+diabetes_130,random_forest,dalex,dalex_approx,permutation,2048.0,dalex / permutation,False,10,152.32405,149.70057500000001,153.22342500000002,0.10038019522957245,0.9818181818181819
+diabetes_130,random_forest,lightshap,lightshap_approx,kernel,128.0,lightshap / kernel,False,10,15.50225,14.200975,15.8702,0.03396042997082258,0.9947552447552448
+diabetes_130,random_forest,lightshap,lightshap_approx,kernel,512.0,lightshap / kernel,False,10,29.420450000000002,27.5671,46.4884,0.02646158269253849,0.9951048951048952
+diabetes_130,random_forest,lightshap,lightshap_approx,kernel,2048.0,lightshap / kernel,False,10,42.878699999999995,32.156325,55.3807,0.025483586725433004,0.9954545454545456
+diabetes_130,random_forest,lightshap,lightshap_approx,permutation,128.0,lightshap / permutation,False,10,14.71875,13.462625,15.13935,0.03130256652780257,0.9954545454545456
+diabetes_130,random_forest,lightshap,lightshap_approx,permutation,512.0,lightshap / permutation,False,10,27.844700000000003,25.97175,44.0338,0.023441790308618052,0.9965034965034966
+diabetes_130,random_forest,lightshap,lightshap_approx,permutation,2048.0,lightshap / permutation,False,10,40.31745,30.383425000000003,52.603025,0.02317160779648955,0.9965034965034967
+diabetes_130,random_forest,shap,shap_approx,kernel,128.0,shap / kernel,False,10,0.4157,0.40800000000000003,0.419425,0.31696443171621735,0.8966738794730833
+diabetes_130,random_forest,shap,shap_approx,kernel,512.0,shap / kernel,False,10,1.1188500000000001,1.0818249999999998,1.136625,0.143720625560909,0.9690032373290174
+diabetes_130,random_forest,shap,shap_approx,kernel,2048.0,shap / kernel,False,10,4.0975,3.9074,4.105875,0.06570989193722629,0.9903692946133371
+diabetes_130,random_forest,shap,shap_approx,permutation,128.0,shap / permutation,False,10,0.66345,0.6524749999999999,0.667375,0.1409621975231572,0.9639860139860141
+diabetes_130,random_forest,shap,shap_approx,permutation,512.0,shap / permutation,False,10,2.35345,2.318125,2.3779250000000003,0.07241953699888515,0.9881118881118882
+diabetes_130,random_forest,shap,shap_approx,permutation,2048.0,shap / permutation,False,10,9.249600000000001,9.086775,9.309025,0.03663574284164843,0.9951048951048952
+diabetes_130,random_forest,shapiq,shapiq_approx,kernel,128.0,shapiq / kernel,False,10,6.77755,6.63555,6.8428249999999995,0.6953014600253535,0.7108391608391609
+diabetes_130,random_forest,shapiq,shapiq_approx,kernel,512.0,shapiq / kernel,False,10,7.8365,7.71625,7.8501,0.3151598807306266,0.9108391608391608
+diabetes_130,random_forest,shapiq,shapiq_approx,kernel,2048.0,shapiq / kernel,False,10,12.0091,11.7602,12.08115,0.1007162045304894,0.9762237762237763
+diabetes_130,random_forest,shapiq,shapiq_approx,permutation,128.0,shapiq / permutation,False,10,31.5168,30.951225,31.6799,0.37738512056578866,0.8783216783216784
+diabetes_130,random_forest,shapiq,shapiq_approx,permutation,512.0,shapiq / permutation,False,10,76.49295000000001,74.559775,76.99577500000001,0.1853241723380349,0.9587412587412587
+diabetes_130,random_forest,shapiq,shapiq_approx,permutation,2048.0,shapiq / permutation,False,10,256.38595,250.46767499999999,257.257675,0.08812782268010305,0.9832167832167833
+gisette,decision_tree,dalex,dalex_approx,permutation,128.0,dalex / permutation,False,10,0.96995,0.9606250000000001,0.979825,0.370400432615164,0.8566433566433567
+gisette,decision_tree,dalex,dalex_approx,permutation,512.0,dalex / permutation,False,10,3.67185,3.6584250000000003,3.703675,0.19735248816438233,0.9577762728713866
+gisette,decision_tree,dalex,dalex_approx,permutation,2048.0,dalex / permutation,False,10,14.530750000000001,14.45,14.54195,0.10781032581899364,0.9758741258741259
+gisette,decision_tree,lightshap,lightshap_approx,kernel,128.0,lightshap / kernel,False,10,1.85015,1.8260750000000001,1.86945,0.07097308488065313,0.9849650349650351
+gisette,decision_tree,lightshap,lightshap_approx,kernel,512.0,lightshap / kernel,False,10,6.839700000000001,6.384675,7.024675,0.03536530419602753,0.9944055944055945
+gisette,decision_tree,lightshap,lightshap_approx,kernel,2048.0,lightshap / kernel,False,10,16.23215,12.909524999999999,17.2997,0.02615070939269032,0.9958041958041959
+gisette,decision_tree,lightshap,lightshap_approx,permutation,128.0,lightshap / permutation,False,10,1.7041499999999998,1.695275,1.7379,0.053214007934371685,0.9888111888111888
+gisette,decision_tree,lightshap,lightshap_approx,permutation,512.0,lightshap / permutation,False,10,6.33935,6.0472,6.514025,0.029629524822171224,0.9958041958041959
+gisette,decision_tree,lightshap,lightshap_approx,permutation,2048.0,lightshap / permutation,False,10,14.8267,11.701500000000001,15.72325,0.023139398425202976,0.9958041958041959
+gisette,decision_tree,shap,shap_approx,kernel,128.0,shap / kernel,False,10,0.04925,0.04895,0.049749999999999996,0.32177136754526303,0.8663761097174498
+gisette,decision_tree,shap,shap_approx,kernel,512.0,shap / kernel,False,10,0.10735,0.10654999999999999,0.110775,0.14524264922990163,0.9590207351551963
+gisette,decision_tree,shap,shap_approx,kernel,2048.0,shap / kernel,False,10,0.41205,0.406925,0.412825,0.050618931067280465,0.9887931100595757
+gisette,decision_tree,shap,shap_approx,permutation,128.0,shap / permutation,False,10,0.046,0.045625,0.04625,0.31207263033672344,0.8854372622184501
+gisette,decision_tree,shap,shap_approx,permutation,512.0,shap / permutation,False,10,0.15655,0.15560000000000002,0.15785,0.1640132042493782,0.9603934409753543
+gisette,decision_tree,shap,shap_approx,permutation,2048.0,shap / permutation,False,10,0.61095,0.6057750000000001,0.617625,0.08250002215151375,0.9797202797202798
+gisette,decision_tree,shapiq,shapiq_approx,kernel,128.0,shapiq / kernel,False,10,0.49475,0.49275,0.5009,0.5851239659225177,0.7349650349650351
+gisette,decision_tree,shapiq,shapiq_approx,kernel,512.0,shapiq / kernel,False,10,0.6293,0.6275999999999999,0.639075,0.26137646813303783,0.911888111888112
+gisette,decision_tree,shapiq,shapiq_approx,kernel,2048.0,shapiq / kernel,False,10,1.317,1.312375,1.337075,0.08462890340284773,0.9790209790209792
+gisette,decision_tree,shapiq,shapiq_approx,permutation,128.0,shapiq / permutation,False,10,2.16755,2.154375,2.1948999999999996,0.4119324210095718,0.8695804195804198
+gisette,decision_tree,shapiq,shapiq_approx,permutation,512.0,shapiq / permutation,False,10,5.21565,5.188525,5.24145,0.21857823355775075,0.951048951048951
+gisette,decision_tree,shapiq,shapiq_approx,permutation,2048.0,shapiq / permutation,False,10,17.6319,17.5135,17.719025000000002,0.10463888003805308,0.9786713286713289
+gisette,gradient_boosting,dalex,dalex_approx,permutation,128.0,dalex / permutation,False,10,2.48635,2.471025,2.50055,0.172603928484015,0.961888111888112
+gisette,gradient_boosting,dalex,dalex_approx,permutation,512.0,dalex / permutation,False,10,9.5319,9.488925,9.5881,0.0763116854328765,0.9846153846153847
+gisette,gradient_boosting,dalex,dalex_approx,permutation,2048.0,dalex / permutation,False,10,37.96275,37.733225,38.326625,0.0450981723479692,0.9912587412587412
+gisette,gradient_boosting,lightshap,lightshap_approx,kernel,128.0,lightshap / kernel,False,10,1.92145,1.5498500000000002,1.989625,0.02647429172963689,0.9947552447552448
+gisette,gradient_boosting,lightshap,lightshap_approx,kernel,512.0,lightshap / kernel,False,10,1.93335,1.5494750000000002,2.024525,0.026487546074518416,0.9947552447552448
+gisette,gradient_boosting,lightshap,lightshap_approx,kernel,2048.0,lightshap / kernel,False,10,1.9316,1.5517750000000001,2.052225,0.026487546074518416,0.9947552447552448
+gisette,gradient_boosting,lightshap,lightshap_approx,permutation,128.0,lightshap / permutation,False,10,1.8205,1.4597,1.8739,0.02414142422121745,0.9951048951048952
+gisette,gradient_boosting,lightshap,lightshap_approx,permutation,512.0,lightshap / permutation,False,10,1.79385,1.4596,1.906325,0.024048901667860237,0.9951048951048952
+gisette,gradient_boosting,lightshap,lightshap_approx,permutation,2048.0,lightshap / permutation,False,10,1.7927,1.461025,1.904325,0.024048901667860237,0.9951048951048952
+gisette,gradient_boosting,shap,shap_approx,kernel,128.0,shap / kernel,False,10,0.1236,0.12237500000000001,0.124375,0.14407112655377768,0.9704042902656944
+gisette,gradient_boosting,shap,shap_approx,kernel,512.0,shap / kernel,False,10,0.31445,0.311525,0.3174,0.07603294663600423,0.9873920571228991
+gisette,gradient_boosting,shap,shap_approx,kernel,2048.0,shap / kernel,False,10,1.13185,1.11785,1.152,0.04434743539091342,0.9942221901891979
+gisette,gradient_boosting,shap,shap_approx,permutation,128.0,shap / permutation,False,10,0.14795,0.14745,0.149675,0.07047609677006991,0.9881118881118881
+gisette,gradient_boosting,shap,shap_approx,permutation,512.0,shap / permutation,False,10,0.52675,0.5241,0.5309,0.03572081876046784,0.9940559440559442
+gisette,gradient_boosting,shap,shap_approx,permutation,2048.0,shap / permutation,False,10,2.069,2.0568750000000002,2.0881000000000003,0.016884650183225637,0.996853146853147
+gisette,gradient_boosting,shapiq,shapiq_approx,kernel,128.0,shapiq / kernel,False,10,1.55315,1.536375,1.561975,0.2998102099828228,0.904895104895105
+gisette,gradient_boosting,shapiq,shapiq_approx,kernel,512.0,shapiq / kernel,False,10,1.8221500000000002,1.8066749999999998,1.836925,0.12359024129832154,0.9667832167832169
+gisette,gradient_boosting,shapiq,shapiq_approx,kernel,2048.0,shapiq / kernel,False,10,3.11865,3.07425,3.164,0.03839484461951466,0.9916083916083916
+gisette,gradient_boosting,shapiq,shapiq_approx,permutation,128.0,shapiq / permutation,False,10,7.23885,7.1849,7.288600000000001,0.17666339378251678,0.9657342657342658
+gisette,gradient_boosting,shapiq,shapiq_approx,permutation,512.0,shapiq / permutation,False,10,17.31305,17.193025,17.425525,0.08771745518513603,0.9846153846153847
+gisette,gradient_boosting,shapiq,shapiq_approx,permutation,2048.0,shapiq / permutation,False,10,57.6987,57.284324999999995,58.007725,0.04004647119197921,0.9930069930069931
+gisette,linear_regularized,dalex,dalex_approx,permutation,128.0,dalex / permutation,False,10,1.02555,1.0145499999999998,1.0309499999999998,2.481982988410748e-15,1.0
+gisette,linear_regularized,dalex,dalex_approx,permutation,512.0,dalex / permutation,False,10,3.8923,3.8062750000000003,3.9015500000000003,2.4582668197537005e-15,1.0
+gisette,linear_regularized,dalex,dalex_approx,permutation,2048.0,dalex / permutation,False,10,15.51825,15.285375,15.62305,2.4554201978228156e-15,1.0
+gisette,linear_regularized,lightshap,lightshap_approx,kernel,128.0,lightshap / kernel,False,10,0.032,0.031675,0.0324,4.691683014659363e-15,1.0
+gisette,linear_regularized,lightshap,lightshap_approx,kernel,512.0,lightshap / kernel,False,10,0.03115,0.030925,0.031575000000000006,4.691683014659363e-15,1.0
+gisette,linear_regularized,lightshap,lightshap_approx,kernel,2048.0,lightshap / kernel,False,10,0.03105,0.0309,0.031275,4.691683014659363e-15,1.0
+gisette,linear_regularized,lightshap,lightshap_approx,permutation,128.0,lightshap / permutation,False,10,0.04235,0.04185,0.042725,2.484244693552642e-15,1.0
+gisette,linear_regularized,lightshap,lightshap_approx,permutation,512.0,lightshap / permutation,False,10,0.0422,0.04185,0.042675,2.484244693552642e-15,1.0
+gisette,linear_regularized,lightshap,lightshap_approx,permutation,2048.0,lightshap / permutation,False,10,0.0421,0.041675,0.0427,2.484244693552642e-15,1.0
+gisette,linear_regularized,shap,shap_approx,kernel,128.0,shap / kernel,False,10,0.04735,0.04685,0.048075,0.06324536156612053,0.9942221901891979
+gisette,linear_regularized,shap,shap_approx,kernel,512.0,shap / kernel,False,10,0.1171,0.11465,0.1188,0.04785021049888665,0.9966740328283821
+gisette,linear_regularized,shap,shap_approx,kernel,2048.0,shap / kernel,False,10,0.4601,0.4585,0.46485,0.04978991285263491,0.9982502173821434
+gisette,linear_regularized,shap,shap_approx,permutation,128.0,shap / permutation,False,10,0.0552,0.055,0.056374999999999995,2.3858489109232908e-15,1.0
+gisette,linear_regularized,shap,shap_approx,permutation,512.0,shap / permutation,False,10,0.15985,0.159375,0.16160000000000002,2.3012886346584834e-15,1.0
+gisette,linear_regularized,shap,shap_approx,permutation,2048.0,shap / permutation,False,10,0.6093,0.6067750000000001,0.6147,2.7222384773511014e-15,1.0
+gisette,linear_regularized,shapiq,shapiq_approx,kernel,128.0,shapiq / kernel,False,10,0.5246,0.519675,0.5274000000000001,1.2271701781492387e-07,1.0
+gisette,linear_regularized,shapiq,shapiq_approx,kernel,512.0,shapiq / kernel,False,10,0.6554,0.645925,0.65915,2.2714690822687605e-07,1.0
+gisette,linear_regularized,shapiq,shapiq_approx,kernel,2048.0,shapiq / kernel,False,10,1.30105,1.2944,1.317725,3.1262475537868476e-07,1.0
+gisette,linear_regularized,shapiq,shapiq_approx,permutation,128.0,shapiq / permutation,False,10,2.33835,2.3210249999999997,2.340325,2.5074870826356133e-15,1.0
+gisette,linear_regularized,shapiq,shapiq_approx,permutation,512.0,shapiq / permutation,False,10,5.6615,5.634975000000001,5.711425,2.3607915777314214e-15,1.0
+gisette,linear_regularized,shapiq,shapiq_approx,permutation,2048.0,shapiq / permutation,False,10,19.0423,18.9284,19.173000000000002,2.973216820103645e-15,1.0
+gisette,random_forest,dalex,dalex_approx,permutation,128.0,dalex / permutation,False,10,10.03645,9.794974999999999,10.08545,0.2627207161803714,0.9213286713286715
+gisette,random_forest,dalex,dalex_approx,permutation,512.0,dalex / permutation,False,10,38.5844,38.243325,38.694700000000005,0.13859815228175396,0.9664335664335666
+gisette,random_forest,dalex,dalex_approx,permutation,2048.0,dalex / permutation,False,10,153.09205,151.5325,153.54115,0.07311323713652099,0.9856643356643358
+gisette,random_forest,lightshap,lightshap_approx,kernel,128.0,lightshap / kernel,False,10,11.7253,10.80035,12.9315,0.03627979197764501,0.990909090909091
+gisette,random_forest,lightshap,lightshap_approx,kernel,512.0,lightshap / kernel,False,10,23.08745,18.325200000000002,25.420925,0.0305548409844225,0.9916083916083916
+gisette,random_forest,lightshap,lightshap_approx,kernel,2048.0,lightshap / kernel,False,10,24.3408,18.29255,27.811400000000003,0.030517951824656227,0.9916083916083916
+gisette,random_forest,lightshap,lightshap_approx,permutation,128.0,lightshap / permutation,False,10,11.1196,10.230975,12.314825,0.02690590314520107,0.9958041958041959
+gisette,random_forest,lightshap,lightshap_approx,permutation,512.0,lightshap / permutation,False,10,21.8953,17.492075,24.065025,0.023508459926803407,0.9965034965034965
+gisette,random_forest,lightshap,lightshap_approx,permutation,2048.0,lightshap / permutation,False,10,23.061799999999998,17.45595,26.013525,0.023642471823985538,0.9965034965034965
+gisette,random_forest,shap,shap_approx,kernel,128.0,shap / kernel,False,10,0.41115,0.38830000000000003,0.42432499999999995,0.2594389881475911,0.9206669110136716
+gisette,random_forest,shap,shap_approx,kernel,512.0,shap / kernel,False,10,1.0859,1.02,1.168275,0.12662404959132983,0.9711048167340326
+gisette,random_forest,shap,shap_approx,kernel,2048.0,shap / kernel,False,10,3.84605,3.57095,4.168725,0.05612332810797099,0.9921206107841829
+gisette,random_forest,shap,shap_approx,permutation,128.0,shap / permutation,False,10,0.63715,0.6228,0.652825,0.12664238131565375,0.9723776223776225
+gisette,random_forest,shap,shap_approx,permutation,512.0,shap / permutation,False,10,2.2718,2.21035,2.3125,0.058459069546812,0.9870629370629371
+gisette,random_forest,shap,shap_approx,permutation,2048.0,shap / permutation,False,10,8.844100000000001,8.675925,9.0813,0.02961489456118188,0.9944055944055945
+gisette,random_forest,shapiq,shapiq_approx,kernel,128.0,shapiq / kernel,False,10,6.6851,6.576825,6.8048,0.5738385680667328,0.7695804195804197
+gisette,random_forest,shapiq,shapiq_approx,kernel,512.0,shapiq / kernel,False,10,7.7172,7.5926,7.8027750000000005,0.24907584648616157,0.9181818181818182
+gisette,random_forest,shapiq,shapiq_approx,kernel,2048.0,shapiq / kernel,False,10,11.66845,11.4052,11.8424,0.07712765987012928,0.9842657342657344
+gisette,random_forest,shapiq,shapiq_approx,permutation,128.0,shapiq / permutation,False,10,31.291449999999998,30.793875,31.691575,0.2939020211447078,0.9150349650349652
+gisette,random_forest,shapiq,shapiq_approx,permutation,512.0,shapiq / permutation,False,10,75.8535,74.83697500000001,76.65505,0.15107828923433525,0.9594405594405595
+gisette,random_forest,shapiq,shapiq_approx,permutation,2048.0,shapiq / permutation,False,10,252.7523,251.306,256.41035,0.07043007574823659,0.9863636363636366
+ames_housing,decision_tree,dalex,dalex_true_value,exact,,dalex_true_value,True,10,25.04155,24.622075,25.182499999999997,0.032,
+ames_housing,decision_tree,lightshap,lightshap_exact,exact,,lightshap_exact,True,10,0.53815,0.5341,0.542,0.0,
+ames_housing,decision_tree,shap,shap_true_value,exact,,shap_true_value,True,10,4.61625,4.5786750000000005,4.6442499999999995,0.0,
+ames_housing,decision_tree,shapiq,shapiq_true_value,exact,,shapiq_true_value,True,10,0.9590000000000001,0.9501000000000001,0.97,0.0,
+ames_housing,gradient_boosting,dalex,dalex_true_value,exact,,dalex_true_value,True,10,65.4438,64.967,66.28845000000001,0.032,
+ames_housing,gradient_boosting,lightshap,lightshap_exact,exact,,lightshap_exact,True,10,2.31165,2.29135,2.347725,0.0,
+ames_housing,gradient_boosting,shap,shap_true_value,exact,,shap_true_value,True,10,5.4796,5.390925,5.565875,0.0,
+ames_housing,gradient_boosting,shapiq,shapiq_true_value,exact,,shapiq_true_value,True,10,4.34065,4.2984,4.405875,0.0,
+ames_housing,linear_regularized,dalex,dalex_true_value,exact,,dalex_true_value,True,10,24.1111,23.926275,24.215875,0.032,
+ames_housing,linear_regularized,lightshap,lightshap_exact,exact,,lightshap_exact,True,10,0.48485,0.48165,0.4874,0.0,
+ames_housing,linear_regularized,shap,shap_true_value,exact,,shap_true_value,True,10,4.63035,4.609475,4.65695,0.0,
+ames_housing,linear_regularized,shapiq,shapiq_true_value,exact,,shapiq_true_value,True,10,0.92455,0.9177500000000001,0.928825,0.0,
+ames_housing,random_forest,dalex,dalex_true_value,exact,,dalex_true_value,True,10,299.73720000000003,297.3473,300.776075,0.032,
+ames_housing,random_forest,lightshap,lightshap_exact,exact,,lightshap_exact,True,10,8.27995,8.087275,8.4532,0.0,
+ames_housing,random_forest,shap,shap_true_value,exact,,shap_true_value,True,10,8.9468,8.556650000000001,9.105350000000001,0.0,
+ames_housing,random_forest,shapiq,shapiq_true_value,exact,,shapiq_true_value,True,10,14.9169,14.686,15.008225,0.0,
+bike,decision_tree,dalex,dalex_true_value,exact,,dalex_true_value,True,10,25.447,25.292025000000002,25.742325,0.032,
+bike,decision_tree,lightshap,lightshap_exact,exact,,lightshap_exact,True,10,0.48805,0.47835000000000005,0.49007500000000004,0.0,
+bike,decision_tree,shap,shap_true_value,exact,,shap_true_value,True,10,4.7401,4.728199999999999,4.743175,0.0,
+bike,decision_tree,shapiq,shapiq_true_value,exact,,shapiq_true_value,True,10,0.9520500000000001,0.94685,0.960875,0.0,
+bike,gradient_boosting,dalex,dalex_true_value,exact,,dalex_true_value,True,10,65.8122,65.394775,66.23995,0.032,
+bike,gradient_boosting,lightshap,lightshap_exact,exact,,lightshap_exact,True,10,2.0229,2.008025,2.038725,0.0,
+bike,gradient_boosting,shap,shap_true_value,exact,,shap_true_value,True,10,6.13835,6.118425,6.152225,0.0,
+bike,gradient_boosting,shapiq,shapiq_true_value,exact,,shapiq_true_value,True,10,4.0474,4.00155,4.060525,0.0,
+bike,linear_regularized,dalex,dalex_true_value,exact,,dalex_true_value,True,10,24.61775,24.483475,24.878575,0.032,
+bike,linear_regularized,lightshap,lightshap_exact,exact,,lightshap_exact,True,10,0.5585,0.544175,0.56335,0.0,
+bike,linear_regularized,shap,shap_true_value,exact,,shap_true_value,True,10,4.71335,4.6846250000000005,4.732825,0.0,
+bike,linear_regularized,shapiq,shapiq_true_value,exact,,shapiq_true_value,True,10,0.9230499999999999,0.9152250000000001,0.927725,0.0,
+bike,random_forest,dalex,dalex_true_value,exact,,dalex_true_value,True,10,298.75085,296.065525,300.65005,0.032,
+bike,random_forest,lightshap,lightshap_exact,exact,,lightshap_exact,True,10,8.61965,8.30175,8.74895,0.0,
+bike,random_forest,shap,shap_true_value,exact,,shap_true_value,True,10,12.706,12.394075,12.903974999999999,0.0,
+bike,random_forest,shapiq,shapiq_true_value,exact,,shapiq_true_value,True,10,14.26295,14.194374999999999,14.47425,0.0,
+covertype,decision_tree,dalex,dalex_true_value,exact,,dalex_true_value,True,10,26.6231,26.480674999999998,26.8505,0.032,
+covertype,decision_tree,lightshap,lightshap_exact,exact,,lightshap_exact,True,10,0.50315,0.49724999999999997,0.510925,0.0,
+covertype,decision_tree,shap,shap_true_value,exact,,shap_true_value,True,10,4.65405,4.633825,4.682925,0.0,
+covertype,decision_tree,shapiq,shapiq_true_value,exact,,shapiq_true_value,True,10,0.93725,0.933075,0.941125,0.0,
+covertype,gradient_boosting,dalex,dalex_true_value,exact,,dalex_true_value,True,10,293.65615,291.23055,295.7344,0.032,
+covertype,gradient_boosting,lightshap,lightshap_exact,exact,,lightshap_exact,True,10,11.7976,11.768825,11.8096,0.0,
+covertype,gradient_boosting,shap,shap_true_value,exact,,shap_true_value,True,10,11.6863,11.555375000000002,11.743075000000001,0.0,
+covertype,gradient_boosting,shapiq,shapiq_true_value,exact,,shapiq_true_value,True,10,18.33785,18.23905,18.512,0.0,
+covertype,linear_regularized,dalex,dalex_true_value,exact,,dalex_true_value,True,10,28.19095,27.9484,28.73535,0.032,
+covertype,linear_regularized,lightshap,lightshap_exact,exact,,lightshap_exact,True,10,0.6023499999999999,0.595075,0.6117,0.0,
+covertype,linear_regularized,shap,shap_true_value,exact,,shap_true_value,True,10,4.7696000000000005,4.749075,4.78675,0.0,
+covertype,linear_regularized,shapiq,shapiq_true_value,exact,,shapiq_true_value,True,10,0.9948,0.9816,0.9961249999999999,0.0,
+covertype,random_forest,dalex,dalex_true_value,exact,,dalex_true_value,True,10,287.15049999999997,286.01125,294.43155,0.032,
+covertype,random_forest,lightshap,lightshap_exact,exact,,lightshap_exact,True,10,10.088899999999999,10.068800000000001,10.2631,0.0,
+covertype,random_forest,shap,shap_true_value,exact,,shap_true_value,True,10,10.93605,10.846074999999999,10.978975,0.0,
+covertype,random_forest,shapiq,shapiq_true_value,exact,,shapiq_true_value,True,10,14.405249999999999,14.20965,14.445075000000001,0.0,
+diabetes_130,decision_tree,dalex,dalex_true_value,exact,,dalex_true_value,True,10,25.5285,25.16985,25.648425,0.032,
+diabetes_130,decision_tree,lightshap,lightshap_exact,exact,,lightshap_exact,True,10,0.48505,0.46852499999999997,0.492,0.0,
+diabetes_130,decision_tree,shap,shap_true_value,exact,,shap_true_value,True,10,4.6659,4.645575,4.693075,0.0,
+diabetes_130,decision_tree,shapiq,shapiq_true_value,exact,,shapiq_true_value,True,10,0.9305,0.925825,0.9409749999999999,0.0,
+diabetes_130,gradient_boosting,dalex,dalex_true_value,exact,,dalex_true_value,True,10,66.8082,65.876875,67.5745,0.032,
+diabetes_130,gradient_boosting,lightshap,lightshap_exact,exact,,lightshap_exact,True,10,2.0282999999999998,2.0206,2.0417,0.0,
+diabetes_130,gradient_boosting,shap,shap_true_value,exact,,shap_true_value,True,10,6.1927,6.089925,6.272425,0.0,
+diabetes_130,gradient_boosting,shapiq,shapiq_true_value,exact,,shapiq_true_value,True,10,4.18525,4.062625,4.216200000000001,0.0,
+diabetes_130,linear_regularized,dalex,dalex_true_value,exact,,dalex_true_value,True,10,24.57515,24.44215,24.871975,0.032,
+diabetes_130,linear_regularized,lightshap,lightshap_exact,exact,,lightshap_exact,True,10,0.37695,0.37507500000000005,0.38039999999999996,0.0,
+diabetes_130,linear_regularized,shap,shap_true_value,exact,,shap_true_value,True,10,4.6708,4.63865,4.70515,0.0,
+diabetes_130,linear_regularized,shapiq,shapiq_true_value,exact,,shapiq_true_value,True,10,0.92925,0.920725,0.94015,0.0,
+diabetes_130,random_forest,dalex,dalex_true_value,exact,,dalex_true_value,True,10,280.87825,276.571075,282.73845,0.032,
+diabetes_130,random_forest,lightshap,lightshap_exact,exact,,lightshap_exact,True,10,6.7505,6.496325000000001,6.86515,0.0,
+diabetes_130,random_forest,shap,shap_true_value,exact,,shap_true_value,True,10,10.2287,10.1891,10.44215,0.0,
+diabetes_130,random_forest,shapiq,shapiq_true_value,exact,,shapiq_true_value,True,10,12.609549999999999,12.466524999999999,12.684574999999999,0.0,
+gisette,decision_tree,dalex,dalex_true_value,exact,,dalex_true_value,True,10,26.911,26.746425000000002,27.116725,0.032,
+gisette,decision_tree,lightshap,lightshap_exact,exact,,lightshap_exact,True,10,0.31579999999999997,0.30989999999999995,0.32277500000000003,0.0,
+gisette,decision_tree,shap,shap_true_value,exact,,shap_true_value,True,10,4.714499999999999,4.69195,4.766375,0.0,
+gisette,decision_tree,shapiq,shapiq_true_value,exact,,shapiq_true_value,True,10,0.91885,0.910675,0.9323250000000001,0.0,
+gisette,gradient_boosting,dalex,dalex_true_value,exact,,dalex_true_value,True,10,69.414,68.85612499999999,69.770125,0.032,
+gisette,gradient_boosting,lightshap,lightshap_exact,exact,,lightshap_exact,True,10,1.7141000000000002,1.70115,1.7367,0.0,
+gisette,gradient_boosting,shap,shap_true_value,exact,,shap_true_value,True,10,5.7684,5.677025,5.876025,0.0,
+gisette,gradient_boosting,shapiq,shapiq_true_value,exact,,shapiq_true_value,True,10,3.88515,3.8362749999999997,3.9524500000000002,0.0,
+gisette,linear_regularized,dalex,dalex_true_value,exact,,dalex_true_value,True,10,28.51665,28.1304,28.62645,0.032,
+gisette,linear_regularized,lightshap,lightshap_exact,exact,,lightshap_exact,True,10,0.33255,0.32777500000000004,0.34455,0.0,
+gisette,linear_regularized,shap,shap_true_value,exact,,shap_true_value,True,10,4.7124500000000005,4.680375,4.727250000000001,0.0,
+gisette,linear_regularized,shapiq,shapiq_true_value,exact,,shapiq_true_value,True,10,0.9345,0.9289000000000001,0.940125,0.0,
+gisette,random_forest,dalex,dalex_true_value,exact,,dalex_true_value,True,10,281.76195,277.57015,282.27182500000004,0.032,
+gisette,random_forest,lightshap,lightshap_exact,exact,,lightshap_exact,True,10,5.474600000000001,5.109025000000001,5.756575,0.0,
+gisette,random_forest,shap,shap_true_value,exact,,shap_true_value,True,10,8.8857,8.8376,8.9945,0.0,
+gisette,random_forest,shapiq,shapiq_true_value,exact,,shapiq_true_value,True,10,11.59125,11.244150000000001,11.811875,0.0,
