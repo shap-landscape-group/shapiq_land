@@ -64,8 +64,8 @@ def layout(**kwargs):  # called on every page visit → always fresh data
                            "color": "white", "margin": "0 0 10px",
                            "letterSpacing": "-0.02em", "lineHeight": "1.25"}),
             html.P(
-                "Four research questions evaluate Shapley approximation libraries "
-                "across dimensionality, accuracy, neural networks, and tree model complexity.",
+                "Five research questions evaluate Shapley approximation libraries "
+                "across dimensionality, accuracy, neural networks, tree model complexity, and hardware devices.",
                 style={"color": "rgba(255,255,255,0.75)", "fontSize": "13px",
                        "lineHeight": "1.75", "margin": "0 0 22px", "maxWidth": "600px"},
             ),
@@ -85,6 +85,7 @@ def layout(**kwargs):  # called on every page visit → always fresh data
                     ("/rq2", "RQ2 — Accuracy"),
                     ("/rq3", "RQ3 — Neural Networks"),
                     ("/rq4", "RQ4 — Tree Models"),
+                    ("/rq5", "RQ5 — GPU vs CPU"),
                 ]
             ]),
         ], style={
