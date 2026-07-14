@@ -267,11 +267,15 @@ def _interaction_charts() -> list:
         dict(
             section_id="rq4-in-order-cost", mode=None,
             title="Cost of Interaction Order (1 → 2)",
-            subtitle="Moving from main effects (order 1, path-dependent backends) "
-            "to pairwise interactions (order 2) is the single biggest cost jump "
-            "in the benchmark. Bars compare median runtime per library at each "
-            "order (log scale) — the only chart on this page that spans two "
-            "computation modes on purpose.",
+            subtitle="Bars compare median runtime per library at order 1 (main "
+            "effects, path-dependent backends) vs order 2 (pairwise interactions) "
+            "— the only chart on this page that spans two computation modes on "
+            "purpose. For shap and shapiq, order 2 is a genuine, large cost jump. "
+            "fasttreeshap and woodelf instead time out on a large share of their "
+            "order-2 runs, so their median there is measured only on the easy "
+            "runs that finished — the hatched, †-marked bars flag this "
+            "survivorship bias rather than a real speed-up; see the failure-rate "
+            "chart above for how often that happens.",
             fn=S.fig_tree_order_cost,
             custom_filter=lambda df: df[_mode_mask(df, "path_dependent") | _mode_mask(df, "interaction")],
         ),
@@ -339,12 +343,48 @@ _INTERP = (
 )
 
 
-def _fixed_params_box(df: pd.DataFrame) -> html.Div:
-    """Info box listing benchmark parameters that are constant across every row
-    of the current CSV — read directly from the data (not hardcoded), so it
-    stays correct if the sweep config ever changes. Empty if nothing qualifies.
+def _pill(text: str, bg: str, color: str) -> html.Span:
+    return html.Span(text, style={
+        "fontSize": "11px", "fontWeight": "500", "color": color,
+        "background": bg, "borderRadius": "4px",
+        "padding": "2px 8px", "marginRight": "4px", "marginBottom": "4px",
+        "display": "inline-block",
+    })
+
+
+def _col(heading: str, items: list, bg: str, color: str) -> html.Div:
+    return html.Div([
+        html.Div(heading, style={
+            "fontSize": "10px", "fontWeight": "700", "color": S.TEXT2,
+            "textTransform": "uppercase", "letterSpacing": "0.07em",
+            "marginBottom": "8px",
+        }),
+        html.Div([_pill(i, bg, color) for i in items]),
+    ], style={"flex": "1", "minWidth": "160px"})
+
+
+def _config_card(df: pd.DataFrame) -> html.Div:
+    """"Benchmark at a glance" card, matching the RQ1/RQ2/RQ3/RQ5 layout —
+    a handful of curated facts read directly from the data (not hardcoded, so
+    it stays correct if the sweep config changes), instead of the old
+    data-source line + fixed-parameter chips + raw per-column value dump,
+    which repeated the dataset/library/model lists already visible in the
+    filters below and buried the few facts that actually matter.
     """
-    chips = []
+    n_ds = df["dataset"].nunique() if "dataset" in df.columns else 0
+    n_models = df["model"].nunique() if "model" in df.columns else 0
+    n_libs = df["library"].nunique() if "library" in df.columns else 0
+    n_seeds = df["seed"].nunique() if "seed" in df.columns else 0
+
+    swept_items = [f"{n_ds} datasets", f"{n_models} model families",
+                   f"{n_libs} libraries", "3 computation modes"]
+    if "max_depth" in df.columns:
+        depths = pd.to_numeric(df["max_depth"], errors="coerce").dropna()
+        if not depths.empty:
+            swept_items.append(
+                f"realized max_depth: {int(depths.min())}–{int(depths.max())}")
+
+    fixed_items = []
     for col, label in _FIXED_PARAM_COLS:
         if col not in df.columns:
             continue
@@ -354,26 +394,37 @@ def _fixed_params_box(df: pd.DataFrame) -> html.Div:
         v = vals[0]
         if isinstance(v, float) and v.is_integer():
             v = int(v)
-        chips.append(f"{label} = {v}")
-
-    # There's no literal "timeout" column — infer it from the data instead:
-    # a cluster of runs sitting right at the same runtime ceiling is a strong
+        fixed_items.append(f"{label} = {v}")
+    if n_seeds:
+        fixed_items.append(f"{n_seeds} seeds")
+    # There's no literal "timeout" column — infer it from the data instead: a
+    # cluster of runs sitting right at the same runtime ceiling is a strong
     # signal of a per-run wall-clock budget (see the interaction-tab failures,
     # which are timeouts, not bugs).
     if "runtime_s" in df.columns:
         max_rt = df["runtime_s"].max()
         if pd.notna(max_rt) and (df["runtime_s"] > max_rt - 1).sum() >= 5:
-            chips.append(f"backend timeout (inferred) ≈ {max_rt:.0f}s")
+            fixed_items.append(f"backend timeout (inferred) ≈ {max_rt:.0f}s")
 
-    if not chips:
-        return html.Div()
-    return html.Div(
-        [html.Span("Fixed parameters: ", style={"fontWeight": "600"}),
-         html.Span("  ·  ".join(chips))],
-        style={"fontSize": "12px", "color": S.TEXT2, "marginBottom": "10px",
-               "padding": "8px 12px", "border": f"1px solid {S.BORDER}",
-               "borderRadius": "8px", "background": S.BG},
-    )
+    left  = _col("Swept", swept_items, "#EEF2FF", S.ACCENT)
+    mid   = _col("Fixed", fixed_items or ["—"], "#F1F5F9", S.TEXT2)
+    right = _col("Measured",
+                 ["runtime_s", "sign_agreement / mean_sample_rho (cross-library "
+                  "agreement)", "additivity_gap"],
+                 "#F0FDF4", S.GREEN)
+
+    return html.Div([
+        html.Div("Benchmark at a glance", style={
+            "fontSize": "13px", "fontWeight": "700", "color": S.TEXT,
+            "marginBottom": "14px",
+        }),
+        html.Div([left, mid, right],
+                 style={"display": "flex", "gap": "20px", "flexWrap": "wrap"}),
+    ], style={
+        "background": S.CARD, "borderRadius": "12px",
+        "border": f"1px solid {S.BORDER}", "padding": "20px 24px",
+        "marginBottom": "20px",
+    })
 
 
 def layout(**kwargs):
@@ -394,16 +445,7 @@ def layout(**kwargs):
     return html.Div([
         S.rq_header(*_RQ_HEADER),
         *[S.info_note(r) for r in _REMARKS],
-        html.Div(
-            [html.Span("Data source: ", style={"fontWeight": "600"}),
-             html.Code(os.path.basename(src),
-                       style={"fontFamily": "monospace", "fontSize": "11px",
-                              "background": S.BG, "padding": "2px 6px",
-                              "borderRadius": "4px"})],
-            style={"fontSize": "12px", "color": S.TEXT2, "marginBottom": "4px"},
-        ),
-        _fixed_params_box(df),
-        S.data_summary_card(df),
+        _config_card(df),
         S.filter_bar(
             S.filter_checklist(
                 "Dataset", "rq4-ds",
