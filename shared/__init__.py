@@ -47,17 +47,15 @@ from .charts import (
     fig_runtime_vs_complexity,
     fig_failure_vs_complexity,
     fig_rho_vs_complexity,
-    fig_tree_runtime_by_backend,
-    fig_tree_runtime_vs_features,
+    fig_tree_pass_fail_matrix,
+    fig_tree_agreement_heatmap_by_model,
+    fig_tree_runtime_vs_depth_faceted,
+    fig_tree_runtime_vs_features_by_dataset,
+    fig_tree_depth_scaling_factor,
     fig_tree_order_cost,
-    fig_tree_accuracy_vs_runtime,
     fig_tree_quality_ranking,
     fig_tree_runtime_vs_depth,
-    fig_tree_mean_runtime_vs_depth,
-    fig_tree_depth_scaling_factor,
     fig_tree_quality_vs_depth,
-    fig_tree_case_agreement_heatmap,
-    _complexity_col,   # used by pages/rq4_trees.py as S._complexity_col
     _depth_col,        # used by pages/rq4_trees.py as S._depth_col
 )
 
@@ -76,7 +74,6 @@ from .layout import (
     filter_checklist,
     filter_bar,
     data_summary_card,
-    charts_toc,
     build_leaderboard_datatable,
     capability_matrix_table,
 )

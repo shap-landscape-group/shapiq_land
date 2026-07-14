@@ -250,40 +250,6 @@ def data_summary_card(df) -> html.Div:
     )
 
 
-# ── Charts table-of-contents ──────────────────────────────────────────────────
-
-def charts_toc(charts: list) -> html.Div:
-    """Horizontal jump-to links for chart sections defined in a _CHARTS manifest.
-
-    Each entry in `charts` must have 'section_id' and 'title' keys.
-    Uses standard href="#section_id" in-page anchors — no JS required.
-    """
-    links = [
-        html.A(
-            c["title"],
-            href=f"#{c['section_id']}",
-            style={
-                "display": "inline-block", "fontSize": "11px", "fontWeight": "500",
-                "color": ACCENT, "textDecoration": "none",
-                "background": "#EEF2FF", "border": f"1px solid {ACCENT}40",
-                "borderRadius": "4px", "padding": "3px 10px",
-                "marginRight": "6px", "marginBottom": "4px",
-                "whiteSpace": "nowrap",
-                "transition": "background 0.15s",
-            },
-        )
-        for c in charts if c.get("section_id")
-    ]
-    if not links:
-        return html.Div()
-    return html.Div(
-        [html.Span("Jump to: ", style={"fontSize": "11px", "fontWeight": "700",
-                                       "color": TEXT2, "marginRight": "4px"}),
-         *links],
-        style={"marginBottom": "16px", "lineHeight": "2.0"},
-    )
-
-
 # ── Datatable ─────────────────────────────────────────────────────────────────
 
 def build_leaderboard_datatable(lb, table_id: str = "lb-table") -> dash_table.DataTable:
