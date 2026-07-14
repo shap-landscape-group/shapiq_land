@@ -2611,7 +2611,7 @@ def fig_captum_hardware_dividends(df: pd.DataFrame) -> go.Figure:
         height=400,
         barmode="group",
         xaxis=dict(gridcolor="rgba(0,0,0,0)"),
-        yaxis=dict(title="Median runtime (s)", gridcolor=BORDER, zeroline=False),
+        yaxis=dict(title="Median runtime (s)", type="log", gridcolor=BORDER, zeroline=False),
         margin=dict(l=55, r=20, t=30, b=48),
         legend=dict(
             orientation="h", yanchor="bottom", y=1.02,

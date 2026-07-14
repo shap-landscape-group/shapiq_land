@@ -64,7 +64,7 @@ _CHARTS = [
     ),
     dict(
         section_id = "rq5-captum-dividends-section",
-        title      = "Figure 22: Captum Hardware Acceleration Dividends",
+        title      = "Captum Hardware Acceleration Dividends",
         subtitle   = "Grouped paired bar chart comparing Captum estimators (Gradient SHAP, DeepLIFT SHAP) on CPU vs GPU across architectures.",
         fn         = S.fig_captum_hardware_dividends,
     ),
