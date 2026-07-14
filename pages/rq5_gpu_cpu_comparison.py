@@ -20,7 +20,13 @@ dash.register_page(
 )
 
 _HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_CSV  = os.path.join(_HERE, "results", "rq5_gpu_cpu_comparison.csv")
+_AGGREGATED = os.path.join(_HERE, "results", "converted", "rq5_gpu_cpu_comparison_aggregated.csv")
+_BY_SEED    = os.path.join(_HERE, "results", "converted", "rq5_gpu_cpu_comparison_by_seed.csv")
+
+
+def _load(path) -> pd.DataFrame:
+    df, src = S.try_load_data(path)
+    return df if src is not None else pd.DataFrame()
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  PAGE CONFIGURATION
@@ -33,7 +39,7 @@ _RQ_HEADER = (
 )
 
 _REMARKS = [
-    "Benchmark compares neural network explanation methods across CPU and GPU devices.",
+    "Benchmark compares neural network and tree explanation methods across CPU and GPU devices.",
     "Configurations are identical between both devices to ensure a direct hardware comparison.",
 ]
 
@@ -95,15 +101,16 @@ def _config_card(df) -> html.Div:
     n_mdl = df["model"].dropna().nunique() if not df.empty else 0
     n_libs = df["library"].dropna().nunique() if not df.empty else 0
     n_approx = df["approximator"].dropna().nunique() if not df.empty else 0
+    n_seeds = int(df["seed_count"].iloc[0]) if not df.empty and "seed_count" in df.columns else 10
 
     left  = _col("Swept",
-                 [f"{n_ds} datasets", f"{n_mdl} models", f"{n_libs} libraries", f"{n_approx} approximators", "2 devices (CPU, GPU)"],
+                 [f"{n_ds} datasets", f"{n_mdl} models", f"{n_libs} libraries", f"{n_approx} approximators", f"{n_seeds} seeds", "2 devices (CPU, GPU)"],
                  "#EEF2FF", S.ACCENT)
     mid   = _col("Fixed",
-                 ["budget = 512", "n_background = 200", "n_eval = 100", "imputer = marginal"],
+                 ["budget = 512 (NNs)", "n_background = 100", "n_eval = 10", "imputer = marginal"],
                  "#F1F5F9", S.TEXT2)
     right = _col("Measured",
-                 ["runtime_s", "n_model_evals", "relative_mae", "mean_sample_rho"],
+                 ["runtime_s", "relative_mae", "mean_sample_rho", "relative_additivity_gap"],
                  "#F0FDF4", S.GREEN)
     return html.Div([
         html.Div([
@@ -127,29 +134,38 @@ def _config_card(df) -> html.Div:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def layout(**kwargs):
-    df, src = S.try_load_data(_CSV)
+    df_agg = _load(_AGGREGATED)
 
-    if src is None:
+    if df_agg.empty:
         return html.Div([
             S.rq_header(*_RQ_HEADER),
             *[S.info_note(r) for r in _REMARKS],
-            S.missing_data_banner(_CSV),
+            S.missing_data_banner(_AGGREGATED),
             _schema_hint(),
         ])
 
     return html.Div([
         S.rq_header(*_RQ_HEADER),
         *[S.info_note(r) for r in _REMARKS],
+        S.info_note([
+            "Seed Stability & Variation: ",
+            html.Span("All benchmark results are evaluated over 10 independent random seeds. ", style={"fontWeight": "600"}),
+            "To represent the central tendency and hardware reliability robustly, we display the ",
+            html.Span("Median", style={"fontWeight": "600"}),
+            " of the runs with error bars representing the ",
+            html.Span("25th and 75th percentiles (Q25–Q75)", style={"fontWeight": "600"}),
+            " spread across the seeds."
+        ]),
         html.Div(
             [html.Span("Data source: ", style={"fontWeight": "600"}),
-             html.Code(os.path.basename(src),
+             html.Code(os.path.basename(_AGGREGATED),
                        style={"fontFamily": "monospace", "fontSize": "11px",
                               "background": S.BG, "padding": "2px 6px",
                               "borderRadius": "4px"})],
             style={"fontSize": "12px", "color": S.TEXT2, "marginBottom": "4px"},
         ),
-        S.data_summary_card(df),
-        _config_card(df),
+        S.data_summary_card(df_agg),
+        _config_card(df_agg),
         S.charts_toc(_CHARTS),
 
         # ── Dynamic content ───────────────────────────────────────────────────
@@ -161,11 +177,11 @@ def layout(**kwargs):
 def _schema_hint() -> html.Div:
     """Hint shown when data file is missing."""
     rows = [
-        ("dataset",      "name of the NN benchmark dataset"),
-        ("model",        "neural network type: mlp, cnn_1d, transformer, etc."),
-        ("library",      "explanation library: shap, captum, shapiq, etc."),
-        ("approximator", "method used: kernel, permutation, gradient, etc."),
-        ("device",       "hardware device: cpu or cuda (or gpu)"),
+        ("dataset",      "name of the NN/tree benchmark dataset"),
+        ("model",        "model type: mlp, cnn_1d, transformer, xgboost, etc."),
+        ("library",      "explanation library: shap, captum, shapiq, woodelf, etc."),
+        ("approximator", "method used: kernel, permutation, gradient, path_dependent, etc."),
+        ("device",       "hardware device: cpu or gpu"),
         ("runtime_s",    "wall-clock seconds"),
         ("relative_mae", "approximation error vs exact values (optional but recommended)"),
         ("mean_sample_rho", "Spearman rank correlation coefficient (optional)"),
@@ -179,7 +195,7 @@ def _schema_hint() -> html.Div:
             "borderBottom": f"1px solid {S.BORDER}"}
     return S.section(
         "Expected CSV Schema",
-        "Create rq5_gpu_cpu_comparison.csv with at least the columns below to populate this page.",
+        "Create rq5_gpu_cpu_comparison_aggregated.csv inside results/converted/ to populate this page.",
         html.Table(
             [
                 html.Thead(html.Tr([html.Th("Column", style=th_s),
@@ -210,40 +226,43 @@ def _schema_hint() -> html.Div:
     Input("rq5-device", "value"),
 )
 def update_rq5(ds, mdl, dev_val):
-    df, src = S.try_load_data(_CSV)
-    if src is None or df.empty:
+    df_agg = _load(_AGGREGATED)
+    df_seed = _load(_BY_SEED)
+    if df_agg.empty:
         return html.Div(), html.Div()
 
     # Apply dropdown filters
     if ds != "__all__":
-        df = df[df["dataset"] == ds]
+        df_agg = df_agg[df_agg["dataset"] == ds]
+        df_seed = df_seed[df_seed["dataset"] == ds]
     if mdl != "__all__":
-        df = df[df["model"] == mdl]
+        df_agg = df_agg[df_agg["model"] == mdl]
+        df_seed = df_seed[df_seed["model"] == mdl]
     if dev_val != "__all__":
-        df = df[df["device"].astype(str).str.lower().eq(dev_val.lower())]
+        df_agg = df_agg[df_agg["device"].astype(str).str.lower().eq(dev_val.lower())]
+        df_seed = df_seed[df_seed["device"].astype(str).str.lower().eq(dev_val.lower())]
 
     # Calculate leaderboard / stats
     # For speedup KPI
-    sub = df[df["runtime_s"].notna() & df["device"].notna()].copy()
-    sub["device"] = sub["device"].astype(str).str.lower().replace({"cuda": "gpu"})
+    sub = df_agg[df_agg["runtime_median"].notna() & df_agg["device"].notna()].copy()
     
     speedup_text = "—"
     if not sub.empty:
-        grp = sub.groupby(["method", "device"])["runtime_s"].median().reset_index()
-        pivot = grp.pivot(index="method", columns="device", values="runtime_s").dropna(subset=["cpu", "gpu"])
+        grp = sub.groupby(["method", "device"])["runtime_median"].median().reset_index()
+        pivot = grp.pivot(index="method", columns="device", values="runtime_median").dropna(subset=["cpu", "gpu"])
         if not pivot.empty:
             speedups = pivot["cpu"] / pivot["gpu"]
             med_speedup = speedups.median()
             speedup_text = f"{med_speedup:.1f}x speedup"
 
-    n_models = df["model"].dropna().nunique() if not df.empty else 0
-    n_libs = df["library"].dropna().nunique() if not df.empty else 0
+    n_models = df_agg["model"].dropna().nunique() if not df_agg.empty else 0
+    n_libs = df_agg["library"].dropna().nunique() if not df_agg.empty else 0
     
     # Fastest GPU backend
     fastest_gpu = "—"
     gpu_runs = sub[sub["device"] == "gpu"]
     if not gpu_runs.empty:
-        fastest_grp = gpu_runs.groupby("method")["runtime_s"].median()
+        fastest_grp = gpu_runs.groupby("method")["runtime_median"].median()
         if not fastest_grp.empty:
             fastest_gpu = fastest_grp.idxmin()
 
@@ -255,20 +274,29 @@ def update_rq5(ds, mdl, dev_val):
     )
 
     warns = []
-    if df.empty:
+    if df_agg.empty:
         warns.append(S.warning_note("No data matches the current filter selection."))
 
     charts = html.Div([
         *warns,
-        *[
-            S.section(
-                c["title"], c["subtitle"],
-                dcc.Graph(figure=c["fn"](df),
-                          config={"displayModeBar": False}, style={"padding": "8px"}),
-                section_id=c["section_id"],
-            )
-            for c in _CHARTS
-        ],
+        S.section(
+            _CHARTS[0]["title"], _CHARTS[0]["subtitle"],
+            dcc.Graph(figure=S.fig_hardware_comparison(df_agg),
+                      config={"displayModeBar": False}, style={"padding": "8px"}),
+            section_id=_CHARTS[0]["section_id"],
+        ),
+        S.section(
+            _CHARTS[1]["title"], _CHARTS[1]["subtitle"],
+            dcc.Graph(figure=S.fig_hardware_speedup(df_agg),
+                      config={"displayModeBar": False}, style={"padding": "8px"}),
+            section_id=_CHARTS[1]["section_id"],
+        ),
+        S.section(
+            _CHARTS[2]["title"], _CHARTS[2]["subtitle"],
+            dcc.Graph(figure=S.fig_rho_vs_runtime_by_hardware(df_seed),
+                      config={"displayModeBar": False}, style={"padding": "8px"}),
+            section_id=_CHARTS[2]["section_id"],
+        ),
         S.interpretation_note(_INTERP),
     ])
 
