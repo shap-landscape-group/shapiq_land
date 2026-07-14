@@ -69,20 +69,6 @@ def main():
     metrics_nn = df_nn.apply(extract_nn_metrics, axis=1)
     df_nn = pd.concat([df_nn, metrics_nn], axis=1)
     
-    # 2. Load and process Tree data
-    print(f"Loading Tree data from {tree_path}...")
-    df_tree = pd.read_csv(tree_path)
-    
-    # Standardize Tree columns
-    if "approximator" in df_tree.columns:
-        df_tree["approximator"] = df_tree["approximator"].fillna(df_tree["backend"].str.replace("woodelf_", "", regex=False))
-    else:
-        df_tree["approximator"] = df_tree["backend"].str.replace("woodelf_", "", regex=False)
-        
-    print("Extracting metrics for Tree...")
-    metrics_tree = df_tree.apply(extract_tree_metrics, axis=1)
-    df_tree = pd.concat([df_tree, metrics_tree], axis=1)
-    
     # Combine datasets
     columns_to_keep = [
         "dataset", "model", "library", "approximator", "device", "seed", "n_features",
@@ -91,19 +77,15 @@ def main():
     
     # Clean devices to be uniform (cpu/gpu)
     df_nn["device"] = df_nn["device"].astype(str).str.lower().replace({"cuda": "gpu"})
-    df_tree["device"] = df_tree["device"].astype(str).str.lower().replace({"cuda": "gpu"})
     
     df_nn_clean = df_nn[[c for c in columns_to_keep if c in df_nn.columns]].copy()
-    df_tree_clean = df_tree[[c for c in columns_to_keep if c in df_tree.columns]].copy()
     
     # Fill in missing columns if any
     for col in columns_to_keep:
         if col not in df_nn_clean.columns:
             df_nn_clean[col] = np.nan
-        if col not in df_tree_clean.columns:
-            df_tree_clean[col] = np.nan
             
-    df_combined = pd.concat([df_nn_clean[columns_to_keep], df_tree_clean[columns_to_keep]], ignore_index=True)
+    df_combined = df_nn_clean[columns_to_keep].copy()
     
     # Create canonical method label
     df_combined["method"] = df_combined["library"] + " / " + df_combined["approximator"]
