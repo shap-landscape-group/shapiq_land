@@ -65,10 +65,7 @@ _REMARKS = []
 _FIXED_PARAM_COLS = [
     ("n_background",  "background samples"),
     ("n_eval",        "eval samples"),
-    ("imputer",       "imputer"),
     ("n_estimators",  "n_estimators"),
-    ("learning_rate", "learning_rate"),
-    ("n_samples",     "dataset rows"),
 ]
 
 _CASE_OPTIONS = [
@@ -132,10 +129,14 @@ def _pathdep_charts() -> list:
         dict(
             section_id="rq4-pd-agreement", mode="path_dependent",
             title="Cross-library Agreement (per model)",
-            subtitle="Mean sign-agreement between each pair of libraries, one panel "
-            "per model family (1.0 = perfect agreement). Dataset/depth/seed are all "
-            "pooled together within each panel since this is a correctness check, "
-            "not a scaling question — cells well below 1.0 flag a numerical/"
+            subtitle="Cell (A, B) = mean sign_agreement: the fraction of "
+            "feature-level Shapley values where A and B agree on the *direction* "
+            "of a feature's contribution (positive vs. negative), averaged over "
+            "every sample/config both computed a valid result for. 1.0 = every "
+            "feature's sign matched every time — it's not a distance/error score "
+            "and not runtime. One panel per model family; dataset/depth/seed are "
+            "pooled within each panel since this is a correctness check, not a "
+            "scaling question — cells well below 1.0 flag a numerical/"
             "implementation bug, not an approximation trade-off.",
             fn=S.fig_tree_agreement_heatmap_by_model,
         ),
@@ -231,10 +232,22 @@ def _interaction_charts() -> list:
     return [
         _pass_fail_entry("rq4-in-pass-fail", "interaction"),
         dict(
+            section_id="rq4-in-failure-depth", mode="interaction",
+            title="Failure Rate vs Tree Depth",
+            subtitle="Interaction (order-2) computation is expensive enough that "
+            "shapiq/woodelf time out on deeper trees rather than hitting a fixed "
+            "per-model incompatibility — this shows exactly where that failure "
+            "rate creeps up as trees get deeper, which the library × model "
+            "matrix above can't show.",
+            fn=S.fig_tree_failure_vs_depth,
+        ),
+        dict(
             section_id="rq4-in-agreement", mode="interaction",
             title="Cross-library Agreement (per model)",
-            subtitle="Same pattern as the path-dependent heatmap, order-2 pairwise "
-            "values — do the exact interaction methods agree with each other?",
+            subtitle="Same metric as the path-dependent heatmap (mean sign_agreement "
+            "on the direction of each feature's contribution, 1.0 = always matches), "
+            "computed on order-2 pairwise interaction values instead — do the exact "
+            "interaction methods agree with each other?",
             fn=S.fig_tree_agreement_heatmap_by_model,
         ),
         dict(
@@ -250,14 +263,6 @@ def _interaction_charts() -> list:
             subtitle="A fast global glance across the currently selected models "
             "(interaction data currently only covers the `bike` dataset).",
             fn=S.fig_tree_runtime_vs_depth,
-        ),
-        dict(
-            section_id="rq4-in-features", mode="interaction",
-            title="Runtime vs Number of Features (capped)",
-            subtitle="The quadratic-blowup chart — the main reason "
-            "interaction_max_features caps the feature count for pairwise "
-            "interactions. Rows = dataset, color = library.",
-            fn=S.fig_tree_runtime_vs_features_by_dataset,
         ),
         dict(
             section_id="rq4-in-order-cost", mode=None,
@@ -350,6 +355,16 @@ def _fixed_params_box(df: pd.DataFrame) -> html.Div:
         if isinstance(v, float) and v.is_integer():
             v = int(v)
         chips.append(f"{label} = {v}")
+
+    # There's no literal "timeout" column — infer it from the data instead:
+    # a cluster of runs sitting right at the same runtime ceiling is a strong
+    # signal of a per-run wall-clock budget (see the interaction-tab failures,
+    # which are timeouts, not bugs).
+    if "runtime_s" in df.columns:
+        max_rt = df["runtime_s"].max()
+        if pd.notna(max_rt) and (df["runtime_s"] > max_rt - 1).sum() >= 5:
+            chips.append(f"backend timeout (inferred) ≈ {max_rt:.0f}s")
+
     if not chips:
         return html.Div()
     return html.Div(

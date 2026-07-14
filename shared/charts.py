@@ -341,18 +341,30 @@ def _tree_pairwise_matrix(sub: pd.DataFrame):
     return backends, labels, z
 
 
-def fig_tree_pass_fail_matrix(df: pd.DataFrame) -> go.Figure:
-    """Binary library x model heatmap, one small-multiple panel per dataset:
-    green = every run for that (library, model, dataset) triple produced valid
-    output, red = at least one failed outright.
+_PASS_FAIL_FLUKE = 0.05     # below this, treat as noise (a single flaky sample)
+_PASS_FAIL_SYSTEMIC = 0.90  # at/above this, treat as a hard incompatibility
 
-    A single library x model matrix can't represent a failure that depends on
-    the dataset *and* the model at once — e.g. woodelf only breaks on
-    lightgbm/xgboost when the dataset is covertype, not on every dataset, while
-    fasttreeshap breaks on xgboost regardless of dataset. Faceting by dataset
-    makes that distinction visible directly: a backend that's red in every
-    panel has a model-only problem; one that's red in a single panel has a
-    problem tied to that specific dataset (e.g. a multi-class one) as well.
+
+def fig_tree_pass_fail_matrix(df: pd.DataFrame) -> go.Figure:
+    """Library x model heatmap, one small-multiple panel per dataset: green = no
+    (or negligible) failures, amber = a partial/intermittent problem (e.g. a
+    slow interaction computation timing out on deeper trees), red = fails
+    (near-)always — a structural incompatibility.
+
+    Failure rates here cluster tightly into three bands rather than forming a
+    smooth gradient — isolated flukes under ~5% (a single unlucky sample at a
+    rarely-hit depth), timeout-driven partial failures around 50-65%, and hard
+    incompatibilities at ~100% — so a binary red/green would paint a single
+    flaky run the same alarming red as a backend that never works. The 3-tier
+    scale makes that distinction visible instead.
+
+    A single library x model matrix also can't represent a failure that
+    depends on the dataset *and* the model at once — e.g. woodelf only breaks
+    on lightgbm/xgboost when the dataset is covertype, not on every dataset,
+    while fasttreeshap breaks on xgboost regardless of dataset. Faceting by
+    dataset makes that distinction visible directly: a backend that's flagged
+    in every panel has a model-only problem; one flagged in a single panel has
+    a problem tied to that specific dataset (e.g. a multi-class one) too.
     """
     required = {"library", "model", "dataset"}
     if df.empty or not required.issubset(df.columns):
@@ -389,18 +401,22 @@ def fig_tree_pass_fail_matrix(df: pd.DataFrame) -> go.Figure:
                 if pd.isna(v):
                     hover[i][j] = f"<b>{lib}</b> × <b>{m}</b> × {dataset}<br>no data"
                     continue
-                z[i, j] = 1.0 if v > 0 else 0.0
-                text[i][j] = "FAIL" if v > 0 else "ok"
+                if v < _PASS_FAIL_FLUKE:
+                    z[i, j], text[i][j] = 0.0, "ok"
+                elif v < _PASS_FAIL_SYSTEMIC:
+                    z[i, j], text[i][j] = 0.5, f"{v * 100:.0f}%"
+                else:
+                    z[i, j], text[i][j] = 1.0, "FAIL"
                 hover[i][j] = (
                     f"<b>{lib}</b> × <b>{m}</b> × {dataset}<br>"
-                    f"Failure rate: {v * 100:.0f}% (n={int(n.iloc[i, j])})"
+                    f"Failure rate: {v * 100:.1f}% (n={int(n.iloc[i, j])})"
                 )
 
         fig.add_trace(go.Heatmap(
             z=z, x=models, y=libs,
             text=text, texttemplate="%{text}",
             customdata=hover, hovertemplate="%{customdata}<extra></extra>",
-            colorscale=[[0, "#D1FAE5"], [1, "#FEE2E2"]],
+            colorscale=[[0, "#D1FAE5"], [0.5, "#FEF3C7"], [1, "#FEE2E2"]],
             zmin=0, zmax=1, showscale=False,
             xgap=3, ygap=3,
         ), row=1, col=ci + 1)
@@ -1378,63 +1394,6 @@ def _tree_backend_label(backend: str) -> str:
     return backend.replace("_", " ") if isinstance(backend, str) else "?"
 
 
-def fig_tree_runtime_vs_features_by_dataset(df: pd.DataFrame) -> go.Figure:
-    """Runtime vs number of features (log-log), rows=dataset, color=library.
-
-    The quadratic-blowup chart for pairwise interactions (order=2), capped at
-    interaction_max_features — the main reason that cap exists.
-    """
-    sub = df.copy()
-    sub["backend"] = _tree_col(sub, "backend")
-    sub["n_features"] = pd.to_numeric(_tree_col(sub, "n_features"), errors="coerce")
-    sub["runtime_s"] = pd.to_numeric(_tree_col(sub, "runtime_s"), errors="coerce")
-    sub = sub[sub["n_features"].notna() & sub["runtime_s"].notna() & ~sub["is_failure"]]
-    if sub.empty:
-        return fig_empty("Not enough n_features variation to show scaling")
-
-    datasets = sorted(sub["dataset"].dropna().unique()) if "dataset" in sub.columns else []
-    if not datasets:
-        return fig_empty()
-
-    fig = make_subplots(rows=len(datasets), cols=1,
-                         subplot_titles=[str(d) for d in datasets],
-                         vertical_spacing=min(0.5 / max(len(datasets), 1), 0.15))
-    seen_legend = set()
-    any_panel = False
-    for ri, dataset in enumerate(datasets):
-        ddf = sub[sub["dataset"] == dataset]
-        if ddf.empty:
-            continue
-        grp = (ddf.groupby(["library", "n_features"])
-                  .agg(rt=("runtime_s", "median")).reset_index())
-        for lib, ldf in grp.groupby("library"):
-            ldf = ldf.sort_values("n_features")
-            show_legend = lib not in seen_legend
-            seen_legend.add(lib)
-            fig.add_trace(go.Scatter(
-                x=ldf["n_features"], y=ldf["rt"].clip(lower=_RUNTIME_FLOOR),
-                mode="lines+markers", name=lib, legendgroup=lib,
-                showlegend=show_legend,
-                line=dict(color=_lib_color(lib), width=2),
-                marker=dict(size=8, color=_lib_color(lib),
-                            line=dict(color="white", width=1.5)),
-                hovertemplate=(f"<b>{lib}</b><br>n_features: %{{x}}<br>"
-                                "Runtime: %{y:.4g} s<extra></extra>"),
-            ), row=ri + 1, col=1)
-            any_panel = True
-    if not any_panel:
-        return fig_empty("Not enough n_features variation to show scaling")
-
-    fig.update_annotations(font_size=11)
-    fig.update_xaxes(type="log")
-    fig.update_yaxes(type="log", title_text="Runtime (s)", title_font=dict(size=10))
-    fig.update_xaxes(title_text="n_features", title_font=dict(size=10),
-                      row=len(datasets), col=1)
-    fig.update_layout(**_CHART_LAYOUT, height=max(280, len(datasets) * 260),
-                       legend=_LEGEND_H, margin=dict(l=55, r=20, t=30, b=40))
-    return fig
-
-
 # ── RQ4 (tree-depth): the axis that actually answers the research question ────
 #
 # Tree explainers here are exact methods, not approximations trading accuracy for
@@ -1457,6 +1416,55 @@ def _depth_col(df: pd.DataFrame) -> str:
         if col in df.columns and df[col].notna().any():
             return col
     return ""
+
+
+def fig_tree_failure_vs_depth(df: pd.DataFrame) -> go.Figure:
+    """Heatmap: failure rate per backend x tree depth — where does each backend break?
+
+    Cell = fraction of runs at that depth that produced no valid output. Most
+    useful where failures are genuinely depth-driven (e.g. a slow computation
+    timing out on deeper trees) rather than a fixed per-(model, dataset)
+    incompatibility — the first non-white cell in a row is where that happens.
+    """
+    depth = _depth_col(df)
+    if not depth:
+        return fig_empty("This dataset has no tree-depth column")
+
+    sub = df.copy()
+    sub["backend"] = _tree_col(sub, "backend")
+    sub[depth] = pd.to_numeric(sub[depth], errors="coerce")
+    sub = sub[sub[depth].notna()]
+    if sub.empty or sub[depth].nunique() < 2:
+        return fig_empty("Not enough tree-depth variation to show a trend")
+
+    pivot = (
+        sub.groupby(["backend", depth]).agg(fr=("is_failure", "mean")).reset_index()
+        .pivot(index="backend", columns=depth, values="fr")
+    )
+    pivot = pivot.reindex(sorted(pivot.columns), axis=1)
+    labels = [_tree_backend_label(b) for b in pivot.index]
+    z = pivot.values * 100
+    text = [[f"{v:.0f}%" if not np.isnan(v) else "—" for v in row] for row in z]
+
+    fig = go.Figure(go.Heatmap(
+        z=z, x=[str(int(c)) for c in pivot.columns], y=labels,
+        text=text, texttemplate="%{text}",
+        colorscale=[[0, "#D1FAE5"], [0.5, "#FEF3C7"], [1, "#FEE2E2"]],
+        zmin=0, zmax=100,
+        colorbar=dict(title="Failure %", thickness=14, len=0.8),
+        hovertemplate=(
+            "Backend: <b>%{y}</b><br>"
+            "Tree depth: <b>%{x}</b><br>"
+            "Failure rate: %{z:.1f}%<extra></extra>"
+        ),
+    ))
+    fig.update_layout(
+        **_CHART_LAYOUT, height=max(260, len(pivot) * 36 + 80),
+        xaxis=dict(title="Maximum tree depth", gridcolor="rgba(0,0,0,0)"),
+        yaxis=dict(title="", gridcolor="rgba(0,0,0,0)", automargin=True),
+        margin=dict(l=150, r=16, t=20, b=60),
+    )
+    return fig
 
 
 def fig_tree_runtime_vs_depth_faceted(df: pd.DataFrame, facet_model_cols: bool = True) -> go.Figure:
@@ -1795,7 +1803,7 @@ def fig_tree_runtime_vs_depth(df: pd.DataFrame) -> go.Figure:
         ))
         fig.add_trace(go.Scatter(
             x=bdf[depth], y=mean, mode="lines+markers", name=label,
-            legendgroup=label,
+            legendgroup=label, opacity=0.8,
             line=dict(color=_lib_color(lib), width=2),
             marker=dict(size=8, color=_lib_color(lib),
                         line=dict(color="white", width=1.5)),
@@ -1868,7 +1876,7 @@ def fig_tree_quality_vs_depth(df: pd.DataFrame) -> go.Figure:
         ))
         fig.add_trace(go.Scatter(
             x=bdf[depth], y=mean, mode="lines+markers", name=label,
-            legendgroup=label,
+            legendgroup=label, opacity=0.8,
             line=dict(color=_lib_color(lib), width=2),
             marker=dict(size=8, color=_lib_color(lib),
                         line=dict(color="white", width=1.5)),
