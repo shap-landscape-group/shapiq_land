@@ -2038,8 +2038,23 @@ def fig_rq3_axiomatic_integrity(df: pd.DataFrame) -> go.Figure:
     if sub.empty:
         return fig_empty()
     
-    meds = sub.groupby("method")["relative_additivity_gap"].median().sort_values()
-    sorted_methods = meds.index.tolist()
+    # Use the same library-grouped sorting for consistency across charts
+    method_rhos = sub.groupby("method")["mean_sample_rho"].median() if "mean_sample_rho" in sub.columns else pd.Series()
+    if method_rhos.empty:
+        sorted_methods = sorted(sub["method"].unique())
+    else:
+        def get_lib(method_name):
+            lib = method_name.split(" / ")[0]
+            return "shapiq" if lib == "shapiq_proxy" else lib
+        method_to_lib = {m: get_lib(m) for m in method_rhos.index}
+        lib_rhos = {}
+        for m, r in method_rhos.items():
+            l = method_to_lib[m]
+            lib_rhos[l] = max(lib_rhos.get(l, -999.0), r)
+        sorted_methods = sorted(
+            method_rhos.index,
+            key=lambda m: (lib_rhos[method_to_lib[m]], method_to_lib[m], method_rhos[m])
+        )
     
     fig = go.Figure()
     for method in sorted_methods:

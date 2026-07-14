@@ -35,11 +35,6 @@ _RQ_HEADER = (
     "while maintaining high game-theoretic alignment and axiomatic integrity."
 )
 
-_INTERP = (
-    "How to read this page: Start with the Spearman Rank Alignment to ensure the explainer captures the correct semantics. "
-    "Check the Logarithmic Runtime comparison to evaluate the operational throughput gains of backpropagation, "
-    "and use the Axiomatic Integrity box plot to verify whether additivity constraints are strictly preserved."
-)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -184,6 +179,14 @@ def layout(**kwargs):
 
     return html.Div([
         S.rq_header(*_RQ_HEADER),
+        S.info_note([
+            "For better comparability, the Shapley value computation was performed on CPU for all libraries. "
+            "Although Captum is specialized and optimized for GPU execution, this CPU-based benchmark "
+            "focuses on architectural and comparability consistency. A detailed comparison of the GPU vs. CPU speedup "
+            "can be found in ",
+            html.A("RQ5 (GPU vs. CPU)", href="/rq5", style={"fontWeight": "600", "color": "#1D4ED8", "textDecoration": "underline"}),
+            "."
+        ]),
         _config_card(df),
         
         # Practitioner guidance selection (hidden for now)
@@ -328,8 +331,7 @@ def update_rq3(ds, models, libs):
             "Mean relative additivity gap violations formatted as a percentage across network topologies, grouped by approximator type.",
             dcc.Graph(figure=S.fig_rq3_topology_violations(df), config={"displayModeBar": False}, style={"padding": "8px"}),
             section_id="rq3-topology-violations-section"
-        ),
-        S.interpretation_note(_INTERP)
+        )
     ])
 
     return charts

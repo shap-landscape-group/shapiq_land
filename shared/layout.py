@@ -121,9 +121,13 @@ def warning_note(message: str) -> html.Div:
     )
 
 
-def info_note(message: str) -> html.Div:
+def info_note(message) -> html.Div:
+    if isinstance(message, list):
+        children = [html.Span("ℹ ", style={"fontWeight": "700", "color": ACCENT})] + message
+    else:
+        children = [html.Span("ℹ ", style={"fontWeight": "700", "color": ACCENT}), message]
     return html.Div(
-        [html.Span("ℹ ", style={"fontWeight": "700", "color": ACCENT}), message],
+        children,
         style={
             "background": "#EFF6FF", "border": f"1px solid {ACCENT}",
             "borderRadius": "8px", "padding": "10px 16px",
