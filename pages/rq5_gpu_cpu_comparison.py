@@ -164,7 +164,6 @@ def layout(**kwargs):
                               "borderRadius": "4px"})],
             style={"fontSize": "12px", "color": S.TEXT2, "marginBottom": "4px"},
         ),
-        S.data_summary_card(df_agg),
         _config_card(df_agg),
         S.charts_toc(_CHARTS),
 
