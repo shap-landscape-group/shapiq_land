@@ -30,6 +30,8 @@ LIB_COLOR: dict[str, str] = {
     "dalex":        AMBER,
     "captum":       "#7C3AED",
     "alibi":        "#06B6D4",
+    "woodelf":      AMBER,
+    "fasttreeshap": "#0E9488",
 }
 
 
