@@ -1797,23 +1797,47 @@ def fig_tree_quality_vs_depth(df: pd.DataFrame) -> go.Figure:
 # ── RQ5: GPU vs CPU ──────────────────────────────────────────────────────────
 
 def fig_hardware_comparison(df: pd.DataFrame) -> go.Figure:
-    """Grouped horizontal bar chart comparing CPU vs GPU runtime."""
-    sub = df[df["runtime_s"].notna() & df["device"].notna()].copy()
-    if sub.empty:
+    """Grouped horizontal bar chart comparing CPU vs GPU runtime with Q25–Q75 error bars."""
+    df = df.copy()
+    if "seed" not in df.columns:
+        sub = df[df["runtime_median"].notna() & df["device"].notna()].copy()
+        if sub.empty:
+            return fig_empty()
+        sub["device"] = sub["device"].astype(str).str.lower().replace({"cuda": "gpu"})
+        grp = (
+            sub.groupby(["method", "device"])
+            .agg(
+                rt=("runtime_median", "median"),
+                rt_lo=("runtime_q25", "median"),
+                rt_hi=("runtime_q75", "median")
+            ).reset_index()
+        )
+    else:
+        sub = df[df["runtime_s"].notna() & df["device"].notna()].copy()
+        if sub.empty:
+            return fig_empty()
+        sub["device"] = sub["device"].astype(str).str.lower().replace({"cuda": "gpu"})
+        grp = (
+            sub.groupby(["method", "device"])
+            .agg(
+                rt=("runtime_s", "median"),
+                rt_lo=("runtime_s", lambda x: x.quantile(0.25)),
+                rt_hi=("runtime_s", lambda x: x.quantile(0.75))
+            ).reset_index()
+        )
+        
+    if grp.empty:
         return fig_empty()
-    
-    sub["device"] = sub["device"].astype(str).str.lower().replace({"cuda": "gpu"})
-    
-    grp = (
-        sub.groupby(["method", "device"])
-        .agg(rt=("runtime_s", "median")).reset_index()
-    )
-    
+
     gpu_rts = grp[grp["device"] == "gpu"].set_index("method")["rt"]
     if gpu_rts.empty:
         gpu_rts = grp.groupby("method")["rt"].median()
-    
+        
     sorted_methods = gpu_rts.sort_values(ascending=False).index.tolist()
+    
+    # Calculate error boundaries
+    grp["err_plus"] = grp["rt_hi"] - grp["rt"]
+    grp["err_minus"] = grp["rt"] - grp["rt_lo"]
     
     fig = go.Figure()
     for dev in ["cpu", "gpu"]:
@@ -1824,7 +1848,21 @@ def fig_hardware_comparison(df: pd.DataFrame) -> go.Figure:
             marker=dict(color=PINK if dev == "gpu" else ACCENT, opacity=0.85),
             text=dev_df["rt"].apply(lambda val: f"{val:.3f} s" if pd.notna(val) else ""),
             textposition="outside",
-            hovertemplate=f"<b>%{{y}} ({dev.upper()})</b><br>Median runtime: %{{x:.3f}} s<extra></extra>"
+            customdata=np.column_stack((
+                dev_df["rt_lo"].values,
+                dev_df["rt_hi"].values
+            )),
+            error_x=dict(
+                type="data",
+                symmetric=False,
+                array=dev_df["err_plus"].values,
+                arrayminus=dev_df["err_minus"].values,
+                visible=True,
+                color="#475569",
+                thickness=1.2,
+                width=4
+            ),
+            hovertemplate=f"<b>%{{y}} ({dev.upper()})</b><br>Median runtime: %{{x:.3f}} s <span style='font-size:11px;color:#64748B'>[%{{customdata[0]}}s - %{{customdata[1]}}s]</span><extra></extra>"
         ))
         
     fig.update_layout(
@@ -1840,31 +1878,70 @@ def fig_hardware_comparison(df: pd.DataFrame) -> go.Figure:
 
 def fig_hardware_speedup(df: pd.DataFrame) -> go.Figure:
     """Bar chart showing speedup factor of GPU over CPU (runtime_s CPU / runtime_s GPU)."""
-    sub = df[df["runtime_s"].notna() & df["device"].notna()].copy()
-    if sub.empty:
-        return fig_empty()
-    
-    sub["device"] = sub["device"].astype(str).str.lower().replace({"cuda": "gpu"})
-    
-    grp = (
-        sub.groupby(["method", "device"])
-        .agg(rt=("runtime_s", "median")).reset_index()
-    )
-    
-    pivot = grp.pivot(index="method", columns="device", values="rt").dropna(subset=["cpu", "gpu"])
-    if pivot.empty:
-        return fig_empty("No matching CPU and GPU runs to compute speedup.")
-    
-    pivot["speedup"] = pivot["cpu"] / pivot["gpu"]
+    df = df.copy()
+    if "seed" not in df.columns:
+        sub = df[df["runtime_median"].notna() & df["device"].notna()].copy()
+        if sub.empty:
+            return fig_empty()
+        sub["device"] = sub["device"].astype(str).str.lower().replace({"cuda": "gpu"})
+        grp = (
+            sub.groupby(["method", "device"])
+            .agg(rt=("runtime_median", "median")).reset_index()
+        )
+        pivot = grp.pivot(index="method", columns="device", values="rt").dropna(subset=["cpu", "gpu"])
+        if pivot.empty:
+            return fig_empty("No matching CPU and GPU runs to compute speedup.")
+        pivot["speedup"] = pivot["cpu"] / pivot["gpu"]
+        pivot["speedup_lo"] = pivot["speedup"]
+        pivot["speedup_hi"] = pivot["speedup"]
+    else:
+        sub = df[df["runtime_s"].notna() & df["device"].notna()].copy()
+        if sub.empty:
+            return fig_empty()
+        sub["device"] = sub["device"].astype(str).str.lower().replace({"cuda": "gpu"})
+        group_keys = ["dataset", "model", "library", "approximator", "method", "seed"]
+        pivot_raw = sub.pivot_table(index=group_keys, columns="device", values="runtime_s").dropna(subset=["cpu", "gpu"])
+        if pivot_raw.empty:
+            return fig_empty("No matching CPU and GPU runs to compute speedup.")
+        pivot_raw["speedup"] = pivot_raw["cpu"] / pivot_raw["gpu"]
+        
+        pivot = (
+            pivot_raw.groupby("method")
+            .agg(
+                speedup=("speedup", "median"),
+                speedup_lo=("speedup", lambda x: x.quantile(0.25)),
+                speedup_hi=("speedup", lambda x: x.quantile(0.75)),
+                cpu=("cpu", "median"),
+                gpu=("gpu", "median")
+            )
+        )
+        
     pivot = pivot.sort_values("speedup", ascending=True)
+    pivot["err_plus"] = pivot["speedup_hi"] - pivot["speedup"]
+    pivot["err_minus"] = pivot["speedup"] - pivot["speedup_lo"]
     
     fig = go.Figure(go.Bar(
         y=pivot.index, x=pivot["speedup"], orientation="h",
         marker=dict(color=GREEN, opacity=0.85),
         text=pivot["speedup"].apply(lambda val: f"{val:.1f}x speedup"),
         textposition="outside",
-        hovertemplate="<b>%{y}</b><br>Speedup: <b>%{x:.1f}x</b> (GPU vs CPU)<br>CPU: %{customdata[0]:.3f}s, GPU: %{customdata[1]:.3f}s<extra></extra>",
-        customdata=pivot[["cpu", "gpu"]].values,
+        customdata=np.column_stack((
+            pivot["cpu"].values,
+            pivot["gpu"].values,
+            pivot["speedup_lo"].values,
+            pivot["speedup_hi"].values
+        )),
+        error_x=dict(
+            type="data",
+            symmetric=False,
+            array=pivot["err_plus"].values,
+            arrayminus=pivot["err_minus"].values,
+            visible=True,
+            color="#475569",
+            thickness=1.2,
+            width=4
+        ),
+        hovertemplate="<b>%{y}</b><br>Speedup: <b>%{x:.1f}x</b> <span style='font-size:11px;color:#64748B'>[%{customdata[2]:.1f}x - %{customdata[3]:.1f}x]</span> (GPU vs CPU)<br>CPU: %{customdata[0]:.3f}s, GPU: %{customdata[1]:.3f}s<extra></extra>",
     ))
     
     fig.update_layout(
@@ -1878,7 +1955,12 @@ def fig_hardware_speedup(df: pd.DataFrame) -> go.Figure:
 
 
 def fig_rho_vs_runtime_by_hardware(df: pd.DataFrame) -> go.Figure:
-    """Scatter: runtime vs Spearman ρ, with markers colored by device."""
+    """Scatter: runtime vs Spearman ρ, with markers colored by device, supporting seed lists."""
+    df = df.copy()
+    if "runtime_median" in df.columns:
+        df["runtime_s"] = df["runtime_median"]
+        df["mean_sample_rho"] = df["rho_median"]
+        
     sub = df[df["runtime_s"].notna() & df["mean_sample_rho"].notna() & df["device"].notna()].copy()
     if sub.empty:
         return fig_empty()
@@ -1899,12 +1981,14 @@ def fig_rho_vs_runtime_by_hardware(df: pd.DataFrame) -> go.Figure:
             hovertemplate=(
                 f"<b>{lib} (%{{customdata[0]}})</b><br>"
                 "Method: %{customdata[1]}<br>"
+                "Seed: %{customdata[2]}<br>"
                 "Runtime: %{x:.3f} s<br>"
                 "Spearman ρ: %{y:.3f}<extra></extra>"
             ),
             customdata=np.column_stack((
                 [dev.upper()] * len(ldf),
-                ldf["method"].values
+                ldf["method"].values,
+                ldf["seed"].values if "seed" in ldf.columns else [0] * len(ldf)
             )),
         ))
         
@@ -2423,5 +2507,226 @@ def fig_rq3_topology_violations(df: pd.DataFrame) -> go.Figure:
         legend=_LEGEND_H,
     )
     return fig
+
+
+def fig_captum_hardware_dividends(df: pd.DataFrame) -> go.Figure:
+    """Figure 22: Captum Hardware Acceleration Dividends grouped paired bar chart."""
+    df = df.copy()
+    if "seed" in df.columns:
+        sub = df[
+            (df["library"].str.lower() == "captum") &
+            (df["model"].str.lower().isin(["mlp", "cnn_1d", "transformer"])) &
+            (df["approximator"].str.lower().isin(["gradient_shap", "deep_lift_shap"])) &
+            (df["runtime_s"].notna()) &
+            (df["device"].notna())
+        ].copy()
+        if sub.empty:
+            return fig_empty("No matching Captum runs found.")
+        sub["device"] = sub["device"].astype(str).str.lower().replace({"cuda": "gpu"})
+        grp = (
+            sub.groupby(["model", "device", "approximator"])
+            .agg(
+                rt=("runtime_s", "median"),
+                rt_lo=("runtime_s", lambda x: x.quantile(0.25)),
+                rt_hi=("runtime_s", lambda x: x.quantile(0.75))
+            ).reset_index()
+        )
+    else:
+        sub = df[
+            (df["library"].str.lower() == "captum") &
+            (df["model"].str.lower().isin(["mlp", "cnn_1d", "transformer"])) &
+            (df["approximator"].str.lower().isin(["gradient_shap", "deep_lift_shap"])) &
+            (df["runtime_median"].notna()) &
+            (df["device"].notna())
+        ].copy()
+        if sub.empty:
+            return fig_empty("No matching Captum runs found.")
+        sub["device"] = sub["device"].astype(str).str.lower().replace({"cuda": "gpu"})
+        grp = (
+            sub.groupby(["model", "device", "approximator"])
+            .agg(
+                rt=("runtime_median", "median"),
+                rt_lo=("runtime_q25", "median"),
+                rt_hi=("runtime_q75", "median")
+            ).reset_index()
+        )
+
+    # Calculate error boundaries
+    grp["err_plus"] = grp["rt_hi"] - grp["rt"]
+    grp["err_minus"] = grp["rt"] - grp["rt_lo"]
+
+    models = ["mlp", "cnn_1d", "transformer"]
+    devices = ["cpu", "gpu"]
+    methods = ["deep_lift_shap", "gradient_shap"]
+
+    colors = {
+        ("cpu", "deep_lift_shap"): "#60A5FA",  # Light blue
+        ("cpu", "gradient_shap"): "#1D4ED8",   # Dark blue
+        ("gpu", "deep_lift_shap"): "#F472B6",  # Light pink
+        ("gpu", "gradient_shap"): "#BE185D",   # Dark pink
+    }
+
+    fig = go.Figure()
+    for dev in devices:
+        for method in methods:
+            trace_df = grp[(grp["device"] == dev) & (grp["approximator"] == method)]
+            trace_df = trace_df.set_index("model").reindex(models).reset_index()
+            
+            method_label = "DeepLIFT SHAP" if method == "deep_lift_shap" else "Gradient SHAP"
+            trace_name = f"{dev.upper()} - {method_label}"
+            
+            fig.add_trace(go.Bar(
+                x=[m.upper().replace("_", "-") for m in models],
+                y=trace_df["rt"],
+                name=trace_name,
+                marker=dict(color=colors.get((dev, method), ACCENT), opacity=0.85),
+                text=trace_df["rt"].apply(lambda v: f"{v:.2f}s" if pd.notna(v) else ""),
+                textposition="outside",
+                customdata=np.column_stack((
+                    trace_df["rt_lo"].values,
+                    trace_df["rt_hi"].values,
+                    [dev.upper()] * len(trace_df),
+                    [method_label] * len(trace_df)
+                )),
+                error_y=dict(
+                    type="data",
+                    symmetric=False,
+                    array=trace_df["err_plus"].values,
+                    arrayminus=trace_df["err_minus"].values,
+                    visible=True,
+                    color="#475569",
+                    thickness=1.2,
+                    width=4
+                ),
+                hovertemplate=(
+                    "<b>%{x}</b><br>"
+                    "Device: %{customdata[2]}<br>"
+                    "Estimator: %{customdata[3]}<br>"
+                    "Median runtime: <b>%{y:.3f} s</b> <span style='font-size:11px;color:#64748B'>[%{customdata[0]:.3f}s - %{customdata[1]:.3f}s]</span><extra></extra>"
+                )
+            ))
+
+    fig.update_layout(
+        **_CHART_LAYOUT,
+        height=400,
+        barmode="group",
+        xaxis=dict(gridcolor="rgba(0,0,0,0)"),
+        yaxis=dict(title="Median runtime (s)", gridcolor=BORDER, zeroline=False),
+        margin=dict(l=55, r=20, t=30, b=48),
+        legend=dict(
+            orientation="h", yanchor="bottom", y=1.02,
+            xanchor="left", x=0, bgcolor="rgba(0,0,0,0)", font=dict(size=10)
+        ),
+    )
+    return fig
+
+
+def fig_woodelf_vectorization_scaling(df: pd.DataFrame) -> go.Figure:
+    """Figure 23: Woodelf Vectorization Scaling Laws across Compute Cores (log-log line plot)."""
+    df = df.copy()
+    if "seed" in df.columns:
+        sub = df[
+            (df["library"].str.lower() == "woodelf") &
+            (df["n_features"].notna()) &
+            (df["runtime_s"].notna())
+        ].copy()
+        if sub.empty:
+            return fig_empty("No Woodelf run data found.")
+        sub["paradigm"] = sub["approximator"].apply(lambda x: "path_dependent" if "path_dependent" in str(x).lower() else "interventional")
+        sub["device"] = sub["approximator"].apply(lambda x: "gpu" if "gpu" in str(x).lower() else "cpu")
+        
+        grp = (
+            sub.groupby(["n_features", "paradigm", "device"])
+            .agg(
+                rt=("runtime_s", "median"),
+                rt_lo=("runtime_s", lambda x: x.quantile(0.25)),
+                rt_hi=("runtime_s", lambda x: x.quantile(0.75))
+            ).reset_index()
+        )
+    else:
+        sub = df[
+            (df["library"].str.lower() == "woodelf") &
+            (df["n_features"].notna()) &
+            (df["runtime_median"].notna())
+        ].copy()
+        if sub.empty:
+            return fig_empty("No Woodelf run data found.")
+        sub["paradigm"] = sub["approximator"].apply(lambda x: "path_dependent" if "path_dependent" in str(x).lower() else "interventional")
+        sub["device"] = sub["approximator"].apply(lambda x: "gpu" if "gpu" in str(x).lower() else "cpu")
+        
+        grp = (
+            sub.groupby(["n_features", "paradigm", "device"])
+            .agg(
+                rt=("runtime_median", "median"),
+                rt_lo=("runtime_q25", "median"),
+                rt_hi=("runtime_q75", "median")
+            ).reset_index()
+        )
+
+    if grp.empty:
+        return fig_empty()
+        
+    fig = go.Figure()
+    
+    colors = {
+        "interventional": ACCENT,
+        "path_dependent": PINK,
+    }
+    
+    styles = {
+        "cpu": "solid",
+        "gpu": "dash",
+    }
+    
+    grp = grp.sort_values("n_features")
+    
+    for (paradigm, device), ldf in grp.groupby(["paradigm", "device"]):
+        color = colors.get(paradigm, ACCENT)
+        dash = styles.get(device, "solid")
+        
+        name = f"Woodelf {paradigm.replace('_', ' ').capitalize()} ({device.upper()})"
+        
+        fig.add_trace(go.Scatter(
+            x=ldf["n_features"], y=ldf["rt"],
+            mode="lines+markers",
+            name=name,
+            line=dict(color=color, width=2.5, dash=dash),
+            marker=dict(color=color, size=6),
+            customdata=np.column_stack((
+                ldf["rt_lo"].values,
+                ldf["rt_hi"].values,
+                [paradigm.replace('_', ' ').capitalize()] * len(ldf),
+                [device.upper()] * len(ldf)
+            )),
+            hovertemplate=(
+                "<b>%{name}</b><br>"
+                "Features: <b>%{x}</b><br>"
+                "Median runtime: <b>%{y:.3f} s</b> <span style='font-size:11px;color:#64748B'>[%{customdata[0]:.3f}s - %{customdata[1]:.3f}s]</span><extra></extra>"
+            )
+        ))
+        
+    fig.update_layout(
+        **_CHART_LAYOUT,
+        height=420,
+        margin=dict(l=55, r=20, t=30, b=48),
+        xaxis=dict(
+            title="Number of features (M) — log scale",
+            type="log",
+            gridcolor=BORDER,
+            zeroline=False
+        ),
+        yaxis=dict(
+            title="Wall-clock runtime (s) — log scale",
+            type="log",
+            gridcolor=BORDER,
+            zeroline=False
+        ),
+        legend=dict(
+            orientation="h", yanchor="bottom", y=1.02,
+            xanchor="left", x=0, bgcolor="rgba(0,0,0,0)", font=dict(size=10)
+        ),
+    )
+    return fig
+
 
 
