@@ -1929,19 +1929,44 @@ def fig_rho_vs_runtime_by_hardware(df: pd.DataFrame) -> go.Figure:
 
 def fig_rq3_attribution_agreement(df: pd.DataFrame) -> go.Figure:
     """Grouped horizontal bar chart showing Spearman rho (range -1 to 1) for each explainer config, grouped by model topology."""
-    sub = df[df["mean_sample_rho"].notna()].copy()
+    df = df.copy()
+    if "rho_median" in df.columns:
+        grp = (
+            df.groupby(["method", "model"])
+            .agg(
+                rho=("rho_median", "median"),
+                rho_lo=("rho_q25", "median"),
+                rho_hi=("rho_q75", "median"),
+                mae=("relative_mae_median", "median")
+            )
+            .reset_index()
+        )
+        df = grp
+    else:
+        sub = df[df["mean_sample_rho"].notna()].copy()
+        if sub.empty:
+            return fig_empty()
+        grp = (
+            sub.groupby(["method", "model"])
+            .agg(
+                rho=("mean_sample_rho", "median"),
+                rho_lo=("mean_sample_rho", lambda x: x.quantile(0.25)),
+                rho_hi=("mean_sample_rho", lambda x: x.quantile(0.75)),
+                mae=("relative_mae", "median")
+            )
+            .reset_index()
+        )
+        df = grp
+
+    sub = df[df["rho"].notna()].copy()
     if sub.empty:
         return fig_empty()
     
-    grp = (
-        sub.groupby(["method", "model"])
-        .agg(
-            rho=("mean_sample_rho", "median"),
-            mae=("relative_mae", "median")
-        )
-        .reset_index()
-    )
-    method_rhos = grp.groupby("method")["rho"].median()
+    # Calculate error boundaries for error_x
+    sub["err_plus"] = sub["rho_hi"] - sub["rho"]
+    sub["err_minus"] = sub["rho"] - sub["rho_lo"]
+    
+    method_rhos = sub.groupby("method")["rho"].median()
     def get_lib(method_name):
         lib = method_name.split(" / ")[0]
         return "shapiq" if lib == "shapiq_proxy" else lib
@@ -1955,7 +1980,7 @@ def fig_rq3_attribution_agreement(df: pd.DataFrame) -> go.Figure:
         key=lambda m: (lib_rhos[method_to_lib[m]], method_to_lib[m], method_rhos[m])
     )
     
-    models = sorted(grp["model"].unique().tolist())
+    models = sorted(sub["model"].unique().tolist())
     model_colors = {
         "mlp": "#4B6DD4",
         "cnn_1d": "#E84060",
@@ -1964,18 +1989,32 @@ def fig_rq3_attribution_agreement(df: pd.DataFrame) -> go.Figure:
     
     fig = go.Figure()
     for model in models:
-        model_df = grp[grp["model"] == model].set_index("method").reindex(method_order).reset_index()
+        model_df = sub[sub["model"] == model].set_index("method").reindex(method_order).reset_index()
         fig.add_trace(go.Bar(
             y=model_df["method"],
             x=model_df["rho"],
             name=model.upper().replace("_", "-"),
             orientation="h",
             marker=dict(color=model_colors.get(model, ACCENT), opacity=0.85),
-            customdata=model_df["mae"].values,
+            customdata=np.column_stack((
+                model_df["mae"].values,
+                model_df["rho_lo"].values,
+                model_df["rho_hi"].values
+            )),
+            error_x=dict(
+                type="data",
+                symmetric=False,
+                array=model_df["err_plus"].values,
+                arrayminus=model_df["err_minus"].values,
+                visible=True,
+                color="#475569",
+                thickness=1.2,
+                width=4
+            ),
             hovertemplate=(
                 "<b>%{y}</b> (%{legendgroup})<br>"
-                "Spearman ρ: <b>%{x:.3f}</b><br>"
-                "Relative MAE: <b>%{customdata:.3f}</b><extra></extra>"
+                "Spearman ρ: <b>%{x:.3f}</b> <span style='font-size:11px;color:#64748B'>[%{customdata[1]:.3f} - %{customdata[2]:.3f}]</span><br>"
+                "Relative MAE: <b>%{customdata[0]:.3f}</b><extra></extra>"
             ),
             legendgroup=model,
         ))
@@ -1994,17 +2033,35 @@ def fig_rq3_attribution_agreement(df: pd.DataFrame) -> go.Figure:
 
 def fig_rq3_runtime_comparison(df: pd.DataFrame) -> go.Figure:
     """Vertical bar chart of median runtimes with logarithmic scale on y-axis."""
-    sub = df[df["runtime_s"].notna()].copy()
-    if sub.empty:
-        return fig_empty()
-        
-    grp = (
-        sub.groupby(["method", "library"])
-        .agg(rt=("runtime_s", "median")).reset_index()
-        .sort_values("rt")
-    )
+    df = df.copy()
+    if "runtime_median" in df.columns:
+        grp = (
+            df.groupby(["method", "library"])
+            .agg(
+                rt=("runtime_median", "median"),
+                rt_lo=("runtime_q25", "median"),
+                rt_hi=("runtime_q75", "median")
+            ).reset_index()
+            .sort_values("rt")
+        )
+    else:
+        sub = df[df["runtime_s"].notna()].copy()
+        if sub.empty:
+            return fig_empty()
+        grp = (
+            sub.groupby(["method", "library"])
+            .agg(
+                rt=("runtime_s", "median"),
+                rt_lo=("runtime_s", lambda x: x.quantile(0.25)),
+                rt_hi=("runtime_s", lambda x: x.quantile(0.75))
+            ).reset_index()
+            .sort_values("rt")
+        )
     
     colors = [_lib_color(lib) for lib in grp["library"]]
+    
+    grp["err_plus"] = grp["rt_hi"] - grp["rt"]
+    grp["err_minus"] = grp["rt"] - grp["rt_lo"]
     
     fig = go.Figure(go.Bar(
         x=grp["method"],
@@ -2012,7 +2069,24 @@ def fig_rq3_runtime_comparison(df: pd.DataFrame) -> go.Figure:
         marker=dict(color=colors, opacity=0.85),
         text=grp["rt"].apply(lambda v: f"{v:.3f}s" if v < 1 else f"{v:.1f}s"),
         textposition="outside",
-        hovertemplate="<b>%{x}</b><br>Median runtime: <b>%{y:.3f} s</b><extra></extra>"
+        customdata=np.column_stack((
+            grp["rt_lo"].values,
+            grp["rt_hi"].values
+        )),
+        error_y=dict(
+            type="data",
+            symmetric=False,
+            array=grp["err_plus"].values,
+            arrayminus=grp["err_minus"].values,
+            visible=True,
+            color="#475569",
+            thickness=1.2,
+            width=4
+        ),
+        hovertemplate=(
+            "<b>%{x}</b><br>"
+            "Median runtime: <b>%{y:.3f} s</b> <span style='font-size:11px;color:#64748B'>[%{customdata[0]:.3f}s - %{customdata[1]:.3f}s]</span><extra></extra>"
+        )
     ))
     
     fig.update_layout(
@@ -2102,7 +2176,12 @@ def fig_rq3_axiomatic_integrity(df: pd.DataFrame) -> go.Figure:
 def fig_rq3_scalability_wall(df: pd.DataFrame) -> go.Figure:
     """Faceted scatter plot of runtime_s (log10) vs mean_sample_rho, with 3 columns corresponding to adult_census, ames_housing, gisette."""
     from plotly.subplots import make_subplots
+    df = df.copy()
     
+    if "runtime_median" in df.columns:
+        df["runtime_s"] = df["runtime_median"]
+        df["mean_sample_rho"] = df["rho_median"]
+        
     sub = df[df["runtime_s"].notna() & df["mean_sample_rho"].notna()].copy()
     if sub.empty:
         return fig_empty()
@@ -2130,14 +2209,32 @@ def fig_rq3_scalability_wall(df: pd.DataFrame) -> go.Figure:
         horizontal_spacing=0.04
     )
     
-    grp = (
-        sub.groupby(["dataset", "library", "approximator", "method"])
-        .agg(
-            rt=("runtime_s", "mean"),
-            rho=("mean_sample_rho", "mean")
+    if "runtime_q25" in sub.columns:
+        grp = (
+            sub.groupby(["dataset", "library", "approximator", "method"])
+            .agg(
+                rt=("runtime_median", "mean"),
+                rt_lo=("runtime_q25", "mean"),
+                rt_hi=("runtime_q75", "mean"),
+                rho=("rho_median", "mean"),
+                rho_lo=("rho_q25", "mean"),
+                rho_hi=("rho_q75", "mean")
+            )
+            .reset_index()
         )
-        .reset_index()
-    )
+    else:
+        grp = (
+            sub.groupby(["dataset", "library", "approximator", "method"])
+            .agg(
+                rt=("runtime_s", "mean"),
+                rt_lo=("runtime_s", lambda x: x.quantile(0.25)),
+                rt_hi=("runtime_s", lambda x: x.quantile(0.75)),
+                rho=("mean_sample_rho", "mean"),
+                rho_lo=("mean_sample_rho", lambda x: x.quantile(0.25)),
+                rho_hi=("mean_sample_rho", lambda x: x.quantile(0.75))
+            )
+            .reset_index()
+        )
     
     methods = sorted(grp["method"].unique().tolist())
     shown_legend = set()
@@ -2171,12 +2268,16 @@ def fig_rq3_scalability_wall(df: pd.DataFrame) -> go.Figure:
                     customdata=np.column_stack((
                         adf["library"],
                         adf["approximator"],
-                        adf["method"]
+                        adf["method"],
+                        adf["rt_lo"],
+                        adf["rt_hi"],
+                        adf["rho_lo"],
+                        adf["rho_hi"]
                     )),
                     hovertemplate=(
                         "<b>%{customdata[2]}</b><br>"
-                        "Average Runtime: <b>%{x:.3f} s</b><br>"
-                        "Spearman ρ: <b>%{y:.3f}</b><br>"
+                        "Average Runtime: <b>%{x:.3f} s</b> <span style='font-size:11px;color:#CBD5E1'>[%{customdata[3]:.3f}s - %{customdata[4]:.3f}s]</span><br>"
+                        "Spearman ρ: <b>%{y:.3f}</b> <span style='font-size:11px;color:#CBD5E1'>[%{customdata[5]:.3f} - %{customdata[6]:.3f}]</span><br>"
                         "Library: %{customdata[0]}<br>"
                         "Approximator: %{customdata[1]}<extra></extra>"
                     ),
@@ -2212,33 +2313,56 @@ def fig_rq3_scalability_wall(df: pd.DataFrame) -> go.Figure:
         ),
     )
     return fig
-
-
+ 
+ 
 def fig_rq3_topology_violations(df: pd.DataFrame) -> go.Figure:
     """Grouped horizontal bar chart showing mean relative additivity gap as a percentage across network structural topologies, grouped by method."""
-    sub = df[df["relative_additivity_gap"].notna()].copy()
-    if sub.empty:
-        return fig_empty()
-    
-    grp = (
-        sub.groupby(["method", "model"])
-        .agg(gap=("relative_additivity_gap", "mean")).reset_index()
-    )
+    df = df.copy()
+    if "gap_mean" in df.columns:
+        grp = (
+            df.groupby(["method", "model"])
+            .agg(
+                gap=("gap_mean", "mean"),
+                gap_lo=("gap_q25", "mean"),
+                gap_hi=("gap_q75", "mean")
+            ).reset_index()
+        )
+    else:
+        sub = df[df["relative_additivity_gap"].notna()].copy()
+        if sub.empty:
+            return fig_empty()
+        grp = (
+            sub.groupby(["method", "model"])
+            .agg(
+                gap=("relative_additivity_gap", "mean"),
+                gap_lo=("relative_additivity_gap", lambda x: x.quantile(0.25)),
+                gap_hi=("relative_additivity_gap", lambda x: x.quantile(0.75))
+            ).reset_index()
+        )
     
     # Use the same library-grouped sorting as the Spearman Rank Alignment chart
-    method_rhos = sub.groupby("method")["mean_sample_rho"].median()
-    def get_lib(method_name):
-        lib = method_name.split(" / ")[0]
-        return "shapiq" if lib == "shapiq_proxy" else lib
-    method_to_lib = {m: get_lib(m) for m in method_rhos.index}
-    lib_rhos = {}
-    for m, r in method_rhos.items():
-        l = method_to_lib[m]
-        lib_rhos[l] = max(lib_rhos.get(l, -999.0), r)
-    method_order = sorted(
-        method_rhos.index,
-        key=lambda m: (lib_rhos[method_to_lib[m]], method_to_lib[m], method_rhos[m])
+    method_rhos = df.groupby("method")["rho_median"].median() if "rho_median" in df.columns else (
+        df.groupby("method")["mean_sample_rho"].median() if "mean_sample_rho" in df.columns else pd.Series()
     )
+    if method_rhos.empty:
+        method_order = sorted(grp["method"].unique())
+    else:
+        def get_lib(method_name):
+            lib = method_name.split(" / ")[0]
+            return "shapiq" if lib == "shapiq_proxy" else lib
+        method_to_lib = {m: get_lib(m) for m in method_rhos.index}
+        lib_rhos = {}
+        for m, r in method_rhos.items():
+            l = method_to_lib[m]
+            lib_rhos[l] = max(lib_rhos.get(l, -999.0), r)
+        method_order = sorted(
+            method_rhos.index,
+            key=lambda m: (lib_rhos[method_to_lib[m]], method_to_lib[m], method_rhos[m])
+        )
+    
+    # Calculate error values for horizontal bar error_x
+    grp["err_plus"] = grp["gap_hi"] - grp["gap"]
+    grp["err_minus"] = grp["gap"] - grp["gap_lo"]
     
     models = ["mlp", "cnn_1d", "transformer"]
     model_colors = {
@@ -2251,6 +2375,10 @@ def fig_rq3_topology_violations(df: pd.DataFrame) -> go.Figure:
     for model in models:
         model_df = grp[grp["model"] == model].set_index("method").reindex(method_order).reset_index()
         gaps_pct = model_df["gap"] * 100
+        gaps_pct_lo = model_df["gap_lo"] * 100
+        gaps_pct_hi = model_df["gap_hi"] * 100
+        err_plus_pct = model_df["err_plus"] * 100
+        err_minus_pct = model_df["err_minus"] * 100
         
         fig.add_trace(go.Bar(
             y=model_df["method"],
@@ -2260,13 +2388,26 @@ def fig_rq3_topology_violations(df: pd.DataFrame) -> go.Figure:
             marker=dict(color=model_colors.get(model, ACCENT), opacity=0.85),
             text=gaps_pct.apply(lambda v: f"{v:.1f}%" if v > 0.5 else ("~0%" if pd.notna(v) else "")),
             textposition="outside",
+            customdata=np.column_stack((
+                gaps_pct_lo.values,
+                gaps_pct_hi.values
+            )),
+            error_x=dict(
+                type="data",
+                symmetric=False,
+                array=err_plus_pct.values,
+                arrayminus=err_minus_pct.values,
+                visible=True,
+                color="#475569",
+                thickness=1.2,
+                width=4
+            ),
             hovertemplate=(
                 "<b>%{y}</b> (%{legendgroup})<br>"
-                "Mean violation gap: <b>%{x:.3f}%</b><extra></extra>"
+                "Mean violation gap: <b>%{x:.3f}%</b> <span style='font-size:11px;color:#64748B'>[%{customdata[0]:.3f}% - %{customdata[1]:.3f}%]</span><extra></extra>"
             ),
             legendgroup=model,
         ))
-        
     fig.update_layout(
         **_CHART_LAYOUT,
         height=max(320, len(method_order) * 45 + 100),

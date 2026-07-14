@@ -20,9 +20,15 @@ dash.register_page(
 )
 
 _HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_CSVS = [
-    os.path.join(_HERE, "results", "rq3_results_config-neural-networks-cpu.csv"),
-]
+_CONV = os.path.join(_HERE, "results", "converted")
+_BY_SEED = os.path.join(_CONV, "rq3_neural_networks_by_seed.csv")
+_AGGREGATED = os.path.join(_CONV, "rq3_neural_networks_aggregated.csv")
+
+
+def _load(path: str) -> pd.DataFrame:
+    if os.path.exists(path):
+        return pd.read_csv(path)
+    return pd.DataFrame()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -71,7 +77,7 @@ def _config_card(df) -> html.Div:
         n_models = df["model"].nunique()
         n_libs = df["library"].nunique()
         n_approx = df["approximator"].nunique()
-        n_seeds = df["seed"].nunique()
+        n_seeds = int(df["seed_count"].iloc[0]) if "seed_count" in df.columns else df["seed"].nunique()
         
         # Helper to format unique configuration parameters
         budget = df["budget"].dropna().unique()
@@ -168,12 +174,12 @@ def _guidance_box(focus: str) -> html.Div:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def layout(**kwargs):
-    df, src = S.try_load_data(*_CSVS)
+    df_agg = _load(_AGGREGATED)
 
-    if src is None:
+    if df_agg.empty:
         return html.Div([
             S.rq_header(*_RQ_HEADER),
-            S.missing_data_banner(_CSVS[0]),
+            S.missing_data_banner(_AGGREGATED),
             _schema_hint(),
         ])
 
@@ -187,7 +193,16 @@ def layout(**kwargs):
             html.A("RQ5 (GPU vs. CPU)", href="/rq5", style={"fontWeight": "600", "color": "#1D4ED8", "textDecoration": "underline"}),
             "."
         ]),
-        _config_card(df),
+        S.info_note([
+            "Seed Stability & Variation: ",
+            html.Span("All benchmark results are evaluated over 10 independent random seeds. ", style={"fontWeight": "600"}),
+            "To represent the central tendency and reliability robustly, we display the ",
+            html.Span("Median", style={"fontWeight": "600"}),
+            " of the runs with error bars representing the ",
+            html.Span("25th and 75th percentiles (Q25–Q75)", style={"fontWeight": "600"}),
+            " spread across the seeds."
+        ]),
+        _config_card(df_agg),
         
         # Practitioner guidance selection (hidden for now)
         html.Div(
@@ -280,20 +295,24 @@ def _update_guidance(focus):
     Input("rq3-lib",    "value"),
 )
 def update_rq3(ds, models, libs):
-    df, src = S.try_load_data(*_CSVS)
-    if src is None or df.empty:
+    df_agg = _load(_AGGREGATED)
+    df_seed = _load(_BY_SEED)
+    if df_agg.empty or df_seed.empty:
         return html.Div()
 
     # Apply dropdown and checklist filters
     if ds != "__all__":
-        df = df[df["dataset"] == ds]
+        df_agg = df_agg[df_agg["dataset"] == ds]
+        df_seed = df_seed[df_seed["dataset"] == ds]
     if models:
-        df = df[df["model"].isin(models)]
+        df_agg = df_agg[df_agg["model"].isin(models)]
+        df_seed = df_seed[df_seed["model"].isin(models)]
     if libs:
-        df = df[df["library"].isin(libs)]
+        df_agg = df_agg[df_agg["library"].isin(libs)]
+        df_seed = df_seed[df_seed["library"].isin(libs)]
 
     warns = []
-    if df.empty:
+    if df_agg.empty:
         warns.append(S.warning_note("No data matches the current filter selection."))
 
     charts = html.Div([
@@ -301,35 +320,35 @@ def update_rq3(ds, models, libs):
         S.section(
             "Spearman Rank Alignment (Attribution Agreement)",
             "Spearman rank correlation coefficient (mean_sample_rho) comparing each explainer "
-            "against the exact oracle (shapiq_true_value) across different neural network architectures.",
-            dcc.Graph(figure=S.fig_rq3_attribution_agreement(df), config={"displayModeBar": False}, style={"padding": "8px"}),
+            "against the exact oracle across different neural network architectures.",
+            dcc.Graph(figure=S.fig_rq3_attribution_agreement(df_agg), config={"displayModeBar": False}, style={"padding": "8px"}),
             section_id="rq3-agreement-section"
         ),
         S.section(
             "Runtime Comparison (Physical Throughput)",
             "Median execution time (runtime_s) on a logarithmic scale (log10) to illustrate "
             "the performance differences between gradient-based explainers and model-agnostic permutation loops.",
-            dcc.Graph(figure=S.fig_rq3_runtime_comparison(df), config={"displayModeBar": False}, style={"padding": "8px"}),
+            dcc.Graph(figure=S.fig_rq3_runtime_comparison(df_agg), config={"displayModeBar": False}, style={"padding": "8px"}),
             section_id="rq3-runtime-section"
         ),
         S.section(
             "Axiomatic Integrity & Efficiency Evaluation",
             "Box-and-whisker plots showing the distribution of relative efficiency violations (relative additivity gap) "
             "on a logarithmic scale. Gradient wrappers (such as Captum) show significantly higher violations.",
-            dcc.Graph(figure=S.fig_rq3_axiomatic_integrity(df), config={"displayModeBar": False}, style={"padding": "8px"}),
+            dcc.Graph(figure=S.fig_rq3_axiomatic_integrity(df_seed), config={"displayModeBar": False}, style={"padding": "8px"}),
             section_id="rq3-integrity-section"
         ),
         S.section(
             "High-Dimensional Scalability Wall",
             "Faceted view showing how dataset dimensionality affects execution runtime (log scale) vs. "
-            "Spearman rank correlation alignment against the exact oracle (shapiq_true_value) for different approximators.",
-            dcc.Graph(figure=S.fig_rq3_scalability_wall(df), config={"displayModeBar": False}, style={"padding": "8px"}),
+            "Spearman rank correlation alignment against the exact oracle for different approximators.",
+            dcc.Graph(figure=S.fig_rq3_scalability_wall(df_agg), config={"displayModeBar": False}, style={"padding": "8px"}),
             section_id="rq3-scalability-wall-section"
         ),
         S.section(
             "Relative Additivity Violations by Network Topology",
             "Mean relative additivity gap violations formatted as a percentage across network topologies, grouped by approximator type.",
-            dcc.Graph(figure=S.fig_rq3_topology_violations(df), config={"displayModeBar": False}, style={"padding": "8px"}),
+            dcc.Graph(figure=S.fig_rq3_topology_violations(df_agg), config={"displayModeBar": False}, style={"padding": "8px"}),
             section_id="rq3-topology-violations-section"
         )
     ])

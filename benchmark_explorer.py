@@ -503,14 +503,13 @@ def _render_page_topbar(pathname):
     # ── RQ3 ───────────────────────────────────────────────────────────────
     if pathname == "/rq3":
         df, src = S.try_load_data(
-            os.path.join(_RESULTS, "rq3_results_config-neural-networks-cpu.csv"),
+            os.path.join(_RESULTS, "converted", "rq3_neural_networks_aggregated.csv"),
         )
  
         datasets = [{"label": "All datasets", "value": "__all__"}] + \
                    [{"label": d, "value": d} for d in sorted(df["dataset"].dropna().unique())]
         models   = sorted(df["model"].dropna().unique())   if not df.empty else []
         libs     = sorted(df["library"].dropna().unique()) if not df.empty else []
-        seeds    = sorted([int(s) for s in df["seed"].dropna().unique()]) if not df.empty else [0, 1, 2]
         _mlbl    = {"mlp": "MLP", "transformer": "Transformer", "cnn_1d": "CNN-1D"}
  
         return [
