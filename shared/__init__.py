@@ -65,6 +65,8 @@ from .charts import (
     fig_rq3_axiomatic_integrity,
     fig_rq3_scalability_wall,
     fig_rq3_topology_violations,
+    fig_captum_hardware_dividends,
+    fig_woodelf_vectorization_scaling,
 )
 
 

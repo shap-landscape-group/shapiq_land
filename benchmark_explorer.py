@@ -547,7 +547,7 @@ def _render_page_topbar(pathname):
 
     # ── RQ5 ───────────────────────────────────────────────────────────────
     if pathname == "/rq5":
-        _csv = os.path.join(_RESULTS, "rq5_gpu_cpu_comparison.csv")
+        _csv = os.path.join(_RESULTS, "converted", "rq5_gpu_cpu_comparison_aggregated.csv")
         df, src = S.try_load_data(_csv)
 
         datasets = [{"label": "All datasets", "value": "__all__"}]

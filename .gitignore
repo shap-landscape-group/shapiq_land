@@ -6,3 +6,5 @@ __pycache__/
 *.bak
 *.DS_Store
 .DS_Store
+results/rq5_model_gpu-vs-cpu-shapiq-shap.csv
+results/rq5_tree-gpu-vs-cpu.csv
