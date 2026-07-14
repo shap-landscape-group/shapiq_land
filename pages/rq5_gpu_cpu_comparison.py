@@ -168,14 +168,6 @@ def layout(**kwargs):
             html.Span("25th and 75th percentiles (Q25–Q75)", style={"fontWeight": "600"}),
             " spread across the seeds."
         ]),
-        html.Div(
-            [html.Span("Data source: ", style={"fontWeight": "600"}),
-             html.Code(os.path.basename(_AGGREGATED),
-                       style={"fontFamily": "monospace", "fontSize": "11px",
-                              "background": S.BG, "padding": "2px 6px",
-                              "borderRadius": "4px"})],
-            style={"fontSize": "12px", "color": S.TEXT2, "marginBottom": "4px"},
-        ),
         _config_card(df_agg),
 
         # ── Dynamic content ───────────────────────────────────────────────────
