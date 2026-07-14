@@ -1557,6 +1557,12 @@ def fig_tree_depth_scaling_factor(df: pd.DataFrame) -> go.Figure:
     then summarized per backend as the median ratio across combos. A factor near 1×
     means depth-robust (ideal for "extreme tree depths"); a large factor flags a
     backend whose cost explodes as trees grow.
+
+    A backend that never produces a valid run at the deepest tree (times out /
+    breaks before getting there) has no ratio to compute — rather than silently
+    dropping it from the chart, it gets a hatched "DNF" bar past the worst real
+    factor, since failing to finish at all is a stronger scaling problem than
+    any finite blow-up.
     """
     depth = _depth_col(df)
     if not depth:
@@ -1567,15 +1573,16 @@ def fig_tree_depth_scaling_factor(df: pd.DataFrame) -> go.Figure:
     sub[depth] = pd.to_numeric(sub[depth], errors="coerce")
     sub["runtime_s"] = pd.to_numeric(
         _tree_col(sub, "runtime_s"), errors="coerce")
-    sub = sub[sub[depth].notna() & sub["runtime_s"].notna()
-              & ~sub["is_failure"]]
+    sub = sub[sub[depth].notna()]
     if sub.empty or sub[depth].nunique() < 2:
         return fig_empty("Not enough tree-depth variation to compute scaling")
 
     d_lo, d_hi = sub[depth].min(), sub[depth].max()
     combo_cols = [c for c in ("dataset", "model") if c in sub.columns]
+
+    ok = sub[sub["runtime_s"].notna() & ~sub["is_failure"]]
     grp = (
-        sub.groupby(["backend", "library"] + combo_cols + [depth])
+        ok.groupby(["backend", "library"] + combo_cols + [depth])
         .agg(rt=("runtime_s", "median")).reset_index()
     )
     rows = []
@@ -1593,27 +1600,69 @@ def fig_tree_depth_scaling_factor(df: pd.DataFrame) -> go.Figure:
             ratios.append(hi_v / lo_v)
         if ratios:
             rows.append(dict(backend=backend, library=lib,
-                             factor=float(np.median(ratios)), n=len(ratios)))
+                             factor=float(np.median(ratios)), n=len(ratios), dnf=False))
+
+    # Backends that have a valid shallow-tree baseline but never survive to the
+    # deepest tree without failing — a DNF, not "fast", so flag them explicitly.
+    computed = {r["backend"] for r in rows}
+    for backend, bdf in sub[["backend", "library"]].drop_duplicates().groupby("backend"):
+        if backend in computed:
+            continue
+        lib = bdf["library"].iloc[0]
+        backend_ok = ok[ok["backend"] == backend]
+        if not (backend_ok[depth] == d_lo).any():
+            continue   # no baseline at all — nothing meaningful to plot
+        max_reached = backend_ok[depth].max() if not backend_ok.empty else np.nan
+        rows.append(dict(backend=backend, library=lib, factor=np.nan,
+                         n=0, dnf=True, max_reached=max_reached))
     if not rows:
         return fig_empty("No backend spans both the shallowest and deepest tree")
 
-    gr = pd.DataFrame(rows).sort_values("factor", ascending=True)
+    gr = pd.DataFrame(rows)
+    real_max = gr.loc[~gr["dnf"], "factor"].max() if (~gr["dnf"]).any() else 1.0
+    dnf_display = (real_max if pd.notna(real_max) else 1.0) * 1.35
+    gr["factor_disp"] = gr["factor"].where(~gr["dnf"], dnf_display)
+    gr = gr.sort_values("factor_disp", ascending=True).reset_index(drop=True)
     gr["label"] = gr["backend"].map(_tree_backend_label)
     colors = [_lib_color(l) for l in gr["library"]]
 
+    bartext = [
+        "⏱ DNF" if dnf else f"{f:.1f}×"
+        for dnf, f in zip(gr["dnf"], gr["factor"])
+    ]
+    # Plotly hovertemplate can't branch on a flag, so build the per-point text
+    # directly (DNF bars need a different message than a real ratio).
+    hover = []
+    for _, r in gr.iterrows():
+        if r["dnf"]:
+            reached = r.get("max_reached", np.nan)
+            reached_txt = (f" (last valid run reached depth {int(reached)})"
+                          if pd.notna(reached) and reached >= 0 else "")
+            hover.append(
+                f"<b>{r['label']}</b><br>Depth {int(d_lo)} → {int(d_hi)} blow-up<br>"
+                f"Never finished a valid run at depth {int(d_hi)} — exceeded the "
+                f"time budget before reaching it{reached_txt}.<extra></extra>"
+            )
+        else:
+            hover.append(
+                f"<b>{r['label']}</b><br>Depth {int(d_lo)} → {int(d_hi)} blow-up<br>"
+                f"Median factor across {int(r['n'])} dataset/model combo(s): "
+                f"{r['factor']:.2f}×<extra></extra>"
+            )
+
     fig = go.Figure(go.Bar(
-        y=gr["label"], x=gr["factor"], orientation="h",
-        marker=dict(color=colors, opacity=0.9,
-                    line=dict(color="white", width=0.5)),
-        text=[f"{f:.1f}×" for f in gr["factor"]],
-        textposition="outside", textfont=dict(size=11, color=TEXT),
-        customdata=gr["n"],
-        hovertemplate=(
-            "<b>%{y}</b><br>"
-            f"Depth {int(d_lo)} → {int(d_hi)} blow-up<br>"
-            "Median factor across %{customdata} dataset/model combo(s): "
-            "%{x:.2f}×<extra></extra>"
+        y=gr["label"], x=gr["factor_disp"], orientation="h",
+        marker=dict(
+            color=colors,
+            opacity=[0.45 if d else 0.9 for d in gr["dnf"]],
+            line=dict(color=[RED if d else "white" for d in gr["dnf"]],
+                      width=[1.5 if d else 0.5 for d in gr["dnf"]]),
+            pattern=dict(shape=["x" if d else "" for d in gr["dnf"]],
+                        fgcolor=RED, size=4),
         ),
+        text=bartext,
+        textposition="outside", textfont=dict(size=11, color=TEXT),
+        hovertemplate=hover,
     ))
     fig.add_vline(
         x=1.0, line=dict(color=GREEN, width=1.2, dash="dot"),
@@ -1624,7 +1673,8 @@ def fig_tree_depth_scaling_factor(df: pd.DataFrame) -> go.Figure:
         **_CHART_LAYOUT,
         height=max(280, len(gr) * 34 + 80),
         xaxis=dict(title=f"Runtime blow-up, depth {int(d_lo)} → {int(d_hi)}  "
-                   "(lower = handles depth better)",
+                   "(lower = handles depth better; hatched = never finished at "
+                   f"depth {int(d_hi)})",
                    gridcolor=BORDER, zeroline=False),
         yaxis=dict(gridcolor="rgba(0,0,0,0)", automargin=True),
         margin=dict(l=10, r=90, t=30, b=48),
@@ -1633,25 +1683,43 @@ def fig_tree_depth_scaling_factor(df: pd.DataFrame) -> go.Figure:
     return fig
 
 
+_ORDER2_FR_FLAG = 0.15   # order-2 failure rate above which the median is survivorship-biased
+
+
 def fig_tree_order_cost(df: pd.DataFrame) -> go.Figure:
     """Grouped bars: median runtime at interaction order 1 vs order 2, per library.
 
-    Moving from main effects (order 1, path-dependent/interventional backends) to
-    pairwise interactions (order 2) is the single biggest cost jump in the data —
-    this makes that explosion explicit. Expects a df that mixes order-1 and
-    order-2 rows for the same libraries (the interaction tab passes both modes in).
+    Moving from main effects (order 1) to pairwise interactions (order 2) is a
+    large cost jump for libraries that actually complete both — but the median
+    here is only ever taken over *successful* runs, so a library that times out
+    on a large share of its order-2 runs (deep trees / many features) will look
+    artificially fast: its slow, hard cases dropped out before finishing, and
+    only the easy, quick ones survive into the median. Bars for a library whose
+    order-2 failure rate exceeds `_ORDER2_FR_FLAG` are hatched and marked with
+    "†" to flag that survivorship bias explicitly, instead of letting a lower
+    bar silently read as "faster at order 2". Expects a df that mixes order-1
+    and order-2 rows for the same libraries (the interaction tab passes both
+    modes in).
     """
     sub = df.copy()
     sub["order"] = pd.to_numeric(_tree_col(sub, "order"), errors="coerce")
     sub["runtime_s"] = pd.to_numeric(
         _tree_col(sub, "runtime_s"), errors="coerce")
-    sub = sub[sub["order"].notna() & sub["runtime_s"].notna()
-              & ~sub["is_failure"]]
+    sub = sub[sub["order"].notna() & sub["runtime_s"].notna()]
     if sub.empty or sub["order"].nunique() < 2:
         return fig_empty("Need both interaction orders (1 and 2) to compare")
 
+    # Failure rate at order 2 per library, computed BEFORE dropping failed
+    # rows — this is what flags the survivorship-bias bars below.
+    order2_fr = sub.loc[sub["order"] == 2].groupby(
+        "library")["is_failure"].mean()
+
+    ok = sub[~sub["is_failure"]]
+    if ok.empty or ok["order"].nunique() < 2:
+        return fig_empty("Need both interaction orders (1 and 2) to compare")
+
     grp = (
-        sub.groupby(["library", "order"])
+        ok.groupby(["library", "order"])
         .agg(rt=("runtime_s", "median")).reset_index()
     )
     order_vals = sorted(grp["order"].dropna().unique())
@@ -1659,32 +1727,52 @@ def fig_tree_order_cost(df: pd.DataFrame) -> go.Figure:
                   2: "Order 2 · pairwise interactions"}
     order_shade = {1: 0.55, 2: 1.0}
     libs = sorted(grp["library"].unique())
+    flagged_libs = [l for l in libs if order2_fr.get(l, 0.0) >= _ORDER2_FR_FLAG]
 
     fig = go.Figure()
     for o in order_vals:
         odf = grp[grp["order"] == o].set_index("library").reindex(libs)
+        is_flagged = [int(o) == 2 and l in flagged_libs for l in libs]
         fig.add_trace(go.Bar(
             x=libs, y=odf["rt"].clip(lower=_RUNTIME_FLOOR).values,
             name=order_name.get(int(o), f"Order {int(o)}"),
             marker=dict(color=[_lib_color(l) for l in libs],
                         opacity=order_shade.get(int(o), 0.8),
-                        line=dict(color="white", width=0.5),
-                        pattern=dict(shape=["" if o == order_vals[0] else "x"] * len(libs),
-                                     fgcolor="white", size=3)),
-            text=[f"{v:.3g} s" if pd.notna(
-                v) else "" for v in odf["rt"].values],
+                        line=dict(color=[RED if f else "white" for f in is_flagged],
+                                  width=[1.5 if f else 0.5 for f in is_flagged]),
+                        pattern=dict(
+                            shape=["" if o == order_vals[0] else "x" for _ in libs],
+                            fgcolor="white", size=3)),
+            text=[(f"{v:.3g} s †" if f else f"{v:.3g} s") if pd.notna(v) else ""
+                  for v, f in zip(odf["rt"].values, is_flagged)],
             textposition="outside", textfont=dict(size=10, color=TEXT),
+            customdata=[order2_fr.get(l, 0.0) * 100 for l in libs],
             hovertemplate="<b>%{x}</b><br>" +
             order_name.get(int(o), f"Order {int(o)}")
-                          + "<br>Median runtime: %{y:.4g} s<extra></extra>",
+                          + "<br>Median runtime (successful runs only): %{y:.4g} s"
+                          + ("<br>Order-2 failure/timeout rate: %{customdata:.0f}%"
+                             "<br>⚠ high failure rate — this median is measured on "
+                             "the easy survivors only, not a genuine speed-up"
+                             if int(o) == 2 else "")
+                          + "<extra></extra>",
         ))
     fig.update_layout(
-        **_CHART_LAYOUT, height=420, margin=_MARGIN, legend=_LEGEND_H,
+        **_CHART_LAYOUT, height=460, margin=dict(**{**_MARGIN, "b": 70}),
+        legend=_LEGEND_H,
         barmode="group",
         xaxis=dict(title="Library", gridcolor="rgba(0,0,0,0)"),
         yaxis=dict(title="Median runtime (s) — log scale", type="log",
                    gridcolor=BORDER, zeroline=False),
     )
+    if flagged_libs:
+        fig.add_annotation(
+            xref="paper", yref="paper", x=0, y=-0.22, xanchor="left",
+            showarrow=False, align="left", font=dict(size=10, color=RED),
+            text="† " + ", ".join(flagged_libs) + " time out on a large share of "
+            "order-2 runs (deep trees / many features) — their order-2 median is "
+            "measured only on the runs that finished, so it understates the real "
+            "cost rather than showing a genuine speed-up.",
+        )
     return fig
 
 
