@@ -85,7 +85,7 @@ def main():
     
     # Combine datasets
     columns_to_keep = [
-        "dataset", "model", "library", "approximator", "device", "seed",
+        "dataset", "model", "library", "approximator", "device", "seed", "n_features",
         "runtime_s", "relative_additivity_gap", "mean_sample_rho", "relative_mae", "sign_agreement"
     ]
     
@@ -114,10 +114,10 @@ def main():
     
     # Aggregate across seeds
     print("Aggregating across seeds...")
-    group_cols = ["dataset", "model", "library", "approximator", "method", "device"]
+    group_cols = ["dataset", "model", "library", "approximator", "method", "device", "n_features"]
     
     df_agg = (
-        df_combined.groupby(group_cols)
+        df_combined.groupby(group_cols, dropna=False)
         .agg(
             runtime_median=("runtime_s", "median"),
             runtime_q25=("runtime_s", lambda x: x.quantile(0.25)),

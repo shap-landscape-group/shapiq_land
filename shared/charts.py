@@ -2509,3 +2509,224 @@ def fig_rq3_topology_violations(df: pd.DataFrame) -> go.Figure:
     return fig
 
 
+def fig_captum_hardware_dividends(df: pd.DataFrame) -> go.Figure:
+    """Figure 22: Captum Hardware Acceleration Dividends grouped paired bar chart."""
+    df = df.copy()
+    if "seed" in df.columns:
+        sub = df[
+            (df["library"].str.lower() == "captum") &
+            (df["model"].str.lower().isin(["mlp", "cnn_1d", "transformer"])) &
+            (df["approximator"].str.lower().isin(["gradient_shap", "deep_lift_shap"])) &
+            (df["runtime_s"].notna()) &
+            (df["device"].notna())
+        ].copy()
+        if sub.empty:
+            return fig_empty("No matching Captum runs found.")
+        sub["device"] = sub["device"].astype(str).str.lower().replace({"cuda": "gpu"})
+        grp = (
+            sub.groupby(["model", "device", "approximator"])
+            .agg(
+                rt=("runtime_s", "median"),
+                rt_lo=("runtime_s", lambda x: x.quantile(0.25)),
+                rt_hi=("runtime_s", lambda x: x.quantile(0.75))
+            ).reset_index()
+        )
+    else:
+        sub = df[
+            (df["library"].str.lower() == "captum") &
+            (df["model"].str.lower().isin(["mlp", "cnn_1d", "transformer"])) &
+            (df["approximator"].str.lower().isin(["gradient_shap", "deep_lift_shap"])) &
+            (df["runtime_median"].notna()) &
+            (df["device"].notna())
+        ].copy()
+        if sub.empty:
+            return fig_empty("No matching Captum runs found.")
+        sub["device"] = sub["device"].astype(str).str.lower().replace({"cuda": "gpu"})
+        grp = (
+            sub.groupby(["model", "device", "approximator"])
+            .agg(
+                rt=("runtime_median", "median"),
+                rt_lo=("runtime_q25", "median"),
+                rt_hi=("runtime_q75", "median")
+            ).reset_index()
+        )
+
+    # Calculate error boundaries
+    grp["err_plus"] = grp["rt_hi"] - grp["rt"]
+    grp["err_minus"] = grp["rt"] - grp["rt_lo"]
+
+    models = ["mlp", "cnn_1d", "transformer"]
+    devices = ["cpu", "gpu"]
+    methods = ["deep_lift_shap", "gradient_shap"]
+
+    colors = {
+        ("cpu", "deep_lift_shap"): "#60A5FA",  # Light blue
+        ("cpu", "gradient_shap"): "#1D4ED8",   # Dark blue
+        ("gpu", "deep_lift_shap"): "#F472B6",  # Light pink
+        ("gpu", "gradient_shap"): "#BE185D",   # Dark pink
+    }
+
+    fig = go.Figure()
+    for dev in devices:
+        for method in methods:
+            trace_df = grp[(grp["device"] == dev) & (grp["approximator"] == method)]
+            trace_df = trace_df.set_index("model").reindex(models).reset_index()
+            
+            method_label = "DeepLIFT SHAP" if method == "deep_lift_shap" else "Gradient SHAP"
+            trace_name = f"{dev.upper()} - {method_label}"
+            
+            fig.add_trace(go.Bar(
+                x=[m.upper().replace("_", "-") for m in models],
+                y=trace_df["rt"],
+                name=trace_name,
+                marker=dict(color=colors.get((dev, method), ACCENT), opacity=0.85),
+                text=trace_df["rt"].apply(lambda v: f"{v:.2f}s" if pd.notna(v) else ""),
+                textposition="outside",
+                customdata=np.column_stack((
+                    trace_df["rt_lo"].values,
+                    trace_df["rt_hi"].values,
+                    [dev.upper()] * len(trace_df),
+                    [method_label] * len(trace_df)
+                )),
+                error_y=dict(
+                    type="data",
+                    symmetric=False,
+                    array=trace_df["err_plus"].values,
+                    arrayminus=trace_df["err_minus"].values,
+                    visible=True,
+                    color="#475569",
+                    thickness=1.2,
+                    width=4
+                ),
+                hovertemplate=(
+                    "<b>%{x}</b><br>"
+                    "Device: %{customdata[2]}<br>"
+                    "Estimator: %{customdata[3]}<br>"
+                    "Median runtime: <b>%{y:.3f} s</b> <span style='font-size:11px;color:#64748B'>[%{customdata[0]:.3f}s - %{customdata[1]:.3f}s]</span><extra></extra>"
+                )
+            ))
+
+    fig.update_layout(
+        **_CHART_LAYOUT,
+        height=400,
+        barmode="group",
+        xaxis=dict(gridcolor="rgba(0,0,0,0)"),
+        yaxis=dict(title="Median runtime (s)", gridcolor=BORDER, zeroline=False),
+        margin=dict(l=55, r=20, t=30, b=48),
+        legend=dict(
+            orientation="h", yanchor="bottom", y=1.02,
+            xanchor="left", x=0, bgcolor="rgba(0,0,0,0)", font=dict(size=10)
+        ),
+    )
+    return fig
+
+
+def fig_woodelf_vectorization_scaling(df: pd.DataFrame) -> go.Figure:
+    """Figure 23: Woodelf Vectorization Scaling Laws across Compute Cores (log-log line plot)."""
+    df = df.copy()
+    if "seed" in df.columns:
+        sub = df[
+            (df["library"].str.lower() == "woodelf") &
+            (df["n_features"].notna()) &
+            (df["runtime_s"].notna())
+        ].copy()
+        if sub.empty:
+            return fig_empty("No Woodelf run data found.")
+        sub["paradigm"] = sub["approximator"].apply(lambda x: "path_dependent" if "path_dependent" in str(x).lower() else "interventional")
+        sub["device"] = sub["approximator"].apply(lambda x: "gpu" if "gpu" in str(x).lower() else "cpu")
+        
+        grp = (
+            sub.groupby(["n_features", "paradigm", "device"])
+            .agg(
+                rt=("runtime_s", "median"),
+                rt_lo=("runtime_s", lambda x: x.quantile(0.25)),
+                rt_hi=("runtime_s", lambda x: x.quantile(0.75))
+            ).reset_index()
+        )
+    else:
+        sub = df[
+            (df["library"].str.lower() == "woodelf") &
+            (df["n_features"].notna()) &
+            (df["runtime_median"].notna())
+        ].copy()
+        if sub.empty:
+            return fig_empty("No Woodelf run data found.")
+        sub["paradigm"] = sub["approximator"].apply(lambda x: "path_dependent" if "path_dependent" in str(x).lower() else "interventional")
+        sub["device"] = sub["approximator"].apply(lambda x: "gpu" if "gpu" in str(x).lower() else "cpu")
+        
+        grp = (
+            sub.groupby(["n_features", "paradigm", "device"])
+            .agg(
+                rt=("runtime_median", "median"),
+                rt_lo=("runtime_q25", "median"),
+                rt_hi=("runtime_q75", "median")
+            ).reset_index()
+        )
+
+    if grp.empty:
+        return fig_empty()
+        
+    fig = go.Figure()
+    
+    colors = {
+        "interventional": ACCENT,
+        "path_dependent": PINK,
+    }
+    
+    styles = {
+        "cpu": "solid",
+        "gpu": "dash",
+    }
+    
+    grp = grp.sort_values("n_features")
+    
+    for (paradigm, device), ldf in grp.groupby(["paradigm", "device"]):
+        color = colors.get(paradigm, ACCENT)
+        dash = styles.get(device, "solid")
+        
+        name = f"Woodelf {paradigm.replace('_', ' ').capitalize()} ({device.upper()})"
+        
+        fig.add_trace(go.Scatter(
+            x=ldf["n_features"], y=ldf["rt"],
+            mode="lines+markers",
+            name=name,
+            line=dict(color=color, width=2.5, dash=dash),
+            marker=dict(color=color, size=6),
+            customdata=np.column_stack((
+                ldf["rt_lo"].values,
+                ldf["rt_hi"].values,
+                [paradigm.replace('_', ' ').capitalize()] * len(ldf),
+                [device.upper()] * len(ldf)
+            )),
+            hovertemplate=(
+                "<b>%{name}</b><br>"
+                "Features: <b>%{x}</b><br>"
+                "Median runtime: <b>%{y:.3f} s</b> <span style='font-size:11px;color:#64748B'>[%{customdata[0]:.3f}s - %{customdata[1]:.3f}s]</span><extra></extra>"
+            )
+        ))
+        
+    fig.update_layout(
+        **_CHART_LAYOUT,
+        height=420,
+        margin=dict(l=55, r=20, t=30, b=48),
+        xaxis=dict(
+            title="Number of features (M) — log scale",
+            type="log",
+            gridcolor=BORDER,
+            zeroline=False
+        ),
+        yaxis=dict(
+            title="Wall-clock runtime (s) — log scale",
+            type="log",
+            gridcolor=BORDER,
+            zeroline=False
+        ),
+        legend=dict(
+            orientation="h", yanchor="bottom", y=1.02,
+            xanchor="left", x=0, bgcolor="rgba(0,0,0,0)", font=dict(size=10)
+        ),
+    )
+    return fig
+
+
+
