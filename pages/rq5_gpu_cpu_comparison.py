@@ -165,10 +165,8 @@ def layout(**kwargs):
             style={"fontSize": "12px", "color": S.TEXT2, "marginBottom": "4px"},
         ),
         _config_card(df_agg),
-        S.charts_toc(_CHARTS),
 
         # ── Dynamic content ───────────────────────────────────────────────────
-        html.Div(id="rq5-kpis"),
         html.Div(id="rq5-charts"),
     ])
 
@@ -218,7 +216,6 @@ def _schema_hint() -> html.Div:
 # ─────────────────────────────────────────────────────────────────────────────
 
 @callback(
-    Output("rq5-kpis",   "children"),
     Output("rq5-charts", "children"),
     Input("rq5-ds",     "value"),
     Input("rq5-mdl",    "value"),
@@ -228,7 +225,7 @@ def update_rq5(ds, mdl, dev_val):
     df_agg = _load(_AGGREGATED)
     df_seed = _load(_BY_SEED)
     if df_agg.empty:
-        return html.Div(), html.Div()
+        return html.Div()
 
     # Apply dropdown filters
     if ds != "__all__":
@@ -240,37 +237,6 @@ def update_rq5(ds, mdl, dev_val):
     if dev_val != "__all__":
         df_agg = df_agg[df_agg["device"].astype(str).str.lower().eq(dev_val.lower())]
         df_seed = df_seed[df_seed["device"].astype(str).str.lower().eq(dev_val.lower())]
-
-    # Calculate leaderboard / stats
-    # For speedup KPI
-    sub = df_agg[df_agg["runtime_median"].notna() & df_agg["device"].notna()].copy()
-    
-    speedup_text = "—"
-    if not sub.empty:
-        grp = sub.groupby(["method", "device"])["runtime_median"].median().reset_index()
-        pivot = grp.pivot(index="method", columns="device", values="runtime_median").dropna(subset=["cpu", "gpu"])
-        if not pivot.empty:
-            speedups = pivot["cpu"] / pivot["gpu"]
-            med_speedup = speedups.median()
-            speedup_text = f"{med_speedup:.1f}x speedup"
-
-    n_models = df_agg["model"].dropna().nunique() if not df_agg.empty else 0
-    n_libs = df_agg["library"].dropna().nunique() if not df_agg.empty else 0
-    
-    # Fastest GPU backend
-    fastest_gpu = "—"
-    gpu_runs = sub[sub["device"] == "gpu"]
-    if not gpu_runs.empty:
-        fastest_grp = gpu_runs.groupby("method")["runtime_median"].median()
-        if not fastest_grp.empty:
-            fastest_gpu = fastest_grp.idxmin()
-
-    kpis = S.kpi_row(
-        S.kpi_card(str(n_models), "Models Swept"),
-        S.kpi_card(str(n_libs), "Libraries compared"),
-        S.kpi_card(speedup_text, "Median GPU Speedup", S.GREEN),
-        S.kpi_card(fastest_gpu, "Fastest GPU Method", S.ACCENT),
-    )
 
     warns = []
     if df_agg.empty:
@@ -286,7 +252,7 @@ def update_rq5(ds, mdl, dev_val):
         ),
         S.section(
             _CHARTS[1]["title"], _CHARTS[1]["subtitle"],
-            dcc.Graph(figure=S.fig_hardware_speedup(df_agg),
+            dcc.Graph(figure=S.fig_hardware_speedup(df_seed),
                       config={"displayModeBar": False}, style={"padding": "8px"}),
             section_id=_CHARTS[1]["section_id"],
         ),
@@ -299,4 +265,4 @@ def update_rq5(ds, mdl, dev_val):
         S.interpretation_note(_INTERP),
     ])
 
-    return kpis, charts
+    return charts
