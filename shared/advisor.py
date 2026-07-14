@@ -37,12 +37,13 @@ def recommend_library(
             "why": (
                 "For neural networks, gradient-based methods (Captum) are the natural fit. "
                 "They run inside the PyTorch graph — no permutation sampling overhead. "
-                "Check RQ3 to see which library achieves the fastest runtime on NN models."
+                "Check RQ3 to see which library achieves the fastest runtime on NN models, "
+                "and consult RQ5 to see how much speedup GPU acceleration provides over CPU execution."
             ),
             "rq_page":        "/rq3",
             "rq_name":        "RQ3 — Neural Networks",
-            "secondary_page": "/rq2",
-            "secondary_name": "RQ2 — Accuracy",
+            "secondary_page": "/rq5",
+            "secondary_name": "RQ5 — GPU vs CPU",
             "chart_ids": {                           # CONNECTORS
                 "runtime_ranking":   "rq3-runtime-section",
                 "pareto":            "rq3-pareto-section",

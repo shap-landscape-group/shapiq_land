@@ -23,7 +23,7 @@ TEXT2 = "#5A6A8A"
 
 LIB_COLOR: dict[str, str] = {
     "shapiq":       PINK,
-    "shapiq_proxy": "#F47B96",   # lighter pink-red — ShapIQ family
+    "shapiq_proxy": PINK,        # same pink-red — ShapIQ family
     "shap":         ACCENT,
     "shap_nn":      ACCENT,      # shap NN backend — same blue family
     "lightshap":    "#6BA3E8",
