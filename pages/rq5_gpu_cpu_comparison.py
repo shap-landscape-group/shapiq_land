@@ -68,12 +68,6 @@ _CHARTS = [
         subtitle   = "Grouped paired bar chart comparing Captum estimators (Gradient SHAP, DeepLIFT SHAP) on CPU vs GPU across architectures.",
         fn         = S.fig_captum_hardware_dividends,
     ),
-    dict(
-        section_id = "rq5-woodelf-scaling-section",
-        title      = "Figure 23: Woodelf Vectorization Scaling Laws",
-        subtitle   = "Continuous log-log plot showing Woodelf runtimes across dimensional sweeps (number of features) for CPU vs GPU backends.",
-        fn         = S.fig_woodelf_vectorization_scaling,
-    ),
 ]
 
 _INTERP = (
@@ -271,12 +265,6 @@ def update_rq5(ds, mdl, dev_val):
             dcc.Graph(figure=S.fig_captum_hardware_dividends(df_seed),
                       config={"displayModeBar": False}, style={"padding": "8px"}),
             section_id=_CHARTS[3]["section_id"],
-        ),
-        S.section(
-            _CHARTS[4]["title"], _CHARTS[4]["subtitle"],
-            dcc.Graph(figure=S.fig_woodelf_vectorization_scaling(df_seed),
-                      config={"displayModeBar": False}, style={"padding": "8px"}),
-            section_id=_CHARTS[4]["section_id"],
         ),
         S.interpretation_note(_INTERP),
     ])
