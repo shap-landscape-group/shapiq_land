@@ -321,34 +321,34 @@ def update_rq3(ds, models, libs):
             "Spearman Rank Alignment (Attribution Agreement)",
             "Spearman rank correlation coefficient (mean_sample_rho) comparing each explainer "
             "against the exact oracle across different neural network architectures.",
-            dcc.Graph(figure=S.fig_rq3_attribution_agreement(df_agg), config={"displayModeBar": False}, style={"padding": "8px"}),
+            dcc.Graph(figure=S.fig_rq3_attribution_agreement(df_agg), config=S.graph_config("rq3_attribution_agreement"), style={"padding": "8px"}),
             section_id="rq3-agreement-section"
         ),
         S.section(
             "Runtime Comparison (Physical Throughput)",
             "Median execution time (runtime_s) on a logarithmic scale (log10) to illustrate "
             "the performance differences between gradient-based explainers and model-agnostic permutation loops.",
-            dcc.Graph(figure=S.fig_rq3_runtime_comparison(df_agg), config={"displayModeBar": False}, style={"padding": "8px"}),
+            dcc.Graph(figure=S.fig_rq3_runtime_comparison(df_agg), config=S.graph_config("rq3_runtime_comparison"), style={"padding": "8px"}),
             section_id="rq3-runtime-section"
         ),
         S.section(
             "Axiomatic Integrity & Efficiency Evaluation",
             "Box-and-whisker plots showing the distribution of relative efficiency violations (relative additivity gap) "
             "on a logarithmic scale. Gradient wrappers (such as Captum) show significantly higher violations.",
-            dcc.Graph(figure=S.fig_rq3_axiomatic_integrity(df_seed), config={"displayModeBar": False}, style={"padding": "8px"}),
+            dcc.Graph(figure=S.fig_rq3_axiomatic_integrity(df_seed), config=S.graph_config("rq3_axiomatic_integrity"), style={"padding": "8px"}),
             section_id="rq3-integrity-section"
         ),
         S.section(
             "High-Dimensional Scalability Wall",
             "Faceted view showing how dataset dimensionality affects execution runtime (log scale) vs. "
             "Spearman rank correlation alignment against the exact oracle for different approximators.",
-            dcc.Graph(figure=S.fig_rq3_scalability_wall(df_agg), config={"displayModeBar": False}, style={"padding": "8px"}),
+            dcc.Graph(figure=S.fig_rq3_scalability_wall(df_agg), config=S.graph_config("rq3_scalability_wall"), style={"padding": "8px"}),
             section_id="rq3-scalability-wall-section"
         ),
         S.section(
             "Relative Additivity Violations by Network Topology",
             "Mean relative additivity gap violations formatted as a percentage across network topologies, grouped by approximator type.",
-            dcc.Graph(figure=S.fig_rq3_topology_violations(df_agg), config={"displayModeBar": False}, style={"padding": "8px"}),
+            dcc.Graph(figure=S.fig_rq3_topology_violations(df_agg), config=S.graph_config("rq3_topology_violations"), style={"padding": "8px"}),
             section_id="rq3-topology-violations-section"
         )
     ])

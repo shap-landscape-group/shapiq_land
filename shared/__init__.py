@@ -23,6 +23,7 @@ from .data import load_data, try_load_data, compute_leaderboard, pareto_mark
 
 # Chart builders
 from .charts import (
+    graph_config,
     fig_empty,
     fig_leaderboard_bars,
     fig_pareto,

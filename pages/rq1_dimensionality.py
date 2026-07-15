@@ -944,14 +944,16 @@ def update_rq1(ds, mdl, approxs, cost_metric, budget, f2_view):
     if approxs:
         feas_f = feas_f[feas_f["approximator"].isin(approxs)]
 
-    def _g(fig):
-        return dcc.Graph(figure=fig, config={"displayModeBar": False})
+    def _g(fig, filename):
+        return dcc.Graph(figure=fig, config=S.graph_config(filename))
 
     return (
-        _g(_build_runtime_scaling_figure(f1_input, ds, cost_metric)),
-        _g(_build_budget_effect_figure(agg_f, ds, f2_view)),
-        _g(_build_feasibility_heatmap(feas_f, ds)),
-        _g(_build_agreement_figure(f1_input, ds)),
+        _g(_build_runtime_scaling_figure(f1_input, ds, cost_metric),
+           "rq1_f1_cost_scaling"),
+        _g(_build_budget_effect_figure(agg_f, ds, f2_view),
+           "rq1_f2_budget_effect"),
+        _g(_build_feasibility_heatmap(feas_f, ds), "rq1_f3_feasibility"),
+        _g(_build_agreement_figure(f1_input, ds), "rq1_f4_agreement"),
         # F5 deliberately unfiltered — single-seed stress test (see comment).
-        _g(_build_extreme_stress_figure(extreme)),
+        _g(_build_extreme_stress_figure(extreme), "rq1_f5_stress_test"),
     )
