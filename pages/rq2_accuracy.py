@@ -40,9 +40,9 @@ import shared as S
 
 dash.register_page(
     __name__,
-    path="/rq2",
-    name="RQ2 — Accuracy",
-    title="RQ2 — Approximation Accuracy",
+    path="/rq1",
+    name="RQ1 — Accuracy",
+    title="RQ1 — Approximation Accuracy",
 )
 
 _HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -55,7 +55,7 @@ _REF_AGREEMENT = os.path.join(_CONV, "rq2_reference_agreement.csv")
 
 # ─────────────────────────────────────────────────────────────────────────────
 _RQ_HEADER = (
-    "RQ2", "Approximation Accuracy",
+    "RQ1", "Approximation Accuracy",
     "As a user using Shapley approximations, I want to know how good the values "
     "actually are so that I can trust the explanations without wasting too much "
     "compute time on exact values.",
@@ -186,20 +186,20 @@ def _filter_bar() -> html.Div:
     return html.Div([
         html.Div([
             html.Div("Dataset", style=lbl_style),
-            dcc.Dropdown(id="rq2-ds", options=datasets, value="__all__",
+            dcc.Dropdown(id="rq1-ds", options=datasets, value="__all__",
                          clearable=False,
                          style={"width": "150px", "fontSize": "12px", "minHeight": "28px"}),
         ], style={"marginRight": "12px"}),
         html.Div([
             html.Div("Model", style=lbl_style),
-            dcc.Dropdown(id="rq2-mdl", options=models, value="__all__",
+            dcc.Dropdown(id="rq1-mdl", options=models, value="__all__",
                          clearable=False,
                          style={"width": "140px", "fontSize": "12px", "minHeight": "28px"}),
         ], style={"marginRight": "16px"}),
         html.Div([
             html.Div("Approximator", style=lbl_style),
             dcc.Checklist(
-                id="rq2-approx",
+                id="rq1-approx",
                 options=[{"label": f" {a}", "value": a} for a in approxs],
                 value=list(approxs),
                 inline=True,
@@ -715,12 +715,12 @@ def layout(**kwargs):
 
         # RQ2-F1
         S.section(
-            "RQ2-F1 · Error convergence over budget",
+            "RQ1-F1 · Error convergence over budget",
             "Median error vs the exact shap_true_value oracle across 10 seeds "
             "(band = q25–q75). 'All datasets'/'All models' pool the aggregated "
             "cells by median — select specific values to unpool.",
             html.Div([
-                _axis_toggle("rq2-conv-metric",
+                _axis_toggle("rq1-conv-metric",
                              {"relative_mae": "relative MAE",
                               "mean_sample_rho": "Spearman ρ"},
                              "relative_mae", label="Metric"),
@@ -729,14 +729,14 @@ def layout(**kwargs):
                     "reference: shap_true_value, matched within dataset × model × seed",
                     "agg: median(10 seeds) in converter · band: q25–q75",
                 ),
-                html.Div(id="rq2-f1-chart", style={"padding": "8px"}),
+                html.Div(id="rq1-f1-chart", style={"padding": "8px"}),
             ]),
-            section_id="rq2-f1-section",
+            section_id="rq1-f1-section",
         ),
 
         # RQ2-F2
         S.section(
-            "RQ2-F2 · Runtime vs error — is the approximation worth it?",
+            "RQ1-F2 · Runtime vs error — is the approximation worth it?",
             "Each marker = one method × budget configuration (medians). "
             "X markers = exact backends; at 12 features they are often "
             "cheaper than high-budget approximations. dalex_true_value is "
@@ -747,49 +747,49 @@ def layout(**kwargs):
                     "symbol: budget (○128 ◇512 □2048, ✕ exact) · color: library",
                     "display pooling: median over unfiltered dataset/model cells",
                 ),
-                html.Div(id="rq2-f2-chart", style={"padding": "8px"}),
+                html.Div(id="rq1-f2-chart", style={"padding": "8px"}),
             ]),
-            section_id="rq2-f2-section",
+            section_id="rq1-f2-section",
         ),
 
         # RQ2-F3
         S.section(
-            "RQ2-F3 · Seed stability of the error",
+            "RQ1-F3 · Seed stability of the error",
             "Raw seed-level error distributions at one budget. Tight boxes "
             "mean a single run is representative; long whiskers mean an "
             "unlucky seed can be far off the median.",
             html.Div([
-                _axis_toggle("rq2-stability-budget",
+                _axis_toggle("rq1-stability-budget",
                              {"128": "128", "512": "512", "2048": "2048"},
                              "512", label="Budget"),
                 _col_note(
                     "source: converted/rq2_accuracy_by_seed.csv (no aggregation)",
                     "one point per run: 10 seeds × filtered dataset/model cells",
                 ),
-                html.Div(id="rq2-f3-chart", style={"padding": "8px"}),
+                html.Div(id="rq1-f3-chart", style={"padding": "8px"}),
             ]),
-            section_id="rq2-f3-section",
+            section_id="rq1-f3-section",
         ),
 
         # RQ2-F4
         S.section(
-            "RQ2-F4 · Sign agreement vs budget",
+            "RQ1-F4 · Sign agreement vs budget",
             "How often the approximation assigns the correct direction "
             "(+/−) to each attribution. Saturates near 1.0 quickly — use "
-            "RQ2-F1 to separate methods beyond that point.",
+            "RQ1-F1 to separate methods beyond that point.",
             html.Div([
                 _col_note(
                     "source: converted/rq2_convergence_aggregated.csv · sign_agreement_median",
                     "reference: shap_true_value · agg: median(10 seeds)",
                 ),
-                html.Div(id="rq2-f4-chart", style={"padding": "8px"}),
+                html.Div(id="rq1-f4-chart", style={"padding": "8px"}),
             ]),
-            section_id="rq2-f4-section",
+            section_id="rq1-f4-section",
         ),
 
         # RQ2-F5
         S.section(
-            "RQ2-F5 · Reference agreement check",
+            "RQ1-F5 · Reference agreement check",
             "Median relative MAE between the four exact/reference backends "
             "over 200 dataset × model × seed cells. shap, shapiq and "
             "lightshap agree to numerical noise; dalex_true_value deviates "
@@ -800,9 +800,9 @@ def layout(**kwargs):
                     "justifies the shap_true_value oracle choice (3-vs-1 pattern)",
                     "unaffected by page filters (backend-level check)",
                 ),
-                html.Div(id="rq2-f5-chart", style={"padding": "8px"}),
+                html.Div(id="rq1-f5-chart", style={"padding": "8px"}),
             ]),
-            section_id="rq2-f5-section",
+            section_id="rq1-f5-section",
         ),
 
         S.interpretation_note(_INTERP),
@@ -814,16 +814,16 @@ def layout(**kwargs):
 # ─────────────────────────────────────────────────────────────────────────────
 
 @callback(
-    Output("rq2-f1-chart", "children"),
-    Output("rq2-f2-chart", "children"),
-    Output("rq2-f3-chart", "children"),
-    Output("rq2-f4-chart", "children"),
-    Output("rq2-f5-chart", "children"),
-    Input("rq2-ds", "data"),
-    Input("rq2-mdl", "data"),
-    Input("rq2-approx", "data"),
-    Input("rq2-conv-metric", "value"),
-    Input("rq2-stability-budget", "value"),
+    Output("rq1-f1-chart", "children"),
+    Output("rq1-f2-chart", "children"),
+    Output("rq1-f3-chart", "children"),
+    Output("rq1-f4-chart", "children"),
+    Output("rq1-f5-chart", "children"),
+    Input("rq1-ds", "data"),
+    Input("rq1-mdl", "data"),
+    Input("rq1-approx", "data"),
+    Input("rq1-conv-metric", "value"),
+    Input("rq1-stability-budget", "value"),
 )
 def update_rq2(ds, mdl, approxs, conv_metric, stability_budget):
     ds = ds or "__all__"

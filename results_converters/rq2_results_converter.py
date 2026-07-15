@@ -70,7 +70,7 @@ import numpy as np
 import pandas as pd
 
 _HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RAW_ACCURACY = os.path.join(_HERE, "RQ1+RQ2", "results_config-accuracy.csv")
+RAW_ACCURACY = os.path.join(_HERE, "results", "RQ1+RQ2", "results_config-accuracy.csv")
 OUT_DIR = os.path.join(_HERE, "results", "converted")
 
 # The oracle every approximation is scored against (see module docstring).

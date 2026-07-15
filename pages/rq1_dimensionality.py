@@ -42,9 +42,9 @@ import shared as S
 
 dash.register_page(
     __name__,
-    path="/rq1",
-    name="RQ1 — Dimensionality",
-    title="RQ1 — Dimensionality",
+    path="/rq2",
+    name="RQ2 — Dimensionality",
+    title="RQ2 — Dimensionality",
 )
 
 _HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -56,7 +56,7 @@ _EXTREME = os.path.join(_CONV, "rq1_extreme_stress_test.csv")
 
 # ─────────────────────────────────────────────────────────────────────────────
 _RQ_HEADER = (
-    "RQ1", "Dimensionality",
+    "RQ2", "Dimensionality",
     "As a user with a dataset that has many features, I want to find the "
     "fastest model-agnostic library for high-dimensional datasets?",
 )
@@ -192,20 +192,20 @@ def _filter_bar() -> html.Div:
     return html.Div([
         html.Div([
             html.Div("Dataset", style=lbl_style),
-            dcc.Dropdown(id="rq1-ds", options=datasets, value="__all__",
+            dcc.Dropdown(id="rq2-ds", options=datasets, value="__all__",
                          clearable=False,
                          style={"width": "150px", "fontSize": "12px", "minHeight": "28px"}),
         ], style={"marginRight": "12px"}),
         html.Div([
             html.Div("Model", style=lbl_style),
-            dcc.Dropdown(id="rq1-mdl", options=models, value="__all__",
+            dcc.Dropdown(id="rq2-mdl", options=models, value="__all__",
                          clearable=False,
                          style={"width": "140px", "fontSize": "12px", "minHeight": "28px"}),
         ], style={"marginRight": "16px"}),
         html.Div([
             html.Div("Approximator", style=lbl_style),
             dcc.Checklist(
-                id="rq1-approx",
+                id="rq2-approx",
                 options=[{"label": f" {a}", "value": a} for a in approxs],
                 value=list(approxs),
                 inline=True,
@@ -785,38 +785,38 @@ def layout(**kwargs):
 
         # RQ1-F1
         S.section(
-            "RQ1-F1 · Cost scaling by feature count",
+            "RQ2-F1 · Cost scaling by feature count",
             "Median cost per method (10 seeds, band = q25–q75). "
             "'All datasets' shows one panel per dataset because each dataset "
             "has its own feature grid. 'All models' pools the 4 models by "
             "median — select a model to isolate it. Time-capped runs excluded.",
             html.Div([
-                _axis_toggle("rq1-cost-metric",
+                _axis_toggle("rq2-cost-metric",
                              {"runtime_s": "runtime (s)",
                               "n_model_evals": "model evaluations"},
                              "runtime_s", label="Metric"),
-                _axis_toggle("rq1-budget", {"512": "512", "1024": "1024"},
+                _axis_toggle("rq2-budget", {"512": "512", "1024": "1024"},
                              "512", label="Budget"),
                 _col_note(
                     "source: converted/rq1_scaling_aggregated.csv",
                     "agg: median(10 seeds) in converter · display: median over models when 'All models'",
                     "capped runs excluded from medians",
                 ),
-                html.Div(id="rq1-f1-chart", style={"padding": "8px"}),
+                html.Div(id="rq2-f1-chart", style={"padding": "8px"}),
             ]),
-            section_id="rq1-f1-section",
+            section_id="rq2-f1-section",
         ),
 
         # RQ1-F2
         S.section(
-            "RQ1-F2 · Budget effect on runtime (512 → 1024)",
+            "RQ2-F2 · Budget effect on runtime (512 → 1024)",
             "If doubling the budget doubles the runtime (ratio = 2), all cost "
             "is model evaluations and there is no fixed overhead. "
             "Ratio < 2 means startup / coalition construction dominates — "
             "doubling the budget is cheaper than 2×. "
             "Use 'By n_features' to see whether this changes with dimensionality.",
             html.Div([
-                _axis_toggle("rq1-f2-view",
+                _axis_toggle("rq2-f2-view",
                              {"box": "Distribution (box)", "scatter": "By n_features"},
                              "box", label="View"),
                 _col_note(
@@ -824,14 +824,14 @@ def layout(**kwargs):
                     "ratio = runtime_median(1024) / runtime_median(512) per experiment cell",
                     "cells with failed or time-capped runs excluded (ratio undefined there)",
                 ),
-                html.Div(id="rq1-f2-chart", style={"padding": "8px"}),
+                html.Div(id="rq2-f2-chart", style={"padding": "8px"}),
             ]),
-            section_id="rq1-f2-section",
+            section_id="rq2-f2-section",
         ),
 
         # RQ1-F3
         S.section(
-            "RQ1-F3 · Execution-cap feasibility",
+            "RQ2-F3 · Execution-cap feasibility",
             "Share of runs hitting the 10-minute cap per method × dataset × "
             "n_features. Models, budgets and seeds pooled (80 runs per cell): "
             "a cap anywhere is a deployment risk.",
@@ -841,14 +841,14 @@ def layout(**kwargs):
                     "capped = runtime_s ≥ 595 s (raw data clusters at 600 ± 0.02 s)",
                     "cell = capped / all runs over 4 models × 2 budgets × 10 seeds",
                 ),
-                html.Div(id="rq1-f3-chart", style={"padding": "8px"}),
+                html.Div(id="rq2-f3-chart", style={"padding": "8px"}),
             ]),
-            section_id="rq1-f3-section",
+            section_id="rq2-f3-section",
         ),
 
         # RQ1-F4
         S.section(
-            "RQ1-F4 · Cross-method agreement vs dimensionality",
+            "RQ2-F4 · Cross-method agreement vs dimensionality",
             "Consensus between the 14 approximate configurations. This is "
             "mutual agreement, NOT accuracy — RQ1 has no exact reference. "
             "Falling agreement at high M signals budget starvation.",
@@ -857,14 +857,14 @@ def layout(**kwargs):
                     "source: converted/rq1_scaling_aggregated.csv · cross_method_rho_median",
                     "per run: mean ρ vs the other 13 methods in the same cell → median over seeds",
                 ),
-                html.Div(id="rq1-f4-chart", style={"padding": "8px"}),
+                html.Div(id="rq2-f4-chart", style={"padding": "8px"}),
             ]),
-            section_id="rq1-f4-section",
+            section_id="rq2-f4-section",
         ),
 
         # RQ1-F5
         S.section(
-            "RQ1-F5 · Extreme stress test — 1,000 features (separate experiment)",
+            "RQ2-F5 · Extreme stress test — 1,000 features (separate experiment)",
             "gisette @ 1,000 features, budget 2048, seed 0 only, 7 methods × "
             "4 models. One-shot feasibility check — page filters do not apply "
             "and these bars are not comparable with the scaling curves above.",
@@ -873,9 +873,9 @@ def layout(**kwargs):
                     "source: converted/rq1_extreme_stress_test.csv",
                     "no aggregation (single seed) · hatched bars exceeded the 10-min cap",
                 ),
-                html.Div(id="rq1-f5-chart", style={"padding": "8px"}),
+                html.Div(id="rq2-f5-chart", style={"padding": "8px"}),
             ]),
-            section_id="rq1-f5-section",
+            section_id="rq2-f5-section",
         ),
 
         S.interpretation_note(_INTERP),
@@ -900,17 +900,17 @@ def _apply_filters(df, ds, mdl, approxs):
 
 
 @callback(
-    Output("rq1-f1-chart", "children"),
-    Output("rq1-f2-chart", "children"),
-    Output("rq1-f3-chart", "children"),
-    Output("rq1-f4-chart", "children"),
-    Output("rq1-f5-chart", "children"),
-    Input("rq1-ds", "data"),
-    Input("rq1-mdl", "data"),
-    Input("rq1-approx", "data"),
-    Input("rq1-cost-metric", "value"),
-    Input("rq1-budget", "value"),
-    Input("rq1-f2-view", "value"),
+    Output("rq2-f1-chart", "children"),
+    Output("rq2-f2-chart", "children"),
+    Output("rq2-f3-chart", "children"),
+    Output("rq2-f4-chart", "children"),
+    Output("rq2-f5-chart", "children"),
+    Input("rq2-ds", "data"),
+    Input("rq2-mdl", "data"),
+    Input("rq2-approx", "data"),
+    Input("rq2-cost-metric", "value"),
+    Input("rq2-budget", "value"),
+    Input("rq2-f2-view", "value"),
 )
 def update_rq1(ds, mdl, approxs, cost_metric, budget, f2_view):
     ds = ds or "__all__"

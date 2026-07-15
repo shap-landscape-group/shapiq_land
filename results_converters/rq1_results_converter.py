@@ -67,7 +67,7 @@ import numpy as np
 import pandas as pd
 
 _HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RAW_DIR = os.path.join(_HERE, "RQ1+RQ2")
+RAW_DIR = os.path.join(_HERE, "results", "RQ1+RQ2")
 OUT_DIR = os.path.join(_HERE, "results", "converted")
 
 RAW_STANDARD = os.path.join(RAW_DIR, "results_config-dimensionality.csv")
@@ -217,29 +217,46 @@ def _parse_pairwise(cell: str) -> dict:
 
 
 def add_cross_method_agreement(df: pd.DataFrame) -> pd.DataFrame:
-    """Summarise each run's agreement with the OTHER 13 methods in its cell.
+    """Summarise each run's agreement with the other methods AT THE SAME BUDGET.
 
     The pairwise_metrics JSON keys look like "shap_approx|kernel|512".
-    Since RQ1 has no exact reference, the only defensible scalar per run is
-    consensus-style: the mean of mean_sample_rho against all other methods
-    in the same dataset x model x n_features x seed cell (self-comparison
-    excluded). High consensus does NOT prove correctness - all methods
-    could agree and be wrong - so the column is named cross-method
-    agreement, never accuracy.
+    Each row's JSON contains comparisons against ALL budget levels (512 and
+    1024 in RQ1).  We restrict to same-budget keys only because the question
+    for F4 is "do the 7 methods agree with each other when given the same
+    budget?" — mixing in the 1024-budget results for a 512-budget row would
+    inflate the agreement score (the higher-budget outputs have already
+    converged more, so they agree better with each other).
+
+    Concretely: at n_features=256, budget=512 the all-keys average is ~0.33
+    while the same-budget-only average is ~0.28; the difference widens as
+    n_features grows, exactly where agreement is most informative.
+
+    Selection rule:
+        include key k iff  "|" in k                (approximation key, not exact)
+                       and  k.endswith("|{budget}") (same budget as this row)
+                       and  k != self_key           (not self-comparison)
+
+    High consensus does NOT prove correctness — all methods could agree and
+    be wrong — so the column is named cross-method agreement, never accuracy.
     """
     df = df.copy()
     self_keys = (
         df["backend"] + "|" + df["approximator"] + "|" +
         df["budget"].astype(int).astype(str)
     )
+    budget_suffixes = "|" + df["budget"].astype(int).astype(str)
 
     agreements = []
-    for cell_json, self_key in zip(df["pairwise_metrics"], self_keys):
+    for cell_json, self_key, bsuffix in zip(
+            df["pairwise_metrics"], self_keys, budget_suffixes):
         pm = _parse_pairwise(cell_json)
         rhos = [
             v.get("mean_sample_rho")
             for k, v in pm.items()
-            if k != self_key and isinstance(v, dict)
+            if k != self_key
+            and "|" in k                  # approximation key (not exact backend)
+            and k.endswith(bsuffix)       # same budget only
+            and isinstance(v, dict)
             and v.get("mean_sample_rho") is not None
         ]
         agreements.append(float(np.mean(rhos)) if rhos else np.nan)
