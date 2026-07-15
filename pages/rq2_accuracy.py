@@ -33,7 +33,7 @@ import dash
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from dash import Input, Output, callback, dcc, html
+from dash import Input, Output, callback, ctx, dcc, html, no_update
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import shared as S
@@ -65,15 +65,18 @@ _RQ_HEADER = (
 # dimensionality (12 features), explicit single oracle, and the measured
 # dalex reference deviation.
 _INTERP = (
-    "All errors are measured against the exact shap_true_value oracle at a "
-    "fixed 12 features. Error falls monotonically with budget for every "
-    "method — kernel and permutation differ mainly in how fast they start "
-    "converging (lightshap arrives near its floor already at budget 128). "
-    "The Pareto chart shows what exactness costs: exact backends are often "
-    "cheaper than high-budget approximations at this dimensionality. Note "
-    "that dalex_true_value disagrees with the other three exact backends by "
-    "a median 3.2% relative MAE (RQ2-F5), so 'exact' is not a single "
-    "well-defined point across libraries."
+    "RQ1-F1 first establishes the measurement basis: shap, shapiq and "
+    "lightshap agree to within numerical noise, so shap_true_value is a "
+    "trustworthy oracle. dalex_true_value deviates by ~3.2% and is excluded "
+    "from the reference role. All subsequent error metrics are computed "
+    "against shap_true_value at a fixed 12 features. Error falls "
+    "monotonically with budget for every method — kernel and permutation "
+    "differ mainly in how fast they start converging (lightshap arrives "
+    "near its floor already at budget 128). The Pareto chart (RQ1-F3) shows "
+    "what exactness costs: exact backends are often cheaper than high-budget "
+    "approximations at this dimensionality. The sign agreement toggle on "
+    "RQ1-F2 shows that direction errors disappear before magnitude errors — "
+    "magnitude convergence (relative MAE) is the more demanding test."
 )
 
 _APPROX_DASH = {"kernel": "solid", "permutation": "dot"}
@@ -168,6 +171,139 @@ def _col_note(*parts: str) -> html.Div:
     })
 
 
+_METRIC_META = {
+    "relative_mae": {
+        "label": "Relative MAE",
+        "direction": "lower",
+        "line1": (
+            "Mean absolute attribution error as a fraction of the exact values. "
+            "0 = perfect; 0.05 ≈ 5 % off on average. "
+            "Log scale — each gridline is a 10× improvement."
+        ),
+        "line2": (
+            "Solid = kernel · dashed = permutation. "
+            "Error bars = q25–q75 across 10 seeds. "
+            "A flat slope means the method already hit its floor at budget 128."
+        ),
+    },
+    "mean_sample_rho": {
+        "label": "Spearman ρ",
+        "direction": "higher",
+        "line1": (
+            "Rank correlation between approximated and exact attributions. "
+            "1 = features ranked in the right order; 0 = no correlation. "
+            "Green line = ρ 0.9 ('good enough') threshold."
+        ),
+        "line2": "Solid = kernel · dashed = permutation. Error bars = q25–q75 across 10 seeds.",
+    },
+    "sign_agreement": {
+        "label": "Sign agreement",
+        "direction": "higher",
+        "line1": (
+            "Fraction of features with the correct positive / negative direction. "
+            "1.0 = all signs right; 0.5 = random. "
+            "Green line = perfect agreement."
+        ),
+        "line2": "Solid = kernel · dashed = permutation. Error bars = q25–q75 across 10 seeds.",
+    },
+    "relative_additivity_gap": {
+        "label": "Additivity gap",
+        "direction": "lower",
+        "line1": (
+            "How far Σ φ̂ᵢ deviates from f(x) − baseline, relative to that gap. "
+            "0 = attributions sum exactly to the model output. "
+            "Log scale."
+        ),
+        "line2": (
+            "Most methods enforce this algebraically — they cluster at the green "
+            "machine-precision line (~10⁻¹⁵). "
+            "shapiq / kernel does not: sits ~10⁻⁹ to 10⁻⁸, five orders of magnitude higher. "
+            "Solid = kernel · dashed = permutation."
+        ),
+    },
+}
+
+_DIR_BADGE = {
+    "lower": ("#D1FAE5", "#065F46", "▼ lower is better"),
+    "higher": ("#D1FAE5", "#065F46", "▲ higher is better"),
+}
+
+
+def _metric_explainer(metric: str) -> html.Div:
+    """Concise two-line per-metric explanation below the F2 toggle."""
+    meta = _METRIC_META.get(metric, {})
+    if not meta:
+        return html.Div()
+    bg, fg, badge_text = _DIR_BADGE[meta["direction"]]
+    return html.Div([
+        html.Div([
+            html.Span(meta["line1"],
+                      style={"fontSize": "12px", "color": S.TEXT, "lineHeight": "1.6"}),
+            html.Span(badge_text, style={
+                "fontSize": "10px", "fontWeight": "700", "color": fg,
+                "background": bg, "borderRadius": "4px",
+                "padding": "1px 7px", "marginLeft": "10px",
+                "verticalAlign": "middle", "whiteSpace": "nowrap",
+            }),
+        ], style={"marginBottom": "4px"}),
+        html.Div(meta["line2"],
+                 style={"fontSize": "11px", "color": S.TEXT2, "lineHeight": "1.55"}),
+    ], style={
+        "background": "#F0F4FF",
+        "border": f"1px solid {S.BORDER}",
+        "borderRadius": "6px",
+        "padding": "9px 13px",
+        "margin": "6px 0 2px",
+    })
+
+
+def _fmt_rel_mae_pct(v: float) -> str:
+    """Format relative MAE as a human-readable percentage for cell labels."""
+    if np.isnan(v):
+        return "—"
+    pct = v * 100
+    if pct < 1e-8:
+        return "~0 %"
+    if pct < 0.01:
+        s = f"{pct:.6f}".rstrip("0").rstrip(".")
+        return f"{s} %"
+    return f"{pct:.2g} %"
+
+
+def _f1_note() -> html.Div:
+    """Compact F1 context — only what the heatmap cannot show on its own."""
+    return html.Div([
+        html.Div(
+            "Approximation error needs a fixed reference first. "
+            "shap_true_value is that reference: lightshap_exact matches it at "
+            "~0 % (machine precision), shapiq_true_value at ~0.00005 % — "
+            "negligible but visibly higher — while dalex_true_value sits at "
+            "~3.2 % from a different exact-computation path, not seed noise.",
+            style={"fontSize": "12px", "color": S.TEXT, "lineHeight": "1.6",
+                   "marginBottom": "4px"},
+        ),
+        html.Div(
+            "Pairwise median relative MAE · median over all dataset × model × seed cells "
+            "· page filters do not apply · source: converted/rq2_reference_agreement.csv",
+            style={"fontSize": "11px", "color": S.TEXT2, "lineHeight": "1.55"},
+        ),
+    ], style={
+        "background": "#F0F4FF",
+        "border": f"1px solid {S.BORDER}",
+        "borderRadius": "6px",
+        "padding": "9px 13px",
+        "margin": "0 0 2px",
+    })
+
+
+_CONVERGENCE_METRICS = {"relative_mae", "mean_sample_rho"}
+
+def _f2_section_title(metric: str) -> str:
+    label = _METRIC_META.get(metric, {}).get("label", metric)
+    kind = "Error convergence" if metric in _CONVERGENCE_METRICS else "Quality check"
+    return f"RQ1-F2 · {kind} — {label}"
+
+
 def _filter_bar() -> html.Div:
     """Dataset / model / approximator filter row rendered IN the page so
     IDs always exist in the DOM at load time (avoids topbar timing race)."""
@@ -236,6 +372,75 @@ def _axis_toggle(cid: str, options: dict, default, label="Axis") -> html.Div:
         "borderBottom": f"1px solid {S.BORDER}",
         "background": S.BG,
         "borderRadius": "10px 10px 0 0",
+    })
+
+
+def _metric_toggle() -> html.Div:
+    """F2 metric toggle — two visually grouped RadioItems, kept mutually
+    exclusive via sync_f2_metric callback."""
+    _grp_lbl = {"fontSize": "10px", "fontWeight": "700", "color": S.TEXT2,
+                "textTransform": "uppercase", "letterSpacing": "0.07em",
+                "marginRight": "8px", "flexShrink": "0"}
+    _radio_lbl = {"marginRight": "16px", "fontSize": "12px",
+                  "cursor": "pointer", "color": S.TEXT}
+    return html.Div([
+        html.Span("Convergence:", style=_grp_lbl),
+        dcc.RadioItems(
+            id="rq1-conv-metric",
+            options=[
+                {"label": "relative MAE", "value": "relative_mae"},
+                {"label": "Spearman ρ",   "value": "mean_sample_rho"},
+            ],
+            value="relative_mae",
+            inline=True,
+            inputStyle={"marginRight": "4px"},
+            labelStyle=_radio_lbl,
+        ),
+        html.Span("│", style={"color": S.BORDER, "margin": "0 14px",
+                              "fontSize": "16px", "lineHeight": "1"}),
+        html.Span("Quality check:", style=_grp_lbl),
+        dcc.RadioItems(
+            id="rq1-conv-metric-quality",
+            options=[
+                {"label": "Sign agreement",  "value": "sign_agreement"},
+                {"label": "Additivity gap",  "value": "relative_additivity_gap"},
+            ],
+            value=None,
+            inline=True,
+            inputStyle={"marginRight": "4px"},
+            labelStyle=_radio_lbl,
+        ),
+    ], style={
+        "display": "flex", "alignItems": "center", "flexWrap": "wrap",
+        "padding": "8px 12px",
+        "borderBottom": f"1px solid {S.BORDER}",
+        "background": S.BG,
+        "borderRadius": "10px 10px 0 0",
+        "gap": "4px",
+    })
+
+
+def _seed_checklist() -> html.Div:
+    """Per-seed inclusion toggles for the seed-stability box plot."""
+    return html.Div([
+        html.Span("Seeds:", style={
+            "fontSize": "11px", "fontWeight": "600", "color": S.TEXT2,
+            "marginRight": "10px", "flexShrink": "0",
+        }),
+        dcc.Checklist(
+            id="rq1-stability-seeds",
+            options=[{"label": str(s), "value": s} for s in range(10)],
+            value=list(range(10)),
+            inline=True,
+            inputStyle={"marginRight": "4px"},
+            labelStyle={"marginRight": "12px", "fontSize": "12px",
+                        "cursor": "pointer", "color": S.TEXT},
+        ),
+    ], style={
+        "display": "flex", "alignItems": "center", "flexWrap": "wrap",
+        "padding": "8px 12px",
+        "borderBottom": f"1px solid {S.BORDER}",
+        "background": S.BG,
     })
 
 
@@ -309,8 +514,18 @@ def _build_convergence_figure(pooled: pd.DataFrame, metric: str) -> go.Figure:
         return S.fig_empty("No converted data — run results_converters/rq2_results_converter.py")
 
     is_mae = metric == "relative_mae"
-    med, q25, q75 = (("relative_mae_median", "relative_mae_q25", "relative_mae_q75")
-                     if is_mae else ("rho_median", "rho_q25", "rho_q75"))
+    is_sign = metric == "sign_agreement"
+    is_gap = metric == "relative_additivity_gap"
+    if is_mae:
+        med, q25, q75 = "relative_mae_median", "relative_mae_q25", "relative_mae_q75"
+    elif is_sign:
+        med, q25, q75 = "sign_agreement_median", "sign_agreement_q25", "sign_agreement_q75"
+    elif is_gap:
+        med, q25, q75 = ("rel_additivity_gap_median",
+                         "rel_additivity_gap_q25",
+                         "rel_additivity_gap_q75")
+    else:
+        med, q25, q75 = "rho_median", "rho_q25", "rho_q75"
 
     fig = go.Figure()
     for method, mdf in pooled.groupby("method"):
@@ -322,38 +537,72 @@ def _build_convergence_figure(pooled: pd.DataFrame, metric: str) -> go.Figure:
         fig.add_trace(go.Scatter(
             x=pd.concat([mdf["budget"], mdf["budget"][::-1]]),
             y=pd.concat([mdf[q75], mdf[q25][::-1]]),
-                fill="toself", fillcolor=_band_fill(color),
-            line=dict(width=0), hoverinfo="skip",
+            mode="none", fill="toself", fillcolor=_band_fill(color),
+            hoverinfo="skip",
             legendgroup=method, showlegend=False,
         ))
         fig.add_trace(go.Scatter(
             x=mdf["budget"], y=mdf[med],
-            mode="lines+markers", name=method,
+            mode="lines", name=method,
             legendgroup=method,
             line=dict(color=color, width=2, dash=dash),
-            marker=dict(size=8, color=color, line=dict(color="white", width=1.2)),
             hovertemplate=(f"<b>{method}</b><br>budget: %{{x}}<br>"
                            f"{metric}: %{{y:.4g}}<extra></extra>"),
         ))
 
-    if not is_mae:
+
+    if is_sign:
+        sign_vals = pooled["sign_agreement_median"].dropna()
+        y_lo = max(0.0, float(sign_vals.min()) - 0.02) if len(sign_vals) else 0.0
+        fig.add_hline(y=1.0,
+                      line=dict(color=S.GREEN, width=1.2, dash="dot"),
+                      annotation_text="perfect agreement",
+                      annotation_position="bottom right",
+                      annotation_font=dict(size=10, color=S.GREEN))
+        y_cfg = dict(title="Sign agreement rate",
+                     range=[y_lo, 1.015], gridcolor=S.BORDER, zeroline=False)
+    elif is_gap:
+        # Log scale over a fixed window: machine-precision cluster (~1e-15)
+        # in the lower third, shapiq/kernel (~1e-9 to 1e-7) in the upper
+        # half. -17.5 gives headroom below the ~1e-15 floor so those methods
+        # don't disappear into the axis line.
+        fig.add_hline(y=1e-15,
+                      line=dict(color=S.GREEN, width=1.2, dash="dot"),
+                      annotation_text="machine precision",
+                      annotation_position="bottom right",
+                      annotation_font=dict(size=10, color=S.GREEN))
+        y_cfg = dict(
+            title="Relative additivity gap",
+            type="log", gridcolor=S.BORDER, zeroline=False,
+            range=[-17.5, -7.5],  # log₁₀ units: 1e-17.5 … 1e-7.5
+            exponentformat="power",
+            tickmode="array",
+            tickvals=[1e-16, 1e-14, 1e-12, 1e-10, 1e-8],
+        )
+    elif is_mae:
+        y_cfg = dict(
+            title="Attribution error vs exact values",
+            type="log", gridcolor=S.BORDER, zeroline=False,
+            tickmode="array",
+            tickvals=[0.01, 0.05, 0.1, 0.5, 1.0],
+            ticktext=["1 %", "5 %", "10 %", "50 %", "100 %"],
+        )
+    else:
         fig.add_hline(y=S.RHO_GOOD,
                       line=dict(color=S.GREEN, width=1.2, dash="dot"),
                       annotation_text=f"ρ = {S.RHO_GOOD}",
                       annotation_position="bottom right",
                       annotation_font=dict(size=10, color=S.GREEN))
+        y_cfg = dict(title="Spearman rank correlation (ρ)",
+                     gridcolor=S.BORDER, zeroline=False)
 
     fig.update_layout(
         **S._CHART_LAYOUT, height=440, margin=S._MARGIN, legend=S._LEGEND_H,
-        xaxis=dict(title="Budget (coalition evaluations) — log",
-                   type="log", tickvals=_BUDGETS,
+        xaxis=dict(title="Budget", type="log",
+                   tickmode="array", tickvals=_BUDGETS,
+                   ticktext=[str(b) for b in _BUDGETS],
                    gridcolor=S.BORDER, zeroline=False),
-        yaxis=dict(
-            title=("Median relative MAE vs shap_true_value — log"
-                   if is_mae else "Median Spearman ρ vs shap_true_value"),
-            type="log" if is_mae else "linear",
-            gridcolor=S.BORDER, zeroline=False,
-        ),
+        yaxis=y_cfg,
     )
     return fig
 
@@ -387,8 +636,8 @@ def _build_convergence_figure(pooled: pd.DataFrame, metric: str) -> go.Figure:
 # Visual encoding:
 #     x = median runtime (log)     y = median relative MAE (log, floored
 #     at 1e-16 for the exact backends so they render on a log axis)
-#     color = library   symbol = budget (circle 128 / diamond 512 /
-#     square 2048, X = exact)
+#     color = library   ring fill = budget (thin edge 128 / wider 512 /
+#     solid 2048) — same saturation, fill grows inward from the rim
 #
 # Why:
 #     The practitioner's actual decision is a joint runtime/error choice;
@@ -406,8 +655,24 @@ def _build_convergence_figure(pooled: pd.DataFrame, metric: str) -> go.Figure:
 #     generalise to RQ1's regime.
 # ─────────────────────────────────────────────────────────────────────────────
 
-_BUDGET_SYMBOL = {128: "circle", 512: "diamond", 2048: "square"}
-_EXACT_MAE_FLOOR = 1e-16   # display floor so exact backends render on log-y
+_BUDGET_OUTER_SIZE = 12
+# Center-mask diameter (px) — carves the hollow from inside, leaving a
+# coloured ring at the outer edge. None = fully filled (2048).
+_BUDGET_INNER_MASK = {128: 10, 512: 7}
+# circle-open stroke widths for legend swatches (≈ same ring thickness).
+_BUDGET_LEGEND_STROKE = {128: 2.2, 512: 5.8}
+_PLOT_BG = "#F8FAFF"   # must match S._CHART_LAYOUT plot_bgcolor
+
+
+def _budget_legend_marker(color: str, budget: int) -> dict:
+    """Legend swatch — ring appearance without the plot-bg mask layer."""
+    if budget == 2048:
+        return dict(size=_BUDGET_OUTER_SIZE, symbol="circle", color=color,
+                    line=dict(color=color, width=1.8))
+    return dict(
+        size=_BUDGET_OUTER_SIZE, symbol="circle-open", color="rgba(0,0,0,0)",
+        line=dict(color=color, width=_BUDGET_LEGEND_STROKE[budget]),
+    )
 
 
 def _build_pareto_figure(ra: pd.DataFrame, ds: str, mdl: str) -> go.Figure:
@@ -422,55 +687,76 @@ def _build_pareto_figure(ra: pd.DataFrame, ds: str, mdl: str) -> go.Figure:
     if sub.empty:
         return S.fig_empty()
 
-    # Display pooling over remaining dataset/model cells (median), stated
-    # in the chart provenance note.
-    grp = (sub.groupby(["library", "approximator", "budget", "method",
-                        "is_reference"], dropna=False, as_index=False)
+    # Approximation runs only — exact backends sit at MAE ≈ 0 which forces
+    # the log y-axis to span 16 decades and squashes all approximation
+    # differences into a tiny band at the top.
+    apx = sub[~sub["is_reference"]]
+
+    # Pool remaining dataset × model cells by median.
+    grp = (apx.groupby(["library", "approximator", "budget", "method"],
+                       as_index=False)
            .agg(runtime=("runtime_median", "median"),
                 mae=("relative_mae_median", "median")))
 
+    if grp.empty:
+        return S.fig_empty()
+
     fig = go.Figure()
-
-    apx = grp[~grp["is_reference"]]
-    for (lib, budget), gdf in apx.groupby(["library", "budget"]):
+    hover = ("<b>%{customdata[0]}</b> · budget %{meta}<br>"
+             "runtime: %{x:.3g} s<br>"
+             "attribution error: %{y:.1%}<extra></extra>")
+    for (lib, budget), gdf in grp.groupby(["library", "budget"]):
         color = _lib_color(lib)
+        b = int(budget)
+        group = f"pareto-{lib}-{b}"
         fig.add_trace(go.Scatter(
-            x=gdf["runtime"], y=gdf["mae"].clip(lower=_EXACT_MAE_FLOOR),
+            x=gdf["runtime"], y=gdf["mae"],
             mode="markers",
-            name=f"{lib} · budget {int(budget)}",
-            marker=dict(color=color, size=11,
-                        symbol=_BUDGET_SYMBOL.get(int(budget), "circle"),
-                        line=dict(color="white", width=1.2)),
-            customdata=gdf[["method"]].values,
-            hovertemplate=("<b>%{customdata[0]}</b> · budget " + str(int(budget)) +
-                           "<br>runtime: %{x:.3g} s<br>"
-                           "relative MAE: %{y:.3g}<extra></extra>"),
-        ))
-
-    refs = grp[grp["is_reference"]]
-    for _, r in refs.iterrows():
-        color = _lib_color(r["library"])
-        fig.add_trace(go.Scatter(
-            x=[r["runtime"]], y=[max(r["mae"], _EXACT_MAE_FLOOR)],
-            mode="markers+text",
-            name=f"{r['method']} (exact)",
-            marker=dict(color=color, size=14, symbol="x",
-                        line=dict(color="white", width=1)),
-            text=[r["method"].replace("_true_value", "").replace("_exact", "")],
-            textposition="top center", textfont=dict(size=9, color=S.TEXT2),
-            hovertemplate=(f"<b>{r['method']}</b> (exact)<br>"
-                           "runtime: %{x:.3g} s<br>"
-                           "relative MAE: %{y:.3g}<extra></extra>"),
+            legendgroup=group,
             showlegend=False,
+            meta=b,
+            marker=dict(size=_BUDGET_OUTER_SIZE, symbol="circle", color=color,
+                        line=dict(color=color, width=1.8)),
+            customdata=gdf[["method"]].values,
+            hovertemplate=hover,
+        ))
+        mask = _BUDGET_INNER_MASK.get(b)
+        if mask is not None:
+            # Hollow out the centre so only an edge ring stays coloured.
+            fig.add_trace(go.Scatter(
+                x=gdf["runtime"], y=gdf["mae"],
+                mode="markers",
+                legendgroup=group,
+                showlegend=False,
+                meta=b,
+                marker=dict(size=mask, symbol="circle", color=_PLOT_BG,
+                            line=dict(width=0, color=_PLOT_BG)),
+                customdata=gdf[["method"]].values,
+                hovertemplate=hover,
+            ))
+        fig.add_trace(go.Scatter(
+            x=[None], y=[None],
+            mode="markers",
+            name=f"{lib} · budget {b}",
+            legendgroup=group,
+            marker=_budget_legend_marker(color, b),
         ))
 
     fig.update_layout(
         **S._CHART_LAYOUT, height=480, margin=S._MARGIN, legend=S._LEGEND_H,
-        xaxis=dict(title="Median runtime (s) — log", type="log",
-                   gridcolor=S.BORDER, zeroline=False),
-        yaxis=dict(title="Median relative MAE vs shap_true_value — log "
-                         "(exact backends floored at 1e-16)",
-                   type="log", gridcolor=S.BORDER, zeroline=False),
+        xaxis=dict(title="Runtime (seconds)", type="log",
+                   gridcolor=S.BORDER, zeroline=False,
+                   tickmode="array",
+                   tickvals=[0.03, 0.1, 0.3, 1, 3, 10, 30, 100, 300],
+                   ticktext=["0.03 s", "0.1 s", "0.3 s", "1 s",
+                             "3 s", "10 s", "30 s", "100 s", "300 s"]),
+        yaxis=dict(
+            title="Attribution error vs exact values",
+            type="log", gridcolor=S.BORDER, zeroline=False,
+            tickmode="array",
+            tickvals=[0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0],
+            ticktext=["1 %", "2 %", "5 %", "10 %", "20 %", "50 %", "100 %"],
+        ),
     )
     return fig
 
@@ -517,8 +803,109 @@ def _build_pareto_figure(ra: pd.DataFrame, ds: str, mdl: str) -> go.Figure:
 #     Fixed 12 features; spread at higher dimensionality is untested here.
 # ─────────────────────────────────────────────────────────────────────────────
 
+_LINEAR_MODEL = "linear_regularized"
+_LINEAR_Y_PAD = -0.004   # −0.4 % — lifts ~0 % points off the axis line
+_NONLINEAR_MODELS = ("decision_tree", "gradient_boosting", "random_forest")
+
+
+def _stability_method_order(sub: pd.DataFrame) -> list:
+    return (sub.groupby("method")["relative_mae"].median()
+            .sort_values().index.tolist())
+
+
+def _add_stability_boxes(fig, sub: pd.DataFrame, order: list):
+    """One box per method on a single full-height panel."""
+    for method in order:
+        mdf = sub[sub["method"] == method]
+        if mdf.empty:
+            continue
+        color = _lib_color(mdf["library"].iloc[0])
+        fig.add_trace(go.Box(
+            y=mdf["relative_mae"], name=method, x=[method] * len(mdf),
+            boxpoints="all", jitter=0.4, pointpos=0,
+            marker=dict(color=color, size=3.5, opacity=0.4,
+                        line=dict(color="white", width=0.4)),
+            line=dict(color=color, width=2), fillcolor="rgba(0,0,0,0)",
+            hovertemplate=(f"<b>{method}</b><br>"
+                           "dataset: %{customdata[0]}<br>"
+                           "model: %{customdata[1]}<br>"
+                           "seed: %{customdata[2]}<br>"
+                           "attribution error: %{y:.1%}<extra></extra>"),
+            customdata=np.stack([
+                mdf["dataset"].astype(str),
+                mdf["model"].astype(str),
+                mdf["seed"].astype(str),
+            ], axis=1),
+            showlegend=False,
+        ))
+
+
+def _stability_linear_yaxis(vals: pd.Series, *, ceil: float) -> dict:
+    """Linear % axis with a small pad below 0 so ~0 % points sit above the line."""
+    clean = vals.replace(0, np.nan).dropna()
+    y_max = min(ceil, max(0.05, float(clean.max()) * 1.15)) if len(clean) else ceil
+    step = 2 if y_max <= 0.20 else (5 if y_max <= 0.50 else 10)
+    tick_vals = [i / 100 for i in range(0, int(y_max * 100) + step, step)]
+    return dict(
+        title="Attribution error vs exact values",
+        type="linear", range=[_LINEAR_Y_PAD, y_max],
+        tickmode="array", tickvals=tick_vals,
+        ticktext=[f"{int(v * 100)} %" for v in tick_vals],
+        gridcolor=S.BORDER, zeroline=True,
+        zerolinecolor=S.BORDER, zerolinewidth=1,
+    )
+
+
+def _is_linear_stability_view(mdl: str, model_group: str) -> bool:
+    return mdl == _LINEAR_MODEL or (mdl == "__all__" and model_group == "linear")
+
+
+def _linear_stability_note() -> html.Div:
+    """Responsive HTML note — wraps naturally on narrow viewports."""
+    line = {"margin": "0", "fontSize": "10px", "lineHeight": "1.55",
+            "color": S.TEXT2}
+    return html.Div([
+        html.P([
+            html.Strong("6 of 7 methods"),
+            " are at machine precision (~0%).",
+        ], style={**line, "marginBottom": "6px"}),
+        html.P([
+            html.Strong("shap / kernel"),
+            " is the outlier — KernelExplainer fits random coalitions by "
+            "weighted regression and does not recover exact Shapley values "
+            "on linear models at this budget, even though permutation methods do.",
+        ], style=line),
+    ], style={
+        "marginBottom": "12px",
+        "maxWidth": "100%",
+        "overflowWrap": "break-word",
+        "wordBreak": "break-word",
+    })
+
+
+def _graph(fig, *, responsive: bool = False) -> dcc.Graph:
+    kwargs = {
+        "figure": fig,
+        "config": {"displayModeBar": False},
+    }
+    if responsive:
+        kwargs["responsive"] = True
+        kwargs["style"] = {"width": "100%", "minHeight": "440px"}
+    return dcc.Graph(**kwargs)
+
+
+def _stability_panel(fig: go.Figure, mdl: str, model_group: str) -> html.Div:
+    children = []
+    if _is_linear_stability_view(mdl, model_group):
+        children.append(_linear_stability_note())
+    children.append(_graph(fig, responsive=True))
+    return html.Div(children, style={"width": "100%"})
+
+
 def _build_seed_stability_figure(by_seed: pd.DataFrame, ds: str, mdl: str,
-                                 budget: int) -> go.Figure:
+                                 budget: int,
+                                 model_group: str = "nonlinear",
+                                 seeds: list | None = None) -> go.Figure:
     if by_seed.empty:
         return S.fig_empty()
 
@@ -527,31 +914,38 @@ def _build_seed_stability_figure(by_seed: pd.DataFrame, ds: str, mdl: str,
         sub = sub[sub["dataset"] == ds]
     if mdl != "__all__":
         sub = sub[sub["model"] == mdl]
+    elif model_group == "linear":
+        sub = sub[sub["model"] == _LINEAR_MODEL]
+    else:
+        sub = sub[sub["model"].isin(_NONLINEAR_MODELS)]
+
+    if seeds is not None:
+        seed_set = {int(s) for s in seeds}
+        if not seed_set:
+            return S.fig_empty("Select at least one seed.")
+        sub = sub[sub["seed"].isin(seed_set)]
+
     sub = sub.dropna(subset=["relative_mae"])
     if sub.empty:
         return S.fig_empty()
 
-    order = (sub.groupby("method")["relative_mae"].median()
-             .sort_values().index.tolist())
+    viewing_linear = _is_linear_stability_view(mdl, model_group)
+
+    order = _stability_method_order(sub)
     fig = go.Figure()
-    for method in order:
-        mdf = sub[sub["method"] == method]
-        color = _lib_color(mdf["library"].iloc[0])
-        fig.add_trace(go.Box(
-            y=mdf["relative_mae"], name=method,
-            boxpoints="all", jitter=0.4, pointpos=0,
-            marker=dict(color=color, size=3.5, opacity=0.4,
-                        line=dict(color="white", width=0.4)),
-            line=dict(color=color, width=2), fillcolor="rgba(0,0,0,0)",
-            hovertemplate=f"<b>{method}</b><br>relative MAE: %{{y:.4g}}<extra></extra>",
-            showlegend=False,
-        ))
+    _add_stability_boxes(fig, sub, order)
+
+    y_cfg = _stability_linear_yaxis(
+        sub["relative_mae"],
+        ceil=0.15 if viewing_linear else 1.5,
+    )
+    layout_margin = dict(l=60, r=16, t=36, b=110)
+
     fig.update_layout(
         **S._CHART_LAYOUT, height=440,
-        margin=dict(l=55, r=16, t=36, b=100),
-        xaxis=dict(tickangle=-25, gridcolor="rgba(0,0,0,0)", automargin=True),
-        yaxis=dict(title=f"Relative MAE vs shap_true_value @ budget {budget} — log",
-                   type="log", gridcolor=S.BORDER, zeroline=False),
+        margin=layout_margin,
+        xaxis=dict(tickangle=-30, gridcolor="rgba(0,0,0,0)", automargin=True),
+        yaxis=y_cfg,
     )
     return fig
 
@@ -675,23 +1069,45 @@ def _build_reference_agreement_figure(ref: pd.DataFrame) -> go.Figure:
                        values="relative_mae_median")
              .reindex(index=order, columns=order))
 
-    # Log-transform for color: machine precision (1e-15) → percent level
-    # (1e-2) spans 13 decades; linear coloring would render everything as
-    # "identical" except the dalex row.
-    z = pivot.values.astype(float)
+    z_raw = pivot.values.astype(float)
+    n = len(order)
     with np.errstate(divide="ignore"):
-        z_log = np.log10(np.where(z > 0, z, 1e-16))
-    text = [[("—" if np.isnan(v) else f"{v:.1e}") for v in row]
-            for row in pivot.values]
+        z_log = np.full_like(z_raw, np.nan)
+        for i in range(n):
+            for j in range(n):
+                if i != j and not np.isnan(z_raw[i, j]) and z_raw[i, j] > 0:
+                    z_log[i, j] = np.log10(z_raw[i, j])
+
+    text = [[_fmt_rel_mae_pct(z_raw[i, j]) if i != j else "—"
+             for j in range(n)] for i in range(n)]
+    hover_raw = [[("" if i == j else f"{z_raw[i, j]:.4e}")
+                  for j in range(n)] for i in range(n)]
 
     fig = go.Figure(go.Heatmap(
         z=z_log, x=list(pivot.columns), y=list(pivot.index),
         text=text, texttemplate="%{text}",
-        colorscale=[[0, "#D1FAE5"], [0.6, "#93C5FD"], [1, "#FEE2E2"]],
-        zmin=-16, zmax=-1,
-        colorbar=dict(title="log₁₀ rel. MAE", thickness=14, len=0.8),
+        customdata=hover_raw,
+        # One family: pale neutral at low end (0 % and 0.00005 % look
+        # similar but distinguishable), ramping to dalex amber at 3.2 %.
+        colorscale=[
+            [0.0,  "#F5F8F4"],
+            [0.60, "#F5F8F4"],
+            [0.68, "#EFF3E8"],   # shapiq — barely warmer, same family
+            [0.82, "#FEF3C7"],
+            [0.92, "#FDE68A"],
+            [1.0,  S.AMBER],     # dalex orange (#F59E0B)
+        ],
+        zmin=-16, zmax=-1.5,
+        colorbar=dict(
+            title="rel. MAE",
+            tickmode="array",
+            tickvals=[-15.5, -1.5],
+            ticktext=["~0 % · 0.00005 %", "3.2 %"],
+            thickness=14, len=0.8,
+        ),
         hovertemplate=("source: <b>%{y}</b><br>target: <b>%{x}</b><br>"
-                       "median relative MAE: %{text}<extra></extra>"),
+                       "rel MAE: %{customdata}<br>"
+                       "(%{text})<extra></extra>"),
     ))
     fig.update_layout(
         **S._CHART_LAYOUT, height=340,
@@ -713,96 +1129,94 @@ def layout(**kwargs):
         S.rq_header(*_RQ_HEADER),
         _config_card(),
 
-        # RQ2-F1
+        # RQ1-F1 — oracle validation (first: establishes the measurement basis)
         S.section(
-            "RQ1-F1 · Error convergence over budget",
-            "Median error vs the exact shap_true_value oracle across 10 seeds "
-            "(band = q25–q75). 'All datasets'/'All models' pool the aggregated "
-            "cells by median — select specific values to unpool.",
+            "RQ1-F1 · Oracle validation — which 'exact' backend to trust",
+            "",
             html.Div([
-                _axis_toggle("rq1-conv-metric",
-                             {"relative_mae": "relative MAE",
-                              "mean_sample_rho": "Spearman ρ"},
-                             "relative_mae", label="Metric"),
-                _col_note(
-                    "source: converted/rq2_convergence_aggregated.csv",
-                    "reference: shap_true_value, matched within dataset × model × seed",
-                    "agg: median(10 seeds) in converter · band: q25–q75",
-                ),
-                html.Div(id="rq1-f1-chart", style={"padding": "8px"}),
+                _f1_note(),
+                html.Div(id="rq1-f5-chart", style={"padding": "8px"}),
             ]),
             section_id="rq1-f1-section",
         ),
 
-        # RQ2-F2
+        # RQ1-F2 — error convergence (title and explainer are metric-driven)
         S.section(
-            "RQ1-F2 · Runtime vs error — is the approximation worth it?",
-            "Each marker = one method × budget configuration (medians). "
-            "X markers = exact backends; at 12 features they are often "
-            "cheaper than high-budget approximations. dalex_true_value is "
-            "plotted at its measured 3.2% deviation, not at zero.",
+            html.Div(id="rq1-f2-section-heading",
+                     style={"fontSize": "15px", "fontWeight": "600",
+                            "letterSpacing": "-0.01em", "color": S.TEXT}),
+            "",
             html.Div([
+                _metric_toggle(),
+                html.Div(id="rq1-f2-metric-text"),
                 _col_note(
-                    "source: converted/rq2_runtime_accuracy.csv",
-                    "symbol: budget (○128 ◇512 □2048, ✕ exact) · color: library",
-                    "display pooling: median over unfiltered dataset/model cells",
+                    "source: converted/rq2_convergence_aggregated.csv",
+                    "reference: shap_true_value · agg: median(10 seeds) · error bars: q25–q75",
                 ),
-                html.Div(id="rq1-f2-chart", style={"padding": "8px"}),
+                html.Div(id="rq1-f1-chart", style={"padding": "8px"}),
             ]),
             section_id="rq1-f2-section",
         ),
 
-        # RQ2-F3
+        # RQ1-F3 — Pareto: runtime vs error
         S.section(
-            "RQ1-F3 · Seed stability of the error",
-            "Raw seed-level error distributions at one budget. Tight boxes "
-            "mean a single run is representative; long whiskers mean an "
-            "unlucky seed can be far off the median.",
+            "RQ1-F3 · Runtime vs error trade-off",
+            "Approximation methods only — exact backends are excluded because "
+            "their MAE ≈ 0 would compress the entire approximation range into "
+            "a sliver at the top of the axis. "
+            "Each marker is one method × budget: x = how long it takes, "
+            "y = how far off the attributions are on average (relative MAE — "
+            "e.g. 0.05 means attributions are ~5% away from exact values). "
+            "Lower-left is better. Points of the same colour use identical "
+            "saturation — only the filled ring width differs: a thin edge "
+            "rim for budget 128, a wider inward fill for 512, and solid "
+            "for 2048.",
             html.Div([
-                _axis_toggle("rq1-stability-budget",
-                             {"128": "128", "512": "512", "2048": "2048"},
-                             "512", label="Budget"),
                 _col_note(
-                    "source: converted/rq2_accuracy_by_seed.csv (no aggregation)",
-                    "one point per run: 10 seeds × filtered dataset/model cells",
+                    "source: converted/rq2_runtime_accuracy.csv",
+                    "ring: budget (thin edge 128 · wider 512 · solid 2048) · color: library",
+                    "pooling: median over all dataset × model cells",
                 ),
-                html.Div(id="rq1-f3-chart", style={"padding": "8px"}),
+                html.Div(id="rq1-f2-chart", style={"padding": "8px"}),
             ]),
             section_id="rq1-f3-section",
         ),
 
-        # RQ2-F4
+        # RQ1-F4 — seed stability
         S.section(
-            "RQ1-F4 · Sign agreement vs budget",
-            "How often the approximation assigns the correct direction "
-            "(+/−) to each attribution. Saturates near 1.0 quickly — use "
-            "RQ1-F1 to separate methods beyond that point.",
+            "RQ1-F4 · Seed stability of the error",
+            "Raw seed-level error distributions — no aggregation. "
+            "Tight boxes mean a single run is representative; wide spread "
+            "means you could get unlucky with a random seed. "
+            "Use the Model toggle to switch between "
+            "decision_tree · gradient_boosting · random_forest and "
+            "linear_regularized. "
+            "On linear_regularized most methods hit ~0 % error (Shapley values "
+            "are analytically exact for linear models) — except shap/kernel, "
+            "which uses random coalition regression and stays approximate "
+            "(typically 1–10 % at budget 512). Both views use a linear y-axis "
+            "with a small pad below 0 % so near-zero points sit above the "
+            "axis line. Uncheck individual seeds to exclude lucky or unlucky "
+            "coalition draws — hover any point to see its dataset, model, "
+            "and seed.",
             html.Div([
+                _axis_toggle("rq1-stability-budget",
+                             {"128": "128", "512": "512", "2048": "2048"},
+                             "512", label="Budget"),
+                _axis_toggle("rq1-stability-models",
+                             {"nonlinear": ("decision_tree · gradient_boosting · "
+                                            "random_forest"),
+                              "linear": "linear_regularized"},
+                             "nonlinear", label="Model"),
+                _seed_checklist(),
                 _col_note(
-                    "source: converted/rq2_convergence_aggregated.csv · sign_agreement_median",
-                    "reference: shap_true_value · agg: median(10 seeds)",
+                    "source: converted/rq2_accuracy_by_seed.csv (no aggregation)",
+                    "approximators only: kernel + permutation (7 methods)",
+                    "one point per run: filtered seeds × dataset × model cells",
                 ),
-                html.Div(id="rq1-f4-chart", style={"padding": "8px"}),
+                html.Div(id="rq1-f3-chart", style={"padding": "8px"}),
             ]),
             section_id="rq1-f4-section",
-        ),
-
-        # RQ2-F5
-        S.section(
-            "RQ1-F5 · Reference agreement check",
-            "Median relative MAE between the four exact/reference backends "
-            "over 200 dataset × model × seed cells. shap, shapiq and "
-            "lightshap agree to numerical noise; dalex_true_value deviates "
-            "by ~3.2% — 'exact' is not interchangeable across libraries.",
-            html.Div([
-                _col_note(
-                    "source: converted/rq2_reference_agreement.csv",
-                    "justifies the shap_true_value oracle choice (3-vs-1 pattern)",
-                    "unaffected by page filters (backend-level check)",
-                ),
-                html.Div(id="rq1-f5-chart", style={"padding": "8px"}),
-            ]),
-            section_id="rq1-f5-section",
         ),
 
         S.interpretation_note(_INTERP),
@@ -814,22 +1228,46 @@ def layout(**kwargs):
 # ─────────────────────────────────────────────────────────────────────────────
 
 @callback(
-    Output("rq1-f1-chart", "children"),
-    Output("rq1-f2-chart", "children"),
-    Output("rq1-f3-chart", "children"),
-    Output("rq1-f4-chart", "children"),
-    Output("rq1-f5-chart", "children"),
+    Output("rq1-conv-metric", "value"),
+    Output("rq1-conv-metric-quality", "value"),
+    Input("rq1-conv-metric", "value"),
+    Input("rq1-conv-metric-quality", "value"),
+    prevent_initial_call=True,
+)
+def sync_f2_metric(conv_metric, quality_metric):
+    """Keep the two metric radio groups mutually exclusive."""
+    if ctx.triggered_id == "rq1-conv-metric-quality" and quality_metric:
+        return None, quality_metric
+    if ctx.triggered_id == "rq1-conv-metric" and conv_metric:
+        return conv_metric, None
+    return no_update, no_update
+
+
+@callback(
+    Output("rq1-f5-chart", "children"),            # F1 slot — reference agreement
+    Output("rq1-f2-section-heading", "children"),  # F2 dynamic title
+    Output("rq1-f2-metric-text", "children"),      # F2 metric explainer
+    Output("rq1-f1-chart", "children"),            # F2 slot — convergence
+    Output("rq1-f2-chart", "children"),            # F3 slot — pareto
+    Output("rq1-f3-chart", "children"),            # F4 slot — seed stability
     Input("rq1-ds", "data"),
     Input("rq1-mdl", "data"),
     Input("rq1-approx", "data"),
     Input("rq1-conv-metric", "value"),
+    Input("rq1-conv-metric-quality", "value"),
     Input("rq1-stability-budget", "value"),
+    Input("rq1-stability-models", "value"),
+    Input("rq1-stability-seeds", "value"),
 )
-def update_rq2(ds, mdl, approxs, conv_metric, stability_budget):
+def update_rq2(ds, mdl, approxs, conv_metric, quality_metric, stability_budget,
+               stability_models, stability_seeds):
     ds = ds or "__all__"
     mdl = mdl or "__all__"
-    conv_metric = conv_metric or "relative_mae"
+    conv_metric = quality_metric or conv_metric or "relative_mae"
     stability_budget = int(stability_budget or 512)
+    stability_models = stability_models or "nonlinear"
+    if stability_seeds is None:
+        stability_seeds = list(range(10))
 
     convergence = _load(_CONVERGENCE)
     runtime_acc = _load(_RUNTIME_ACC)
@@ -851,16 +1289,24 @@ def update_rq2(ds, mdl, approxs, conv_metric, stability_budget):
     pooled = (_pool_models_datasets(convergence, ds, mdl)
               if not convergence.empty else convergence)
 
-    def _g(fig, filename):
-        return dcc.Graph(figure=fig, config=S.graph_config(filename))
+    def _g(fig):
+        return _graph(fig)
 
     return (
-        _g(_build_convergence_figure(pooled, conv_metric), "rq2_f1_convergence"),
-        _g(_build_pareto_figure(runtime_acc, ds, mdl), "rq2_f2_pareto"),
-        _g(_build_seed_stability_figure(by_seed, ds, mdl, stability_budget),
-           "rq2_f3_seed_stability"),
-        _g(_build_sign_agreement_figure(pooled), "rq2_f4_sign_agreement"),
-        # F5 is a backend-level check — page filters deliberately not applied.
-        _g(_build_reference_agreement_figure(ref_agreement),
-           "rq2_f5_reference_agreement"),
+        # F1 — oracle validation (no page filters applied)
+        _g(_build_reference_agreement_figure(ref_agreement)),
+        # F2 dynamic title
+        _f2_section_title(conv_metric),
+        # F2 metric explainer
+        _metric_explainer(conv_metric),
+        # F2 — convergence
+        _g(_build_convergence_figure(pooled, conv_metric)),
+        # F3 — Pareto runtime vs error
+        _g(_build_pareto_figure(runtime_acc, ds, mdl)),
+        # F4 — seed stability (responsive chart + HTML note on linear view)
+        _stability_panel(
+            _build_seed_stability_figure(
+                by_seed, ds, mdl, stability_budget,
+                model_group=stability_models, seeds=stability_seeds),
+            mdl, stability_models),
     )

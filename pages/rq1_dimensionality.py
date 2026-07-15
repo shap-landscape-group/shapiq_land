@@ -67,9 +67,8 @@ _RQ_HEADER = (
 _INTERP = (
     "Compare how steeply each method's runtime grows as n_features increases "
     "— flatter is better. The feasibility heatmap shows where methods hit the "
-    "10-minute execution cap (all such runs are lightshap). Cross-method "
-    "agreement is consistency between approximations, not accuracy against "
-    "an exact reference — the RQ1 benchmark contains approximations only. "
+    "10-minute execution cap (all such runs are lightshap). F2 tracks whether "
+    "the 7 methods still rank features alike as dimensionality grows (F2). "
     "The 1,000-feature stress test is a separate one-shot experiment and is "
     "not comparable to the standard scaling grid."
 )
@@ -128,7 +127,7 @@ def _config_card() -> html.Div:
     """Benchmark-at-a-glance card, updated for the new experimental grid."""
     left = _col("Swept",
                 ["4 datasets", "4 models", "n_features: 14–256",
-                 "4 libraries", "2 approximators",
+                 "7 methods", "dalex: perm only",
                  "budget: 512, 1024", "10 seeds"],
                 "#EEF2FF", S.ACCENT)
     mid = _col("Fixed",
@@ -137,7 +136,7 @@ def _config_card() -> html.Div:
                "#F1F5F9", S.TEXT2)
     right = _col("Measured",
                  ["runtime_s", "n_model_evals",
-                  "cross-method agreement (no exact reference)"],
+                  "cross-method agreement ρ"],
                  "#F0FDF4", S.GREEN)
     stress = _col("Separate stress test",
                   ["gisette @ 1,000 features", "seed 0 only",
@@ -171,6 +170,67 @@ def _col_note(*parts: str) -> html.Div:
         "borderBottom": f"1px solid {S.BORDER}",
         "background": S.BG,
         "letterSpacing": "0.01em",
+    })
+
+
+_DALEX_METHOD = "dalex / permutation"
+
+
+def _budget_effect_note() -> html.Div:
+    """F4 context — what the ratio means and why dalex is flagged."""
+    return html.Div([
+        html.Div(
+            "Runtime ratio = runtime(1024) / runtime(512) per experiment cell. "
+            "For shap, shapiq, and lightshap this tests whether wall-clock cost "
+            "scales linearly with coalition samples — ratio ≈ 2 means yes, "
+            "< 2 means fixed overhead dominates.",
+            style={"fontSize": "12px", "color": S.TEXT, "lineHeight": "1.6",
+                   "marginBottom": "4px"},
+        ),
+        html.Div(
+            "★ dalex uses a fixed evaluation budget split across features — "
+            "doubling the config budget does not add coalition samples the "
+            "same way, so its ratio is not directly comparable. "
+            "Median per cell · capped/failed cells excluded · "
+            "source: converted/rq1_scaling_aggregated.csv",
+            style={"fontSize": "11px", "color": S.TEXT2, "lineHeight": "1.55"},
+        ),
+    ], style={
+        "background": "#F0F4FF",
+        "border": f"1px solid {S.BORDER}",
+        "borderRadius": "6px",
+        "padding": "9px 13px",
+        "margin": "0 0 2px",
+    })
+
+
+def _agreement_note() -> html.Div:
+    """Compact agreement chart context — what is compared and how to read it."""
+    return html.Div([
+        html.Div(
+            "Each line is one of the 7 approximation methods "
+            "(shap, shapiq, and lightshap: kernel + permutation; "
+            "dalex: permutation only). "
+            "The y-axis is the mean Spearman ρ against the other six methods "
+            "at the same budget — how closely their feature rankings agree "
+            "as n_features grows.",
+            style={"fontSize": "12px", "color": S.TEXT, "lineHeight": "1.6",
+                   "marginBottom": "4px"},
+        ),
+        html.Div(
+            "A drop at high M usually means methods diverge under budget pressure, "
+            "not that one line is automatically correct. "
+            "Same-budget pairwise comparisons only · median over 10 seeds · "
+            "budget follows the F1 toggle · "
+            "source: converted/rq1_scaling_aggregated.csv",
+            style={"fontSize": "11px", "color": S.TEXT2, "lineHeight": "1.55"},
+        ),
+    ], style={
+        "background": "#F0F4FF",
+        "border": f"1px solid {S.BORDER}",
+        "borderRadius": "6px",
+        "padding": "9px 13px",
+        "margin": "0 0 2px",
     })
 
 
@@ -296,6 +356,79 @@ def _axis_toggle(cid: str, options: dict, default, label="Axis") -> html.Div:
 #     accuracy is possible from RQ1 data.
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _nf_ticks(sub_df: pd.DataFrame) -> dict:
+    """Log-scale x-axis ticks only at actual n_features present in sub_df."""
+    vals = sorted(sub_df["n_features"].unique().tolist())
+    return dict(tickmode="array", tickvals=vals,
+                ticktext=[str(int(v)) for v in vals])
+
+
+def _runtime_ticks() -> dict:
+    """Human-readable log-scale ticks for runtime (s) axes."""
+    vals = [0.01, 0.1, 1, 10, 100, 600]
+    return dict(tickmode="array", tickvals=vals,
+                ticktext=["0.01 s", "0.1 s", "1 s", "10 s", "100 s", "600 s"])
+
+
+def _stress_runtime_ticks() -> dict:
+    """Human-readable log-scale ticks for the extreme-stress runtime axis."""
+    vals = [10, 30, 100, 300, 1000, 3000, 10000]
+    return dict(tickmode="array", tickvals=vals,
+                ticktext=["10 s", "30 s", "100 s", "300 s",
+                          "1000 s", "3000 s", "10000 s"])
+
+
+_SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹"
+
+
+def _pow10_label(exp: int) -> str:
+    """Format an integer exponent as a consistent 10ⁿ axis label."""
+    if exp == 0:
+        return "10⁰"
+    digits = str(abs(exp))
+    sup_digits = "".join(_SUP[int(d)] for d in digits)
+    if exp < 0:
+        return f"10⁻{sup_digits}"
+    return f"10{sup_digits}"
+
+
+def _norm_evals(sub_df: pd.DataFrame) -> np.ndarray:
+    return (sub_df["evals_median"].to_numpy()
+            / (2.0 ** sub_df["n_features"].to_numpy()))
+
+
+def _log_decade_step(span: int, target: int = 7) -> int:
+    if span <= target - 1:
+        return 1
+    for step in (1, 2, 5, 10, 20, 50, 100):
+        if span // step <= target - 1:
+            return step
+    return max(10, (span + target - 2) // (target - 1))
+
+
+def _evals_ticks(sub_df: pd.DataFrame) -> dict:
+    """Log-scale y-axis ticks for model evals / 2ⁿ — always 10ⁿ labels."""
+    vals = _norm_evals(sub_df)
+    vals = vals[np.isfinite(vals) & (vals > 0)]
+    if vals.size == 0:
+        return {}
+    lo, hi = float(vals.min()), float(vals.max())
+    exp_lo = int(np.floor(np.log10(lo)))
+    exp_hi = int(np.ceil(np.log10(hi)))
+    step = _log_decade_step(exp_hi - exp_lo)
+    start = (exp_lo // step) * step
+    if start > exp_lo:
+        start -= step
+    exps = list(range(start, exp_hi + 1, step))
+    if exps[0] > exp_lo:
+        exps.insert(0, exp_lo)
+    if exps[-1] < exp_hi:
+        exps.append(exp_hi)
+    tickvals = [10.0 ** e for e in exps]
+    ticktext = [_pow10_label(e) for e in exps]
+    return dict(tickmode="array", tickvals=tickvals, ticktext=ticktext)
+
+
 def _scaling_traces(sub: pd.DataFrame, metric: str, showlegend: bool):
     """Median line + q25–q75 band per method for one dataset panel."""
     traces = []
@@ -307,8 +440,21 @@ def _scaling_traces(sub: pd.DataFrame, metric: str, showlegend: bool):
 
         if metric == "runtime_s":
             y, ylo, yhi = mdf["runtime_median"], mdf["runtime_q25"], mdf["runtime_q75"]
+            hover_suffix = "median runtime: %{y:.3g} s"
+            customdata = None
         else:
-            y = mdf["evals_median"]
+            # Normalise by 2^n_features: shows "model calls per slot in the
+            # full coalition lattice".  Values > 1 at small n_features are
+            # expected — each coalition is probed against n_background
+            # background samples, so raw call counts exceed 2^n_features
+            # until the feature space grows large enough.  The exponential
+            # denominator makes the coverage gap visible as a clean
+            # downward slope on a log scale.
+            norm_factor = 2.0 ** mdf["n_features"].values
+            y = mdf["evals_median"].values / norm_factor
+            raw = mdf["evals_median"].values
+            customdata = np.stack([raw], axis=1)
+            hover_suffix = "evals / 2ⁿ: %{y:.3g}<br>raw model evals: %{customdata[0]:,.0f}"
             ylo = yhi = None
 
         # Seed IQR band (runtime only — eval counts are deterministic per
@@ -321,18 +467,17 @@ def _scaling_traces(sub: pd.DataFrame, metric: str, showlegend: bool):
                 line=dict(width=0), hoverinfo="skip",
                 legendgroup=method, showlegend=False,
             ))
-        traces.append(go.Scatter(
+        scatter_kwargs = dict(
             x=mdf["n_features"], y=y,
             mode="lines+markers", name=method,
             legendgroup=method, showlegend=showlegend,
             line=dict(color=color, width=2, dash=_APPROX_DASH.get(approx, "solid")),
             marker=dict(size=7, color=color, line=dict(color="white", width=1.2)),
-            hovertemplate=(
-                f"<b>{method}</b><br>n_features: %{{x}}<br>"
-                f"{'median runtime: %{y:.3g} s' if metric == 'runtime_s' else 'median model evals: %{y:.3g}'}"
-                "<extra></extra>"
-            ),
-        ))
+            hovertemplate=f"<b>{method}</b><br>n_features: %{{x}}<br>{hover_suffix}<extra></extra>",
+        )
+        if customdata is not None:
+            scatter_kwargs["customdata"] = customdata
+        traces.append(go.Scatter(**scatter_kwargs))
     return traces
 
 
@@ -341,8 +486,8 @@ def _build_runtime_scaling_figure(agg: pd.DataFrame, dataset: str,
     if agg.empty:
         return S.fig_empty("No converted data — run results_converters/rq1_results_converter.py")
 
-    y_title = ("Median runtime (s) — log" if metric == "runtime_s"
-               else "Median model evaluations — log")
+    y_title = ("Median runtime (s)" if metric == "runtime_s"
+               else "Model evals / 2ⁿ features")
 
     if dataset != "__all__":
         sub = agg[agg["dataset"] == dataset]
@@ -351,12 +496,14 @@ def _build_runtime_scaling_figure(agg: pd.DataFrame, dataset: str,
         fig = go.Figure()
         for tr in _scaling_traces(sub, metric, showlegend=True):
             fig.add_trace(tr)
+        y_ticks = (_runtime_ticks() if metric == "runtime_s"
+                   else _evals_ticks(sub))
         fig.update_layout(
             **S._CHART_LAYOUT, height=440, margin=S._MARGIN, legend=S._LEGEND_H,
-            xaxis=dict(title="n_features (log)", type="log",
-                       gridcolor=S.BORDER, zeroline=False),
+            xaxis=dict(title="n_features", type="log",
+                       gridcolor=S.BORDER, zeroline=False, **_nf_ticks(sub)),
             yaxis=dict(title=y_title, type="log",
-                       gridcolor=S.BORDER, zeroline=False),
+                       gridcolor=S.BORDER, zeroline=False, **y_ticks),
         )
         return fig
 
@@ -366,19 +513,29 @@ def _build_runtime_scaling_figure(agg: pd.DataFrame, dataset: str,
     datasets = [d for d in _DATASET_ORDER if d in agg["dataset"].unique()]
     fig = make_subplots(
         rows=2, cols=2, subplot_titles=datasets,
-        horizontal_spacing=0.09, vertical_spacing=0.14,
+        horizontal_spacing=0.12, vertical_spacing=0.16,
     )
+    # axis key suffix: subplot (row, col) → "" / "2" / "3" / "4"
+    _ax_sfx = {(1, 1): "", (1, 2): "2", (2, 1): "3", (2, 2): "4"}
     for i, ds in enumerate(datasets):
         row, col = divmod(i, 2)
         sub = agg[agg["dataset"] == ds]
         for tr in _scaling_traces(sub, metric, showlegend=(i == 0)):
             fig.add_trace(tr, row=row + 1, col=col + 1)
-    fig.update_xaxes(type="log", gridcolor=S.BORDER, zeroline=False,
-                     title_text="n_features")
-    fig.update_yaxes(type="log", gridcolor=S.BORDER, zeroline=False)
+        sfx = _ax_sfx[(row + 1, col + 1)]
+        # Only label y-axis on left column panels to avoid crowding.
+        y_label = y_title if col == 0 else ""
+        y_ticks = (_runtime_ticks() if metric == "runtime_s"
+                   else _evals_ticks(sub))
+        fig.update_layout(**{
+            f"xaxis{sfx}": dict(type="log", gridcolor=S.BORDER, zeroline=False,
+                                title_text="n_features", **_nf_ticks(sub)),
+            f"yaxis{sfx}": dict(type="log", gridcolor=S.BORDER, zeroline=False,
+                                title_text=y_label, **y_ticks),
+        })
     fig.update_layout(
-        **S._CHART_LAYOUT, height=640, legend=S._LEGEND_H,
-        margin=dict(l=55, r=16, t=60, b=48),
+        **S._CHART_LAYOUT, height=680, legend=S._LEGEND_H,
+        margin=dict(l=60, r=16, t=60, b=48),
     )
     fig.update_annotations(font_size=12)
     return fig
@@ -425,14 +582,15 @@ def _build_runtime_scaling_figure(agg: pd.DataFrame, dataset: str,
 #     budgets; increasing their budget is comparatively cheap.
 #
 # Limitation:
+#     dalex defines budget as a fixed total divided across features — its
+#     512→1024 ratio is flagged (★) and not comparable to the others.
 #     Only two budgets exist in RQ1 — no full budget curve (RQ2 has three
 #     budgets at fixed dimensionality).
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _build_budget_effect_figure(agg: pd.DataFrame, dataset: str,
-                                view: str = "box") -> go.Figure:
+def _build_budget_effect_figure(agg: pd.DataFrame, dataset: str) -> go.Figure:
     """
-    RQ1-F2 — Does doubling the budget (512 → 1024) double the runtime?
+    RQ2-F4 — Does doubling the budget (512 → 1024) double the runtime?
 
     A ratio of exactly 2 means runtime grows linearly with budget (all cost is
     model evaluations). Ratio < 2 means fixed overhead (coalition construction,
@@ -440,10 +598,7 @@ def _build_budget_effect_figure(agg: pd.DataFrame, dataset: str,
     Ratio >> 2 signals an anomaly (near-zero denominator) and those cells are
     excluded.
 
-    view='box'     → distribution of ratios per method across all cells
-    view='scatter' → ratio vs n_features, one dot per dataset×model cell,
-                     coloured by method — reveals whether the ratio changes
-                     with dimensionality
+    Box plot: distribution of ratios per method across all experiment cells.
     """
     if agg.empty:
         return S.fig_empty()
@@ -472,53 +627,36 @@ def _build_budget_effect_figure(agg: pd.DataFrame, dataset: str,
 
     fig = go.Figure()
 
-    if view == "scatter":
-        for method in order:
-            mdf = wide[wide["method"] == method].sort_values("n_features")
-            color = _lib_color(mdf["library"].iloc[0])
-            dash = "dash" if mdf["method"].iloc[0].endswith("permutation") else "solid"
-            fig.add_trace(go.Scatter(
-                x=mdf["n_features"], y=mdf["ratio"],
-                mode="markers+lines", name=method,
-                line=dict(color=color, dash=dash, width=1.2),
-                marker=dict(color=color, size=5, opacity=0.7),
-                hovertemplate=(
-                    f"<b>{method}</b><br>"
-                    "n_features=%{x}<br>ratio=%{y:.2f}<extra></extra>"
-                ),
-            ))
-        fig.update_layout(
-            **S._CHART_LAYOUT, height=400,
-            margin=dict(l=55, r=16, t=36, b=50),
-            xaxis=dict(title="n_features", gridcolor=S.BORDER),
-            yaxis=dict(title="runtime(1024) / runtime(512)",
-                       gridcolor=S.BORDER, zeroline=False),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02,
-                        xanchor="left", x=0, font=dict(size=11)),
+    for method in order:
+        mdf = wide[wide["method"] == method]
+        lib = mdf["library"].iloc[0]
+        color = _lib_color(lib)
+        is_dalex = method == _DALEX_METHOD
+        label = f"{method} ★" if is_dalex else method
+        hover_extra = (
+            "<br><i>★ fixed budget split across features — not comparable</i>"
+            if is_dalex else ""
         )
-    else:  # box
-        for method in order:
-            mdf = wide[wide["method"] == method]
-            color = _lib_color(mdf["library"].iloc[0])
-            fig.add_trace(go.Box(
-                y=mdf["ratio"], name=method,
-                marker_color=color, line_color=color,
-                boxpoints="all", jitter=0.35, pointpos=0,
-                marker=dict(size=4, opacity=0.5),
-                fillcolor="rgba(0,0,0,0)",
-                hovertemplate=(
-                    f"<b>{method}</b><br>"
-                    "ratio=%{y:.2f}<extra></extra>"
-                ),
-                showlegend=False,
-            ))
-        fig.update_layout(
-            **S._CHART_LAYOUT, height=400,
-            margin=dict(l=55, r=16, t=36, b=90),
-            xaxis=dict(tickangle=-25, gridcolor="rgba(0,0,0,0)", automargin=True),
-            yaxis=dict(title="runtime(1024) / runtime(512)",
-                       gridcolor=S.BORDER, zeroline=False),
-        )
+        fig.add_trace(go.Box(
+            y=mdf["ratio"], name=label,
+            marker_color=color,
+            line_color=color,
+            line_width=2 if is_dalex else 1.5,
+            boxpoints="all", jitter=0.35, pointpos=0,
+            marker=dict(size=4, opacity=0.35 if is_dalex else 0.5),
+            fillcolor="rgba(0,0,0,0)",
+            hovertemplate=(
+                f"<b>{method}</b><br>ratio=%{{y:.2f}}{hover_extra}<extra></extra>"
+            ),
+            showlegend=False,
+        ))
+    fig.update_layout(
+        **S._CHART_LAYOUT, height=400,
+        margin=dict(l=55, r=16, t=36, b=90),
+        xaxis=dict(tickangle=-25, gridcolor="rgba(0,0,0,0)", automargin=True),
+        yaxis=dict(title="runtime(1024) / runtime(512)",
+                   gridcolor=S.BORDER, zeroline=False),
+    )
 
     fig.add_hline(y=2.0, line=dict(color=S.TEXT2, width=1.2, dash="dot"),
                   annotation_text="ratio = 2 → linear scaling",
@@ -587,7 +725,7 @@ def _build_feasibility_heatmap(feas: pd.DataFrame, dataset: str) -> go.Figure:
                          sub["n_features"].astype(int).astype(str))
     col_order = (sub[["cell_label", "dataset", "n_features"]]
                  .drop_duplicates()
-                 .sort_values(["dataset", "n_features"])["cell_label"].tolist())
+                 .sort_values(["n_features", "dataset"])["cell_label"].tolist())
 
     pivot = (sub.pivot_table(index="method", columns="cell_label",
                              values="time_cap_fraction")
@@ -625,15 +763,15 @@ def _build_feasibility_heatmap(feas: pd.DataFrame, dataset: str) -> go.Figure:
 #     rq1_scaling_aggregated.csv (column cross_method_rho_median)
 #
 # Raw CSV inputs:
-#     pairwise_metrics JSON (mean_sample_rho against the other 13 methods
+#     pairwise_metrics JSON (mean_sample_rho against the other 6 methods
 #     in the same dataset × model × n_features × seed cell)
 #
 # Row selection:
 #     Standard experiment, one budget at a time (same radio as RQ1-F1).
 #
 # Grouping:
-#     Per run, the converter averaged rho over the 13 other methods; here
-#     the median of that consensus score is drawn per method ×
+#     Per run, the converter averaged ρ over the other 6 methods at the
+#     same budget; here the median of that score is drawn per method ×
 #     n_features. "All models"/"All datasets" pool by median with an
 #     explicit note.
 #
@@ -687,9 +825,9 @@ def _build_agreement_figure(agg: pd.DataFrame, dataset: str) -> go.Figure:
         ))
     fig.update_layout(
         **S._CHART_LAYOUT, height=420, margin=S._MARGIN, legend=S._LEGEND_H,
-        xaxis=dict(title="n_features (log)", type="log",
-                   gridcolor=S.BORDER, zeroline=False),
-        yaxis=dict(title="Median cross-method agreement ρ  (NOT accuracy)",
+        xaxis=dict(title="n_features", type="log",
+                   gridcolor=S.BORDER, zeroline=False, **_nf_ticks(sub)),
+        yaxis=dict(title="Median cross-method agreement (ρ)",
                    gridcolor=S.BORDER, zeroline=False),
     )
     return fig
@@ -765,7 +903,8 @@ def _build_extreme_stress_figure(extreme: pd.DataFrame) -> go.Figure:
     fig.update_layout(
         **S._CHART_LAYOUT, height=max(420, len(sub) * 24 + 80),
         xaxis=dict(title="Runtime (s) — log scale  ·  hatched = exceeded 10-min cap",
-                   type="log", gridcolor=S.BORDER, zeroline=False),
+                   type="log", gridcolor=S.BORDER, zeroline=False,
+                   **_stress_runtime_ticks()),
         yaxis=dict(gridcolor="rgba(0,0,0,0)", automargin=True,
                    tickfont=dict(size=10)),
         margin=dict(l=10, r=120, t=20, b=48),
@@ -789,7 +928,12 @@ def layout(**kwargs):
             "Median cost per method (10 seeds, band = q25–q75). "
             "'All datasets' shows one panel per dataset because each dataset "
             "has its own feature grid. 'All models' pools the 4 models by "
-            "median — select a model to isolate it. Time-capped runs excluded.",
+            "median — select a model to isolate it. Time-capped runs excluded. "
+            "When 'model evaluations' is selected the y-axis shows raw calls "
+            "normalised by 2ⁿ features (the size of the full coalition lattice) "
+            "so the exponential coverage gap is directly visible as a downward "
+            "slope — values > 1 at small n are expected because each coalition "
+            "is probed against a background dataset.",
             html.Div([
                 _axis_toggle("rq2-cost-metric",
                              {"runtime_s": "runtime (s)",
@@ -807,29 +951,18 @@ def layout(**kwargs):
             section_id="rq2-f1-section",
         ),
 
-        # RQ1-F2
+        # RQ2-F2 — cross-method agreement
         S.section(
-            "RQ2-F2 · Budget effect on runtime (512 → 1024)",
-            "If doubling the budget doubles the runtime (ratio = 2), all cost "
-            "is model evaluations and there is no fixed overhead. "
-            "Ratio < 2 means startup / coalition construction dominates — "
-            "doubling the budget is cheaper than 2×. "
-            "Use 'By n_features' to see whether this changes with dimensionality.",
+            "RQ2-F2 · Cross-method agreement vs dimensionality",
+            "",
             html.Div([
-                _axis_toggle("rq2-f2-view",
-                             {"box": "Distribution (box)", "scatter": "By n_features"},
-                             "box", label="View"),
-                _col_note(
-                    "source: converted/rq1_scaling_aggregated.csv",
-                    "ratio = runtime_median(1024) / runtime_median(512) per experiment cell",
-                    "cells with failed or time-capped runs excluded (ratio undefined there)",
-                ),
+                _agreement_note(),
                 html.Div(id="rq2-f2-chart", style={"padding": "8px"}),
             ]),
             section_id="rq2-f2-section",
         ),
 
-        # RQ1-F3
+        # RQ2-F3
         S.section(
             "RQ2-F3 · Execution-cap feasibility",
             "Share of runs hitting the 10-minute cap per method × dataset × "
@@ -846,17 +979,12 @@ def layout(**kwargs):
             section_id="rq2-f3-section",
         ),
 
-        # RQ1-F4
+        # RQ2-F4 — budget effect
         S.section(
-            "RQ2-F4 · Cross-method agreement vs dimensionality",
-            "Consensus between the 14 approximate configurations. This is "
-            "mutual agreement, NOT accuracy — RQ1 has no exact reference. "
-            "Falling agreement at high M signals budget starvation.",
+            "RQ2-F4 · Budget effect on runtime (512 → 1024)",
+            "",
             html.Div([
-                _col_note(
-                    "source: converted/rq1_scaling_aggregated.csv · cross_method_rho_median",
-                    "per run: mean ρ vs the other 13 methods in the same cell → median over seeds",
-                ),
+                _budget_effect_note(),
                 html.Div(id="rq2-f4-chart", style={"padding": "8px"}),
             ]),
             section_id="rq2-f4-section",
@@ -910,14 +1038,12 @@ def _apply_filters(df, ds, mdl, approxs):
     Input("rq2-approx", "data"),
     Input("rq2-cost-metric", "value"),
     Input("rq2-budget", "value"),
-    Input("rq2-f2-view", "value"),
 )
-def update_rq1(ds, mdl, approxs, cost_metric, budget, f2_view):
+def update_rq1(ds, mdl, approxs, cost_metric, budget):
     ds = ds or "__all__"
     mdl = mdl or "__all__"
     cost_metric = cost_metric or "runtime_s"
     budget = int(budget or 512)
-    f2_view = f2_view or "box"
 
     agg = _load(_AGGREGATED)
     feas = _load(_FEASIBILITY)
@@ -925,8 +1051,8 @@ def update_rq1(ds, mdl, approxs, cost_metric, budget, f2_view):
 
     agg_f = _apply_filters(agg, ds, mdl, approxs or [])
 
-    # F1 + F4 show one budget at a time (radio); "All models" pooling by
-    # median happens here, matching the note on the charts.
+    # F1 + F2 (agreement) show one budget at a time (radio); "All models"
+    # pooling by median happens here, matching the note on the charts.
     f1_input = agg_f[agg_f["budget"] == budget]
     if mdl == "__all__" and not f1_input.empty:
         f1_input = (
@@ -950,10 +1076,9 @@ def update_rq1(ds, mdl, approxs, cost_metric, budget, f2_view):
     return (
         _g(_build_runtime_scaling_figure(f1_input, ds, cost_metric),
            "rq1_f1_cost_scaling"),
-        _g(_build_budget_effect_figure(agg_f, ds, f2_view),
-           "rq1_f2_budget_effect"),
+        _g(_build_agreement_figure(f1_input, ds), "rq1_f2_agreement"),
         _g(_build_feasibility_heatmap(feas_f, ds), "rq1_f3_feasibility"),
-        _g(_build_agreement_figure(f1_input, ds), "rq1_f4_agreement"),
+        _g(_build_budget_effect_figure(agg_f, ds), "rq1_f4_budget_effect"),
         # F5 deliberately unfiltered — single-seed stress test (see comment).
         _g(_build_extreme_stress_figure(extreme), "rq1_f5_stress_test"),
     )

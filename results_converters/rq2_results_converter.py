@@ -97,6 +97,9 @@ REQUIRED_COLUMNS = [
 ERROR_METRICS = ["relative_mae", "mean_abs_diff",
                  "sign_agreement", "mean_sample_rho"]
 
+# Columns read directly from the raw row (not from pairwise JSON).
+DIRECT_METRICS = ["relative_additivity_gap"]
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Loading and validation
@@ -242,10 +245,14 @@ def build_by_seed(df: pd.DataFrame) -> pd.DataFrame:
         print(f"  [warning] {n_missing} approximation runs lack a "
               f"{REFERENCE_BACKEND} comparison")
 
+    for col in DIRECT_METRICS:
+        if col in apx.columns:
+            apx[col] = pd.to_numeric(apx[col], errors="coerce")
+
     keep = ["dataset", "model", "n_features", "seed", "library",
             "approximator", "budget", "method", "runtime_s",
-            "n_model_evals"] + ERROR_METRICS
-    return apx[keep]
+            "n_model_evals"] + ERROR_METRICS + DIRECT_METRICS
+    return apx[[c for c in keep if c in apx.columns]]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -284,6 +291,11 @@ def aggregate_convergence(by_seed: pd.DataFrame) -> pd.DataFrame:
             rho_q25=("mean_sample_rho", q25),
             rho_q75=("mean_sample_rho", q75),
             sign_agreement_median=("sign_agreement", "median"),
+            sign_agreement_q25=("sign_agreement", q25),
+            sign_agreement_q75=("sign_agreement", q75),
+            rel_additivity_gap_median=("relative_additivity_gap", "median"),
+            rel_additivity_gap_q25=("relative_additivity_gap", q25),
+            rel_additivity_gap_q75=("relative_additivity_gap", q75),
         )
         .reset_index()
     )

@@ -422,7 +422,7 @@ def _render_page_topbar(pathname):
     # (rq1-ds, rq1-mdl, rq1-approx) that live in the main layout and are
     # always present, so the chart callback never races the topbar.
     if pathname == "/rq2":
-        _csv = os.path.join(_RESULTS, "converted", "rq2_convergence_aggregated.csv")
+        _csv = os.path.join(_RESULTS, "converted", "rq1_scaling_aggregated.csv")
         df = pd.read_csv(_csv) if os.path.exists(_csv) else pd.DataFrame(
             columns=["dataset", "model", "approximator"])
         src = _csv if os.path.exists(_csv) else None
@@ -462,7 +462,7 @@ def _render_page_topbar(pathname):
 
     # ── RQ2 ───────────────────────────────────────────────────────────────
     if pathname == "/rq1":
-        _csv = os.path.join(_RESULTS, "converted", "rq1_scaling_aggregated.csv")
+        _csv = os.path.join(_RESULTS, "converted", "rq2_convergence_aggregated.csv")
         df = pd.read_csv(_csv) if os.path.exists(_csv) else pd.DataFrame(
             columns=["dataset", "model", "approximator"])
         src = _csv if os.path.exists(_csv) else None
