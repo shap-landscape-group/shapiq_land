@@ -675,7 +675,8 @@ def update_rq4(datasets, libs, models, case):
             S.section(
                 c["title"], c["subtitle"],
                 dcc.Graph(figure=c["fn"](_chart_df(c)),
-                          config={"displayModeBar": False}, style={"padding": "8px"}),
+                          config=S.graph_config(c["section_id"].replace("-", "_")),
+                          style={"padding": "8px"}),
                 section_id=c["section_id"],
             )
             for c in charts_man

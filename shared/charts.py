@@ -63,6 +63,17 @@ def _add_median_band_trace(fig: go.Figure, row: int, col: int, x, median: pd.Ser
 
 # ── Shared / general ──────────────────────────────────────────────────────────
 
+def graph_config(filename: str) -> dict:
+    """dcc.Graph config: hide the modebar except a single camera button
+    that downloads the current view (filters/toggles applied) as PNG."""
+    return {
+        "displayModeBar": "hover",
+        "modeBarButtons": [["toImage"]],
+        "displaylogo": False,
+        "toImageButtonOptions": {"format": "png", "filename": filename},
+    }
+
+
 def fig_empty(message: str = "No data available for the current filter selection") -> go.Figure:
     return go.Figure(layout=dict(
         title=dict(text=message, font=dict(

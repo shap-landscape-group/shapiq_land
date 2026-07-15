@@ -851,14 +851,16 @@ def update_rq2(ds, mdl, approxs, conv_metric, stability_budget):
     pooled = (_pool_models_datasets(convergence, ds, mdl)
               if not convergence.empty else convergence)
 
-    def _g(fig):
-        return dcc.Graph(figure=fig, config={"displayModeBar": False})
+    def _g(fig, filename):
+        return dcc.Graph(figure=fig, config=S.graph_config(filename))
 
     return (
-        _g(_build_convergence_figure(pooled, conv_metric)),
-        _g(_build_pareto_figure(runtime_acc, ds, mdl)),
-        _g(_build_seed_stability_figure(by_seed, ds, mdl, stability_budget)),
-        _g(_build_sign_agreement_figure(pooled)),
+        _g(_build_convergence_figure(pooled, conv_metric), "rq2_f1_convergence"),
+        _g(_build_pareto_figure(runtime_acc, ds, mdl), "rq2_f2_pareto"),
+        _g(_build_seed_stability_figure(by_seed, ds, mdl, stability_budget),
+           "rq2_f3_seed_stability"),
+        _g(_build_sign_agreement_figure(pooled), "rq2_f4_sign_agreement"),
         # F5 is a backend-level check — page filters deliberately not applied.
-        _g(_build_reference_agreement_figure(ref_agreement)),
+        _g(_build_reference_agreement_figure(ref_agreement),
+           "rq2_f5_reference_agreement"),
     )
