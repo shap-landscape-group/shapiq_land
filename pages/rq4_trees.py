@@ -4,9 +4,14 @@ pages/rq4_trees.py  —  RQ4: Tree Models
 Edit the PAGE CONFIGURATION block below to change what is shown.
 The layout / filter / callback logic beneath it should rarely need touching.
 
-Data file: rq4_trees.csv. The tree depth used throughout is always the
-*realized* depth the fitted tree actually reached (never the requested sweep
-target) — trees asked for depth 50/80 routinely saturate well below that.
+Data source: results/rq4_trees.csv (raw)
+    → results/converted/rq4_trees_by_seed.csv    (one row per run, loaded here)
+    → results/converted/rq4_trees_pairwise.csv   (long-format agreement pairs)
+    via results_converters/rq4_results_converter.py
+
+The tree depth used throughout is always the *realized* depth the fitted tree
+actually reached (never the requested sweep target) — trees asked for depth
+50/80 routinely saturate well below that.
 
 Tree explainers here are exact methods (path-dependent / interventional /
 interaction TreeSHAP variants), not approximations trading accuracy for speed —
@@ -18,10 +23,14 @@ Chart set is based on TREES.md's 3/2/3 layout, plus depth-sweep diagnostics
 (failure-rate-vs-depth, depth-scaling-factor, a quick-look overview line chart,
 and a per-backend agreement ranking) added back into every tab they're
 meaningful for. Every chart section carries a `mode` key (path_dependent /
-interventional / interaction) so update_rq4() always filters the dataframe to
-one computation mode before calling a chart's `fn` — backends from different
-modes are never mixed into the same panel/line color, even though every tab
-pulls from the same underlying CSV.
+interventional / interaction) so update_rq4() always filters to one
+computation mode (a column precomputed by the converter, not re-derived from
+the backend string at callback time) before calling a chart's `fn` — backends
+from different modes are never mixed into the same panel/line color. Chart
+entries additionally carry a `source` key: "by_seed" (default) reads the
+per-run dataframe, "pairwise" reads the long-format agreement-pairs dataframe
+(needed for the backend x backend heatmap, which can't be reconstructed from
+the by-seed dataframe's own already-averaged agreement column).
 """
 
 import os
@@ -42,7 +51,23 @@ dash.register_page(
 )
 
 _HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_CSV = os.path.join(_HERE, "results", "rq4_trees.csv")
+_CONV = os.path.join(_HERE, "results", "converted")
+_CSV = os.path.join(_CONV, "rq4_trees_by_seed.csv")
+_PAIRWISE = os.path.join(_CONV, "rq4_trees_pairwise.csv")
+
+
+def _load(path: str) -> pd.DataFrame:
+    """Read a converted CSV directly — unlike the raw-CSV pages (home, and
+    formerly this one), everything here (mode, is_failure, same-mode-peer
+    quality metrics) is already computed by
+    results_converters/rq4_results_converter.py, so this deliberately skips
+    shared.data.load_data()'s generic reprocessing rather than risk it
+    recomputing is_failure from relative_mae and clobbering the converter's
+    additivity_gap-based signal (see that module's docstring for why trees
+    need the different signal)."""
+    if os.path.exists(path):
+        return pd.read_csv(path)
+    return pd.DataFrame()
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -75,28 +100,13 @@ _CASE_OPTIONS = [
 ]
 _DEFAULT_CASE = "path-dependent"
 
-# case-tab value -> mode key used by fig_tree_* functions / _mode_mask
+# case-tab value -> mode key used by fig_tree_* functions (precomputed by the
+# converter into the `mode` column on both the by-seed and pairwise CSVs)
 _CASE_TO_MODE = {
     "path-dependent": "path_dependent",
     "interventional": "interventional",
     "interaction": "interaction",
 }
-
-
-def _mode_mask(df: pd.DataFrame, mode: str) -> pd.Series:
-    """Boolean mask selecting rows whose backend belongs to the given computation mode."""
-    if df.empty or "backend" not in df.columns:
-        return pd.Series(False, index=df.index)
-    backend_text = df["backend"].fillna("").astype(str).str.lower()
-    if mode == "path_dependent":
-        return backend_text.str.contains("path", na=False) & \
-            backend_text.str.contains("dependent", na=False)
-    if mode == "interventional":
-        return backend_text.str.contains("interventional", na=False) & \
-            ~backend_text.str.contains("true_value", na=False)
-    if mode == "interaction":
-        return backend_text.str.contains("interaction", na=False)
-    return pd.Series(True, index=df.index)
 
 
 _AGREEMENT_NOTE = (
@@ -139,6 +149,7 @@ def _pathdep_charts() -> list:
             "scaling question — cells well below 1.0 flag a numerical/"
             "implementation bug, not an approximation trade-off.",
             fn=S.fig_tree_agreement_heatmap_by_model,
+            source="pairwise",
         ),
         dict(
             section_id="rq4-pd-ranking", mode="path_dependent",
@@ -249,6 +260,7 @@ def _interaction_charts() -> list:
             "computed on order-2 pairwise interaction values instead — do the exact "
             "interaction methods agree with each other?",
             fn=S.fig_tree_agreement_heatmap_by_model,
+            source="pairwise",
         ),
         dict(
             section_id="rq4-in-ranking", mode="interaction",
@@ -277,7 +289,7 @@ def _interaction_charts() -> list:
             "survivorship bias rather than a real speed-up; see the failure-rate "
             "chart above for how often that happens.",
             fn=S.fig_tree_order_cost,
-            custom_filter=lambda df: df[_mode_mask(df, "path_dependent") | _mode_mask(df, "interaction")],
+            custom_filter=lambda df: df[df["mode"].isin(["path_dependent", "interaction"])],
         ),
         dict(
             section_id="rq4-in-depth", mode="interaction",
@@ -322,6 +334,13 @@ def _build_charts(case: str) -> list:
     supplies its own `custom_filter` instead. It's fine (and expected) for
     different tabs to show a different number/kind of charts — order-2
     interaction data only exists for one dataset, for example.
+
+    Entries also carry a `source` key ("by_seed" if absent, or "pairwise").
+    The two agreement-heatmap entries set `source="pairwise"` — they need the
+    long-format backend x backend comparison table (results/converted/
+    rq4_trees_pairwise.csv), which can't be reconstructed from the by-seed
+    dataframe's own already-peer-averaged mean_sample_rho/sign_agreement
+    columns.
     """
     return _CASE_BUILDERS.get(case, _pathdep_charts)()
 
@@ -428,9 +447,9 @@ def _config_card(df: pd.DataFrame) -> html.Div:
 
 
 def layout(**kwargs):
-    df, src = S.try_load_data(_CSV)
+    df = _load(_CSV)
 
-    if src is None:
+    if df.empty:
         return html.Div([
             S.rq_header(*_RQ_HEADER),
             *[S.info_note(r) for r in _REMARKS],
@@ -564,21 +583,31 @@ def _schema_hint() -> html.Div:
     Input("rq4-case",  "value"),
 )
 def update_rq4(datasets, libs, models, case):
-    df, src = S.try_load_data(_CSV)
-    if src is None or df.empty:
+    df = _load(_CSV)
+    if df.empty:
         return html.Div(), html.Div()
+    pairwise_df = _load(_PAIRWISE)
 
     charts_man = _build_charts(case)
 
     if datasets:
         df = df[df["dataset"].isin(datasets)]
+        pairwise_df = pairwise_df[pairwise_df["dataset"].isin(datasets)]
     if libs:
         df = df[df["library"].isin(libs)]
+        # Only the "anchor" side of each pair is restricted to the selected
+        # libraries, matching what the row's own backend/library filter did
+        # before conversion — the peer it's compared against is never itself
+        # filtered out, since pairwise_metrics compares every row against
+        # every same-mode peer regardless of the Library selection.
+        pairwise_df = pairwise_df[pairwise_df["library_a"].isin(libs)]
     if models and "model" in df.columns:
         df = df[df["model"].isin(models)]
+        pairwise_df = pairwise_df[pairwise_df["model"].isin(models)]
 
     # KPIs/warnings describe whichever mode the current case tab covers.
-    kpi_df = df[_mode_mask(df, _CASE_TO_MODE.get(case, "path_dependent"))]
+    kpi_mode = _CASE_TO_MODE.get(case, "path_dependent")
+    kpi_df = df[df["mode"] == kpi_mode]
 
     # ── KPIs — describe the axes that actually vary in the tree benchmark ──
     def _label(backend) -> str:
@@ -635,7 +664,10 @@ def update_rq4(datasets, libs, models, case):
     def _chart_df(c: dict) -> pd.DataFrame:
         if c.get("custom_filter") is not None:
             return c["custom_filter"](df)
-        return df[_mode_mask(df, c["mode"])]
+        if c.get("source") == "pairwise":
+            return pairwise_df[pairwise_df["mode"] == c["mode"]] \
+                if c["mode"] is not None else pairwise_df
+        return df[df["mode"] == c["mode"]] if c["mode"] is not None else df
 
     charts = html.Div([
         *warns,

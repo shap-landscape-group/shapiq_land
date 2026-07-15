@@ -39,65 +39,12 @@ def _extract_vs_reference(metrics_str) -> dict:
     return {}
 
 
-def _backend_mode(backend) -> str:
-    """Return the tree computation mode encoded in a backend name ('' if none matches)."""
-    if not isinstance(backend, str):
-        return ""
-    b = backend.lower()
-    if "path" in b and "dependent" in b:
-        return "path_dependent"
-    if "interventional" in b:
-        return "interventional"
-    if "interaction" in b:
-        return "interaction"
-    return ""
-
-
-def _extract_same_mode_pairwise(backend, metrics_str) -> dict:
-    """
-    Parse the pairwise_metrics JSON cell and average this run's agreement with every
-    *other* backend that shares the same computation mode (path-dependent /
-    interventional / interaction). Used for tree CSVs where every backend is an exact
-    method compared against its peers rather than a single true-value reference —
-    restricting to same-mode counterparts avoids conflating "different by design"
-    (e.g. interventional vs. path-dependent) with "wrong".
-    """
-    if not isinstance(metrics_str, str) or not metrics_str.strip():
-        return {}
-    mode = _backend_mode(backend)
-    if not mode:
-        return {}
-    try:
-        clean = metrics_str.replace(": NaN", ": null").replace(":NaN", ":null")
-        metrics = json.loads(clean)
-    except Exception:
-        return {}
-
-    matches = [
-        vals for key, vals in metrics.items()
-        if key != backend and _backend_mode(key) == mode and isinstance(vals, dict)
-    ]
-    if not matches:
-        return {}
-
-    out = {}
-    for col in ("mean_abs_diff", "relative_mae", "sign_agreement", "mean_sample_rho"):
-        vals = [m[col] for m in matches if m.get(col) is not None]
-        if vals:
-            out[col] = float(np.nanmean(vals))
-    return out
-
-
 def _fill_quality_from_pairwise(df: pd.DataFrame) -> pd.DataFrame:
     """
     When the CSV uses the new pairwise_metrics column instead of direct quality
     columns, extract relative_mae / sign_agreement / mean_sample_rho / mean_abs_diff
-    so the rest of the pipeline can treat both formats identically.
-
-    CSVs with a "*_true_value" reference backend (RQ1-3, legacy tree CSV) compare
-    every row against that single ground truth. Newer tree CSVs have no true-value
-    backend at all — every backend is an exact method compared pairwise against its
-    peers — so those are instead averaged against same-mode counterparts only.
+    (compared against the "*_true_value" reference backend) so the rest of the
+    pipeline can treat both formats identically.
     """
     if "pairwise_metrics" not in df.columns:
         return df
@@ -107,18 +54,7 @@ def _fill_quality_from_pairwise(df: pd.DataFrame) -> pd.DataFrame:
     if not need:
         return df
 
-    has_true_value_backend = (
-        "backend" in df.columns
-        and df["backend"].astype(str).str.contains("true_value", na=False).any()
-    )
-    if has_true_value_backend or "backend" not in df.columns:
-        extracted = df["pairwise_metrics"].apply(_extract_vs_reference)
-    else:
-        extracted = df.apply(
-            lambda row: _extract_same_mode_pairwise(
-                row["backend"], row["pairwise_metrics"]),
-            axis=1,
-        )
+    extracted = df["pairwise_metrics"].apply(_extract_vs_reference)
     for col in need:
         df[col] = extracted.apply(lambda x, c=col: x.get(c, np.nan))
     return df
@@ -185,23 +121,8 @@ def _load_data_uncached(path: str) -> pd.DataFrame:
     approx = df["approximator"].fillna("?") if "approximator" in df.columns else pd.Series("?", index=df.index)
     df["method"] = lib + " / " + approx
 
-    has_true_value_backend = (
-        "backend" in df.columns
-        and df["backend"].astype(str).str.contains("true_value", na=False).any()
-    )
-    if not has_true_value_backend and "additivity_gap" in df.columns:
-        # Tree CSVs: relative_mae is derived by averaging against same-mode peers
-        # (see _extract_same_mode_pairwise), so one broken peer can make an
-        # otherwise-healthy backend's derived relative_mae come out NaN too —
-        # e.g. interventional mode has only 2 backends, so if one is broken the
-        # other has no valid peer left to compare against, even though its own
-        # output is fine. additivity_gap is computed directly from this row's
-        # own Shapley values, so it can't be corrupted by a peer's failure —
-        # use it as the failure signal instead.
-        df["is_failure"] = df["additivity_gap"].isna()
-    else:
-        mae = df["relative_mae"] if "relative_mae" in df.columns else pd.Series(np.nan, index=df.index)
-        df["is_failure"] = mae.isna() | (mae > FAILURE_MAE)
+    mae = df["relative_mae"] if "relative_mae" in df.columns else pd.Series(np.nan, index=df.index)
+    df["is_failure"] = mae.isna() | (mae > FAILURE_MAE)
 
     return df
 

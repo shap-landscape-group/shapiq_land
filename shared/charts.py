@@ -2,8 +2,6 @@
 shared/charts.py — All Plotly figure builders, one per chart type.
 Add new fig_* functions here; import them in __init__.py.
 """
-import json
-
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -15,7 +13,7 @@ from .tokens import (
     FAILURE_MAE, RHO_GOOD,
     _CHART_LAYOUT, _LEGEND_H, _MARGIN,
 )
-from .data import pareto_mark, _backend_mode
+from .data import pareto_mark
 
 
 def _lib_color(lib: str) -> str:
@@ -269,49 +267,22 @@ def fig_matrix(df: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def _tree_pairwise_matrix(sub: pd.DataFrame):
+def _tree_pairwise_matrix(pairwise_df: pd.DataFrame):
     """Build a symmetric backend x backend agreement matrix from a (pre-filtered)
-    tree-CSV slice. Reads each row's own pairwise_metrics JSON directly and
-    restricts comparisons to same-mode counterparts (path-dependent vs.
-    path-dependent, interventional vs. interventional, interaction vs.
-    interaction) — comparing across modes would conflate "different by design"
-    with genuine disagreement. Returns (backends, library_labels, z) or None if
-    there isn't enough data to compare at least two backends.
+    slice of the long-format pairwise-agreement table (see
+    results_converters/rq4_results_converter.py). Same-mode restriction and
+    failed-run exclusion already happened at conversion time, so every row
+    here is a valid (backend_a, backend_b) comparison. Returns
+    (backends, library_labels, z), or None if there isn't enough data to
+    compare at least two backends.
     """
-    if sub.empty or "pairwise_metrics" not in sub.columns or "backend" not in sub.columns:
-        return None
-    work = sub[sub["is_failure"].fillna(False) != True]
-    if work.empty:
+    if pairwise_df.empty:
         return None
 
-    metric, fallback_metric = "sign_agreement", "mean_sample_rho"
-    pairs = []
-    for backend, metrics_str in zip(work["backend"], work["pairwise_metrics"]):
-        if not isinstance(metrics_str, str) or not metrics_str.strip():
-            continue
-        mode = _backend_mode(backend)
-        if not mode:
-            continue
-        try:
-            clean = metrics_str.replace(": NaN", ": null").replace(":NaN", ":null")
-            parsed = json.loads(clean)
-        except Exception:
-            continue
-        for other, vals in parsed.items():
-            if other == backend or not isinstance(vals, dict) \
-                    or _backend_mode(other) != mode:
-                continue
-            val = vals.get(metric)
-            if val is None:
-                val = vals.get(fallback_metric)
-            if val is not None:
-                pairs.append((backend, other, val))
-    if not pairs:
-        return None
-
-    long = pd.DataFrame(pairs, columns=["backend_a", "backend_b", "value"])
-    long["value"] = pd.to_numeric(long["value"], errors="coerce")
-    long = long.dropna(subset=["value"])
+    value = pairwise_df["sign_agreement"]
+    value = value.where(value.notna(), pairwise_df["mean_sample_rho"])
+    long = pairwise_df.assign(value=pd.to_numeric(value, errors="coerce")) \
+        .dropna(subset=["value"])
     if long.empty:
         return None
 
@@ -336,7 +307,8 @@ def _tree_pairwise_matrix(sub: pd.DataFrame):
         z[i, j] = v
         z[j, i] = v
 
-    lib_of = work.drop_duplicates("backend").set_index("backend")["library"].to_dict()
+    lib_of = dict(zip(long["backend_a"], long["library_a"]))
+    lib_of.update(dict(zip(long["backend_b"], long["library_b"])))
     labels = [lib_of.get(b, _tree_backend_label(b)) for b in backends]
     return backends, labels, z
 
