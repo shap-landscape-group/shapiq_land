@@ -9,6 +9,51 @@ from .tokens import (
 )
 
 
+# ── Stat pills (used by each RQ page's "Benchmark at a glance" card) ──────────
+
+def pill(text: str, bg: str, color: str, tip: str | None = None) -> html.Span:
+    """A small rounded label. If `tip` is given, hovering shows a detail
+    tooltip (styled via the `.sk-tip` CSS in tokens.COMMON_STYLES) — e.g. the
+    actual dataset/model/method names behind a count like "4 datasets"."""
+    style = {
+        "display": "inline-block", "background": bg, "color": color,
+        "fontSize": "11px", "fontWeight": "600",
+        "padding": "3px 9px", "borderRadius": "4px",
+        "marginRight": "5px", "marginBottom": "5px",
+        "border": f"1px solid {color}40",
+        "whiteSpace": "nowrap",
+    }
+    if not tip:
+        return html.Span(text, style=style)
+    return html.Span(
+        text,
+        className="sk-tip",
+        **{"data-tip": tip},
+        style={**style, "cursor": "help", "borderBottom": f"1px dotted {color}"},
+    )
+
+
+def stat_col(heading: str, items: list, bg: str, color: str) -> html.Div:
+    """One column of the config card (e.g. "Swept" / "Fixed" / "Measured").
+    Each entry in `items` is either a plain label string, or a
+    `(label, tooltip)` tuple to attach a hover detail to that pill."""
+    pills = []
+    for item in items:
+        if isinstance(item, tuple):
+            label, tip = item
+        else:
+            label, tip = item, None
+        pills.append(pill(label, bg, color, tip))
+    return html.Div([
+        html.Div(heading, style={
+            "fontSize": "10px", "fontWeight": "700", "color": TEXT2,
+            "textTransform": "uppercase", "letterSpacing": "0.07em",
+            "marginBottom": "8px",
+        }),
+        html.Div(pills),
+    ], style={"flex": "1", "minWidth": "160px"})
+
+
 # ── KPI cards ─────────────────────────────────────────────────────────────────
 
 def kpi_card(value: str, label: str, color: str | None = None) -> html.Div:

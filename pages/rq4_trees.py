@@ -93,6 +93,12 @@ _FIXED_PARAM_COLS = [
     ("n_estimators",  "n_estimators"),
 ]
 
+_FIXED_PARAM_TIPS = {
+    "n_background": "Number of background samples used to estimate the "
+                     "reference/baseline distribution for each explanation.",
+    "n_eval": "Number of evaluation points explained per cell.",
+}
+
 _CASE_OPTIONS = [
     {"label": "Path-dependent", "value": "path-dependent"},
     {"label": "Interventional", "value": "interventional"},
@@ -362,24 +368,7 @@ _INTERP = (
 )
 
 
-def _pill(text: str, bg: str, color: str) -> html.Span:
-    return html.Span(text, style={
-        "fontSize": "11px", "fontWeight": "500", "color": color,
-        "background": bg, "borderRadius": "4px",
-        "padding": "2px 8px", "marginRight": "4px", "marginBottom": "4px",
-        "display": "inline-block",
-    })
-
-
-def _col(heading: str, items: list, bg: str, color: str) -> html.Div:
-    return html.Div([
-        html.Div(heading, style={
-            "fontSize": "10px", "fontWeight": "700", "color": S.TEXT2,
-            "textTransform": "uppercase", "letterSpacing": "0.07em",
-            "marginBottom": "8px",
-        }),
-        html.Div([_pill(i, bg, color) for i in items]),
-    ], style={"flex": "1", "minWidth": "160px"})
+_TREE_MODES = ["path_dependent", "interventional", "interaction"]
 
 
 def _config_card(df: pd.DataFrame) -> html.Div:
@@ -395,8 +384,16 @@ def _config_card(df: pd.DataFrame) -> html.Div:
     n_libs = df["library"].nunique() if "library" in df.columns else 0
     n_seeds = df["seed"].nunique() if "seed" in df.columns else 0
 
-    swept_items = [f"{n_ds} datasets", f"{n_models} model families",
-                   f"{n_libs} libraries", "3 computation modes"]
+    modes = sorted(df["mode"].dropna().unique()) if "mode" in df.columns else _TREE_MODES
+    swept_items = [
+        (f"{n_ds} datasets", ", ".join(sorted(df["dataset"].dropna().unique()))
+         if "dataset" in df.columns else ""),
+        (f"{n_models} model families", ", ".join(sorted(df["model"].dropna().unique()))
+         if "model" in df.columns else ""),
+        (f"{n_libs} libraries", ", ".join(sorted(df["library"].dropna().unique()))
+         if "library" in df.columns else ""),
+        (f"{len(modes)} computation modes", ", ".join(modes)),
+    ]
     if "max_depth" in df.columns:
         depths = pd.to_numeric(df["max_depth"], errors="coerce").dropna()
         if not depths.empty:
@@ -413,7 +410,9 @@ def _config_card(df: pd.DataFrame) -> html.Div:
         v = vals[0]
         if isinstance(v, float) and v.is_integer():
             v = int(v)
-        fixed_items.append(f"{label} = {v}")
+        text = f"{label} = {v}"
+        tip = _FIXED_PARAM_TIPS.get(col)
+        fixed_items.append((text, tip) if tip else text)
     if n_seeds:
         fixed_items.append(f"{n_seeds} seeds")
     # There's no literal "timeout" column — infer it from the data instead: a
@@ -425,11 +424,16 @@ def _config_card(df: pd.DataFrame) -> html.Div:
         if pd.notna(max_rt) and (df["runtime_s"] > max_rt - 1).sum() >= 5:
             fixed_items.append(f"backend timeout (inferred) ≈ {max_rt:.0f}s")
 
-    left  = _col("Swept", swept_items, "#EEF2FF", S.ACCENT)
-    mid   = _col("Fixed", fixed_items or ["—"], "#F1F5F9", S.TEXT2)
-    right = _col("Measured",
-                 ["runtime_s", "sign_agreement / mean_sample_rho (cross-library "
-                  "agreement)", "additivity_gap"],
+    left  = S.stat_col("Swept", swept_items, "#EEF2FF", S.ACCENT)
+    mid   = S.stat_col("Fixed", fixed_items or ["—"], "#F1F5F9", S.TEXT2)
+    right = S.stat_col("Measured",
+                 ["runtime_s",
+                  ("sign_agreement / mean_sample_rho (cross-library agreement)",
+                   "How often, and how closely, the libraries' attributions "
+                   "agree with each other — sign_agreement is the share of "
+                   "matching-sign features, mean_sample_rho is the Spearman "
+                   "rank correlation between them."),
+                  "additivity_gap"],
                  "#F0FDF4", S.GREEN)
 
     return html.Div([
@@ -457,28 +461,10 @@ def layout(**kwargs):
             _schema_hint(),
         ])
 
-    datasets = sorted(df["dataset"].dropna().unique())
-    libs = sorted(df["library"].dropna().unique())
-    models = sorted(df["model"].dropna().unique()) if "model" in df.columns else []
-
     return html.Div([
         S.rq_header(*_RQ_HEADER),
         *[S.info_note(r) for r in _REMARKS],
         _config_card(df),
-        S.filter_bar(
-            S.filter_checklist(
-                "Dataset", "rq4-ds",
-                [{"label": f"  {d}", "value": d} for d in datasets], datasets,
-            ),
-            S.filter_checklist(
-                "Library", "rq4-lib",
-                [{"label": f"  {lib}", "value": lib} for lib in libs], libs,
-            ),
-            S.filter_checklist(
-                "Model", "rq4-model",
-                [{"label": f"  {m}", "value": m} for m in models], models,
-            ),
-        ),
         html.Div([
             html.Label("Case focus", style={
                        "fontWeight": "600", "fontSize": "13px"}),
@@ -582,7 +568,10 @@ def _schema_hint() -> html.Div:
     Input("rq4-model", "value"),
     Input("rq4-case",  "value"),
 )
-def update_rq4(datasets, libs, models, case):
+def update_rq4(dataset, libs, model, case):
+    dataset = dataset or "__all__"
+    model = model or "__all__"
+
     df = _load(_CSV)
     if df.empty:
         return html.Div(), html.Div()
@@ -590,9 +579,9 @@ def update_rq4(datasets, libs, models, case):
 
     charts_man = _build_charts(case)
 
-    if datasets:
-        df = df[df["dataset"].isin(datasets)]
-        pairwise_df = pairwise_df[pairwise_df["dataset"].isin(datasets)]
+    if dataset != "__all__":
+        df = df[df["dataset"] == dataset]
+        pairwise_df = pairwise_df[pairwise_df["dataset"] == dataset]
     if libs:
         df = df[df["library"].isin(libs)]
         # Only the "anchor" side of each pair is restricted to the selected
@@ -601,9 +590,9 @@ def update_rq4(datasets, libs, models, case):
         # filtered out, since pairwise_metrics compares every row against
         # every same-mode peer regardless of the Library selection.
         pairwise_df = pairwise_df[pairwise_df["library_a"].isin(libs)]
-    if models and "model" in df.columns:
-        df = df[df["model"].isin(models)]
-        pairwise_df = pairwise_df[pairwise_df["model"].isin(models)]
+    if model != "__all__" and "model" in df.columns:
+        df = df[df["model"] == model]
+        pairwise_df = pairwise_df[pairwise_df["model"] == model]
 
     # KPIs/warnings describe whichever mode the current case tab covers.
     kpi_mode = _CASE_TO_MODE.get(case, "path_dependent")

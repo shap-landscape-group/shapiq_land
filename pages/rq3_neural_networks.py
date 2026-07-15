@@ -47,26 +47,6 @@ _RQ_HEADER = (
 #  Local helpers — config & guidance cards
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _pill(text: str, bg: str, color: str) -> html.Span:
-    return html.Span(text, style={
-        "fontSize": "11px", "fontWeight": "500", "color": color,
-        "background": bg, "borderRadius": "4px",
-        "padding": "2px 8px", "marginRight": "4px", "marginBottom": "4px",
-        "display": "inline-block",
-    })
-
-
-def _col(heading, items, bg, color) -> html.Div:
-    return html.Div([
-        html.Div(heading, style={
-            "fontSize": "10px", "fontWeight": "700", "color": S.TEXT2,
-            "textTransform": "uppercase", "letterSpacing": "0.07em",
-            "marginBottom": "8px",
-        }),
-        html.Div([_pill(i, bg, color) for i in items]),
-    ], style={"flex": "1", "minWidth": "160px"})
-
-
 def _config_card(df) -> html.Div:
     """Compact benchmark overview — config + experiment coverage."""
     if df.empty:
@@ -96,24 +76,33 @@ def _config_card(df) -> html.Div:
         dev_str = f"Device = {dev[0].upper()}" if len(dev) == 1 else "Device = variable"
 
         left_items = [
-            f"{n_ds} datasets",
-            f"{n_models} model types (MLP, CNN-1D, Transformer)",
-            f"{n_libs} libraries",
-            f"{n_approx} approximators",
+            (f"{n_ds} datasets", ", ".join(sorted(df["dataset"].dropna().unique()))),
+            (f"{n_models} model types (MLP, CNN-1D, Transformer)",
+             ", ".join(sorted(df["model"].dropna().unique()))),
+            (f"{n_libs} libraries", ", ".join(sorted(df["library"].dropna().unique()))),
+            (f"{n_approx} approximators", ", ".join(sorted(df["approximator"].dropna().unique()))),
             f"{n_seeds} seeds"
         ]
         mid_items = [
             budget_str,
-            nbg_str,
-            nev_str,
-            imp_str,
+            (nbg_str, "Number of background samples used to estimate the "
+             "reference/baseline distribution for each explanation."),
+            (nev_str, "Number of evaluation points explained per cell."),
+            (imp_str, "Missing/absent features are replaced by sampling from "
+             "their marginal distribution (feature independence assumed), not "
+             "conditioned on the other present features."),
             dev_str
         ]
 
-    left  = _col("Swept", left_items, "#EEF2FF", S.ACCENT)
-    mid   = _col("Fixed", mid_items, "#F1F5F9", S.TEXT2)
-    right = _col("Measured",
-                 ["runtime_s", "n_model_evals", "relative_mae", "mean_sample_rho", "relative_additivity_gap"],
+    left  = S.stat_col("Swept", left_items, "#EEF2FF", S.ACCENT)
+    mid   = S.stat_col("Fixed", mid_items, "#F1F5F9", S.TEXT2)
+    right = S.stat_col("Measured",
+                 ["runtime_s", "n_model_evals", "relative_mae",
+                  ("mean_sample_rho", "Spearman rank correlation between the "
+                   "approximated and exact attributions."),
+                  ("relative_additivity_gap", "How far the sum of attributions "
+                   "deviates from model_output − baseline, as a fraction of the "
+                   "model output (the Shapley additivity axiom).")],
                  "#F0FDF4", S.GREEN)
     return html.Div([
         html.Div([

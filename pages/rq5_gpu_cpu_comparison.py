@@ -81,26 +81,6 @@ _INTERP = (
 #  Local helpers — config card
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _pill(text: str, bg: str, color: str) -> html.Span:
-    return html.Span(text, style={
-        "fontSize": "11px", "fontWeight": "500", "color": color,
-        "background": bg, "borderRadius": "4px",
-        "padding": "2px 8px", "marginRight": "4px", "marginBottom": "4px",
-        "display": "inline-block",
-    })
-
-
-def _col(heading, items, bg, color) -> html.Div:
-    return html.Div([
-        html.Div(heading, style={
-            "fontSize": "10px", "fontWeight": "700", "color": S.TEXT2,
-            "textTransform": "uppercase", "letterSpacing": "0.07em",
-            "marginBottom": "8px",
-        }),
-        html.Div([_pill(i, bg, color) for i in items]),
-    ], style={"flex": "1", "minWidth": "160px"})
-
-
 def _config_card(df) -> html.Div:
     """Compact benchmark overview — config card."""
     n_ds = df["dataset"].dropna().nunique() if not df.empty else 0
@@ -109,14 +89,29 @@ def _config_card(df) -> html.Div:
     n_approx = df["approximator"].dropna().nunique() if not df.empty else 0
     n_seeds = int(df["seed_count"].iloc[0]) if not df.empty and "seed_count" in df.columns else 10
 
-    left  = _col("Swept",
-                 [f"{n_ds} datasets", f"{n_mdl} models", f"{n_libs} libraries", f"{n_approx} approximators", f"{n_seeds} seeds", "2 devices (CPU, GPU)"],
+    left  = S.stat_col("Swept",
+                 [(f"{n_ds} datasets", ", ".join(sorted(df["dataset"].dropna().unique())) if not df.empty else ""),
+                  (f"{n_mdl} models", ", ".join(sorted(df["model"].dropna().unique())) if not df.empty else ""),
+                  (f"{n_libs} libraries", ", ".join(sorted(df["library"].dropna().unique())) if not df.empty else ""),
+                  (f"{n_approx} approximators", ", ".join(sorted(df["approximator"].dropna().unique())) if not df.empty else ""),
+                  f"{n_seeds} seeds", "2 devices (CPU, GPU)"],
                  "#EEF2FF", S.ACCENT)
-    mid   = _col("Fixed",
-                 ["budget = 512 (NNs)", "n_background = 100", "n_eval = 10", "imputer = marginal"],
+    mid   = S.stat_col("Fixed",
+                 ["budget = 512 (NNs)",
+                  ("n_background = 100", "Number of background samples used to "
+                   "estimate the reference/baseline distribution for each explanation."),
+                  ("n_eval = 10", "Number of evaluation points explained per cell."),
+                  ("imputer = marginal", "Missing/absent features are replaced by "
+                   "sampling from their marginal distribution (feature independence "
+                   "assumed), not conditioned on the other present features.")],
                  "#F1F5F9", S.TEXT2)
-    right = _col("Measured",
-                 ["runtime_s", "relative_mae", "mean_sample_rho", "relative_additivity_gap"],
+    right = S.stat_col("Measured",
+                 ["runtime_s", "relative_mae",
+                  ("mean_sample_rho", "Spearman rank correlation between the "
+                   "approximated and exact attributions."),
+                  ("relative_additivity_gap", "How far the sum of attributions "
+                   "deviates from model_output − baseline, as a fraction of the "
+                   "model output (the Shapley additivity axiom).")],
                  "#F0FDF4", S.GREEN)
     return html.Div([
         html.Div([

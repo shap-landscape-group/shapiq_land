@@ -545,6 +545,54 @@ def _render_page_topbar(pathname):
             ]),
         ]
 
+    # ── RQ4 ───────────────────────────────────────────────────────────────
+    if pathname == "/rq4":
+        # Plain pd.read_csv (not S.try_load_data/load_data): this CSV's
+        # is_failure column comes from the converter's additivity_gap-based
+        # signal, and load_data()'s generic reprocessing would recompute it
+        # from relative_mae instead — see rq4_trees.py's _load() docstring.
+        # Only used here for the dataset/model/library option lists, but
+        # kept consistent with the page's own loader regardless.
+        _csv = os.path.join(_RESULTS, "converted", "rq4_trees_by_seed.csv")
+        src = _csv if os.path.exists(_csv) else None
+        df = pd.read_csv(_csv) if src else pd.DataFrame()
+
+        datasets = [{"label": "All datasets", "value": "__all__"}]
+        models   = [{"label": "All models",   "value": "__all__"}]
+        libs     = []
+
+        if not df.empty:
+            datasets += [{"label": d, "value": d} for d in sorted(df["dataset"].dropna().unique())]
+            models   += [{"label": m, "value": m} for m in sorted(df["model"].dropna().unique())]
+            libs      = sorted(df["library"].dropna().unique())
+
+        return [
+            _src_tag(src),
+            html.Div([
+                _lbl("Dataset"),
+                dcc.Dropdown(id="rq4-ds", options=datasets, value="__all__",
+                             clearable=False,
+                             style={"width": "150px", "fontSize": "12px", "minHeight": "28px"}),
+            ], style={"marginRight": "4px"}),
+            html.Div([
+                _lbl("Model"),
+                dcc.Dropdown(id="rq4-model", options=models, value="__all__",
+                             clearable=False,
+                             style={"width": "140px", "fontSize": "12px", "minHeight": "28px"}),
+            ], style={"marginRight": "4px"}),
+            html.Div([
+                _lbl("Library"),
+                dcc.Checklist(
+                    id="rq4-lib",
+                    options=[{"label": f" {lib}", "value": lib} for lib in libs],
+                    value=list(libs),
+                    inline=True,
+                    inputStyle={"marginRight": "3px"},
+                    labelStyle={"marginRight": "8px", "fontSize": "12px", "cursor": "pointer"},
+                ),
+            ]),
+        ]
+
     # ── RQ5 ───────────────────────────────────────────────────────────────
     if pathname == "/rq5":
         _csv = os.path.join(_RESULTS, "converted", "rq5_gpu_cpu_comparison_aggregated.csv")

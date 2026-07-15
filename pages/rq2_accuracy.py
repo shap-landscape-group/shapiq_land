@@ -104,38 +104,30 @@ def _band_fill(hex_color: str, alpha: float = 0.13) -> str:
 #  Local layout helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _pill(text, bg="#EEF2FF", color=S.ACCENT) -> html.Span:
-    return html.Span(text, style={
-        "display": "inline-block", "background": bg, "color": color,
-        "fontSize": "11px", "fontWeight": "600",
-        "padding": "3px 9px", "borderRadius": "4px",
-        "marginRight": "5px", "marginBottom": "5px",
-        "border": f"1px solid {color}40",
-        "whiteSpace": "nowrap",
-    })
-
-
-def _col(heading, items, bg, color) -> html.Div:
-    return html.Div([
-        html.Div(heading, style={
-            "fontSize": "10px", "fontWeight": "700", "color": S.TEXT2,
-            "textTransform": "uppercase", "letterSpacing": "0.07em",
-            "marginBottom": "8px",
-        }),
-        html.Div([_pill(i, bg, color) for i in items]),
-    ], style={"flex": "1", "minWidth": "160px"})
+_DATASET_NAMES = ["ames_housing", "bike", "covertype", "diabetes_130", "gisette"]
+_MODEL_NAMES = ["decision_tree", "gradient_boosting", "linear_regularized", "random_forest"]
+_LIBRARY_NAMES = ["dalex", "lightshap", "shap", "shapiq"]
 
 
 def _config_card() -> html.Div:
-    left = _col("Swept",
-                ["5 datasets", "4 models", "budget: 128, 512, 2048",
-                 "4 libraries", "2 approximators", "10 seeds"],
+    left = S.stat_col("Swept",
+                [("5 datasets", ", ".join(_DATASET_NAMES)),
+                 ("4 models", ", ".join(_MODEL_NAMES)),
+                 "budget: 128, 512, 2048",
+                 ("4 libraries", ", ".join(_LIBRARY_NAMES)),
+                 ("2 approximators", "kernel, permutation"),
+                 "10 seeds"],
                 "#EEF2FF", S.ACCENT)
-    mid = _col("Fixed",
-               ["n_features = 12", "n_background = 100",
-                "n_eval = 10", "imputer = marginal"],
+    mid = S.stat_col("Fixed",
+               ["n_features = 12",
+                ("n_background = 100", "Number of background samples used to "
+                 "estimate the reference/baseline distribution for each explanation."),
+                ("n_eval = 10", "Number of evaluation points explained per cell."),
+                ("imputer = marginal", "Missing/absent features are replaced by "
+                 "sampling from their marginal distribution (feature independence "
+                 "assumed), not conditioned on the other present features.")],
                "#F1F5F9", S.TEXT2)
-    right = _col("Reference",
+    right = S.stat_col("Reference",
                  ["oracle = shap_true_value",
                   "lightshap_exact ≈ oracle (1e-15)",
                   "shapiq_true_value ≈ oracle (1e-7)",
@@ -301,7 +293,7 @@ _CONVERGENCE_METRICS = {"relative_mae", "mean_sample_rho"}
 def _f2_section_title(metric: str) -> str:
     label = _METRIC_META.get(metric, {}).get("label", metric)
     kind = "Error convergence" if metric in _CONVERGENCE_METRICS else "Quality check"
-    return f"RQ1-F2 · {kind} — {label}"
+    return f"{kind} — {label}"
 
 
 def _filter_bar() -> html.Div:
@@ -1131,7 +1123,7 @@ def layout(**kwargs):
 
         # RQ1-F1 — oracle validation (first: establishes the measurement basis)
         S.section(
-            "RQ1-F1 · Oracle validation — which 'exact' backend to trust",
+            "Oracle validation — which 'exact' backend to trust",
             "",
             html.Div([
                 _f1_note(),
@@ -1160,7 +1152,7 @@ def layout(**kwargs):
 
         # RQ1-F3 — Pareto: runtime vs error
         S.section(
-            "RQ1-F3 · Runtime vs error trade-off",
+            "Runtime vs error trade-off",
             "Approximation methods only — exact backends are excluded because "
             "their MAE ≈ 0 would compress the entire approximation range into "
             "a sliver at the top of the axis. "
@@ -1184,7 +1176,7 @@ def layout(**kwargs):
 
         # RQ1-F4 — seed stability
         S.section(
-            "RQ1-F4 · Seed stability of the error",
+            "Seed stability of the error",
             "Raw seed-level error distributions — no aggregation. "
             "Tight boxes mean a single run is representative; wide spread "
             "means you could get unlucky with a random seed. "

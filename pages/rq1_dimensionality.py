@@ -101,46 +101,41 @@ def _band_fill(hex_color: str, alpha: float = 0.13) -> str:
 #  Local layout helpers (unchanged style from the previous page version)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _pill(text, bg="#EEF2FF", color=S.ACCENT) -> html.Span:
-    return html.Span(text, style={
-        "display": "inline-block", "background": bg, "color": color,
-        "fontSize": "11px", "fontWeight": "600",
-        "padding": "3px 9px", "borderRadius": "4px",
-        "marginRight": "5px", "marginBottom": "5px",
-        "border": f"1px solid {color}40",
-        "whiteSpace": "nowrap",
-    })
-
-
-def _col(heading, items, bg, color) -> html.Div:
-    return html.Div([
-        html.Div(heading, style={
-            "fontSize": "10px", "fontWeight": "700", "color": S.TEXT2,
-            "textTransform": "uppercase", "letterSpacing": "0.07em",
-            "marginBottom": "8px",
-        }),
-        html.Div([_pill(i, bg, color) for i in items]),
-    ], style={"flex": "1", "minWidth": "160px"})
+_MODEL_NAMES = ["decision_tree", "gradient_boosting", "linear_regularized", "random_forest"]
+_METHOD_NAMES = ["dalex / permutation", "lightshap / kernel", "lightshap / permutation",
+                  "shap / kernel", "shap / permutation", "shapiq / kernel", "shapiq / permutation"]
 
 
 def _config_card() -> html.Div:
     """Benchmark-at-a-glance card, updated for the new experimental grid."""
-    left = _col("Swept",
-                ["4 datasets", "4 models", "n_features: 14–256",
-                 "7 methods", "dalex: perm only",
+    left = S.stat_col("Swept",
+                [("4 datasets", ", ".join(_DATASET_ORDER)),
+                 ("4 models", ", ".join(_MODEL_NAMES)),
+                 "n_features: 14–256",
+                 ("7 methods", ", ".join(_METHOD_NAMES)),
+                 "dalex: perm only",
                  "budget: 512, 1024", "10 seeds"],
                 "#EEF2FF", S.ACCENT)
-    mid = _col("Fixed",
-               ["n_background = 100", "n_eval = 10", "imputer = marginal",
+    mid = S.stat_col("Fixed",
+               [("n_background = 100", "Number of background samples used to "
+                 "estimate the reference/baseline distribution for each explanation."),
+                ("n_eval = 10", "Number of evaluation points explained per cell."),
+                ("imputer = marginal", "Missing/absent features are replaced by "
+                 "sampling from their marginal distribution (feature independence "
+                 "assumed), not conditioned on the other present features."),
                 "10-min execution cap"],
                "#F1F5F9", S.TEXT2)
-    right = _col("Measured",
+    right = S.stat_col("Measured",
                  ["runtime_s", "n_model_evals",
-                  "cross-method agreement ρ"],
+                  ("cross-method agreement ρ", "Spearman rank correlation between "
+                   "each method's feature ranking and the other six methods' rankings.")],
                  "#F0FDF4", S.GREEN)
-    stress = _col("Separate stress test",
-                  ["gisette @ 1,000 features", "seed 0 only",
-                   "budget 2048", "7 methods"],
+    stress = S.stat_col("Separate stress test",
+                  [("gisette @ 1,000 features", "One-shot extreme test, not part "
+                    "of the standard scaling grid above."),
+                   "seed 0 only",
+                   "budget 2048",
+                   ("7 methods", ", ".join(_METHOD_NAMES))],
                   "#FEF3C7", "#92400E")
 
     return html.Div([
@@ -924,7 +919,7 @@ def layout(**kwargs):
 
         # RQ1-F1
         S.section(
-            "RQ2-F1 · Cost scaling by feature count",
+            "Cost scaling by feature count",
             "Median cost per method (10 seeds, band = q25–q75). "
             "'All datasets' shows one panel per dataset because each dataset "
             "has its own feature grid. 'All models' pools the 4 models by "
@@ -953,7 +948,7 @@ def layout(**kwargs):
 
         # RQ2-F2 — cross-method agreement
         S.section(
-            "RQ2-F2 · Cross-method agreement vs dimensionality",
+            "Cross-method agreement vs dimensionality",
             "",
             html.Div([
                 _agreement_note(),
@@ -964,7 +959,7 @@ def layout(**kwargs):
 
         # RQ2-F3
         S.section(
-            "RQ2-F3 · Execution-cap feasibility",
+            "Execution-cap feasibility",
             "Share of runs hitting the 10-minute cap per method × dataset × "
             "n_features. Models, budgets and seeds pooled (80 runs per cell): "
             "a cap anywhere is a deployment risk.",
@@ -981,7 +976,7 @@ def layout(**kwargs):
 
         # RQ2-F4 — budget effect
         S.section(
-            "RQ2-F4 · Budget effect on runtime (512 → 1024)",
+            "Budget effect on runtime (512 → 1024)",
             "",
             html.Div([
                 _budget_effect_note(),
@@ -992,7 +987,7 @@ def layout(**kwargs):
 
         # RQ1-F5
         S.section(
-            "RQ2-F5 · Extreme stress test — 1,000 features (separate experiment)",
+            "Extreme stress test — 1,000 features (separate experiment)",
             "gisette @ 1,000 features, budget 2048, seed 0 only, 7 methods × "
             "4 models. One-shot feasibility check — page filters do not apply "
             "and these bars are not comparable with the scaling curves above.",

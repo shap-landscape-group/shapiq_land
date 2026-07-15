@@ -73,6 +73,8 @@ from .charts import (
 
 # Layout helpers
 from .layout import (
+    pill,
+    stat_col,
     kpi_card,
     kpi_row,
     section,

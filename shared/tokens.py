@@ -196,4 +196,27 @@ a.sidebar-footer-link:hover {{ color: rgba(255,255,255,0.65); }}
     overflow-y: auto;
     scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) transparent;
 }}
+
+/* ── Stat-pill hover detail (Benchmark-at-a-glance cards) ────────────────── */
+.sk-tip {{ position: relative; }}
+.sk-tip::after, .sk-tip::before {{
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transition: opacity 0.12s ease 0.1s;
+    position: absolute; left: 50%; bottom: calc(100% + 7px); z-index: 400;
+}}
+.sk-tip::after {{
+    content: attr(data-tip); transform: translateX(-50%);
+    background: {TEXT}; color: #fff; font-weight: 500;
+    font-size: 11px; line-height: 1.5; white-space: normal;
+    width: max-content; max-width: 260px; text-align: left;
+    padding: 7px 10px; border-radius: 6px;
+    box-shadow: 0 4px 14px rgba(26,32,64,0.25);
+}}
+.sk-tip::before {{
+    content: ""; transform: translateX(-50%);
+    bottom: 100%; margin-bottom: 2px;
+    border: 5px solid transparent; border-top-color: {TEXT};
+}}
+.sk-tip:hover::after, .sk-tip:hover::before,
+.sk-tip:focus::after, .sk-tip:focus::before {{ opacity: 1; visibility: visible; }}
 """
