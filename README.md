@@ -35,6 +35,8 @@ shared/                   # tokens, layout helpers, chart builders, data I/O
 results/                  # raw benchmark dumps
 results/converted/        # tables the pages load
 results_converters/       # raw → converted pipeline (run after refreshing data)
+Procfile                  # Railway / gunicorn entry
+requirements.txt
 ```
 
 Page modules keep the original data-pipeline names (`rq1_dimensionality.py`,

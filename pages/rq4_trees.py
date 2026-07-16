@@ -19,7 +19,8 @@ so "agreement" charts on this page measure cross-library consistency, and a dip
 is a correctness red flag (bug/numerical instability), not an expected
 cost/quality trade-off.
 
-Chart set is based on TREES.md's 3/2/3 layout, plus depth-sweep diagnostics
+Chart set follows a 3/2/3 layout across path-dependent / interventional /
+interaction, plus depth-sweep diagnostics
 (failure-rate-vs-depth, depth-scaling-factor, a quick-look overview line chart,
 and a per-backend agreement ranking) added back into every tab they're
 meaningful for. Every chart section carries a `mode` key (path_dependent /

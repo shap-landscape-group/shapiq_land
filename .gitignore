@@ -1,10 +1,17 @@
+# Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
 .venv/
 .env
-*.bak
-*.DS_Store
+
+# OS / editor
 .DS_Store
+*.DS_Store
+
+# Local scratch / backups
+*.bak
+*.xlsx
+
+# Large raw dumps not needed for the app (converted/ is what pages load)
 results/rq5_model_gpu-vs-cpu-shapiq-shap.csv
 results/rq5_tree-gpu-vs-cpu.csv
