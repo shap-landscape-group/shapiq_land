@@ -70,10 +70,10 @@ _INTERP = (
     "budget (520 / 1024) and metric (runtime vs normalised model evaluations). "
     "Cross-method agreement tracks whether the seven methods still rank features "
     "alike as n_features grows (Spearman ρ vs the other six at the same budget). "
-    "Execution-cap feasibility shows where runs hit the 10-minute wall — a "
-    "deployment risk if any cell is hot. Budget effect on runtime compares "
-    "1024 / 520 per cell (ratio ≈ 2 ≈ linear coalition scaling for shap, shapiq "
-    "and lightshap; dalex is not directly comparable). The 1,000-feature stress "
+    "Budget effect on runtime compares 1024 / 520 per cell (ratio ≈ 2 ≈ linear "
+    "coalition scaling for shap, shapiq and lightshap; dalex is not directly "
+    "comparable). Execution-cap feasibility shows where runs hit the 10-minute "
+    "wall — a deployment risk if any cell is hot. The 1,000-feature stress "
     "test is a separate one-shot experiment and is not on the standard grid. "
     "Click ⓘ on any chart for section notes and CSV provenance."
 )
@@ -931,7 +931,14 @@ def layout(**kwargs):
             section_id="rq2-f2-section",
         ),
 
-        # RQ2-F3
+        # Budget effect (before feasibility — cost response, then where runs fail)
+        S.section(
+            "Budget effect on runtime (520 → 1024)",
+            _budget_effect_info(),
+            html.Div(id="rq2-f4-chart", style={"padding": "8px"}),
+            section_id="rq2-f4-section",
+        ),
+
         S.section(
             "Execution-cap feasibility",
             S.info_content(
@@ -948,15 +955,7 @@ def layout(**kwargs):
             section_id="rq2-f3-section",
         ),
 
-        # RQ2-F4 — budget effect
-        S.section(
-            "Budget effect on runtime (520 → 1024)",
-            _budget_effect_info(),
-            html.Div(id="rq2-f4-chart", style={"padding": "8px"}),
-            section_id="rq2-f4-section",
-        ),
-
-        # RQ1-F5
+        # Extreme stress test
         S.section(
             "Extreme stress test — 1,000 features (separate experiment)",
             S.info_content(
