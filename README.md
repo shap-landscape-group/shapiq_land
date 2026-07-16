@@ -1,94 +1,63 @@
-# Shapley Benchmark Explorer
+# SHAP Landscape Explorer
 
-Four focused Dash pages, one per research question.
+Interactive visualiser for the **Toolbox for Trustworthy Machine Learning** practical
+([shap-landscape-group](https://github.com/shap-landscape-group)).
+It compares Shapley-value libraries across five research questions.
+
+| | |
+|---|---|
+| **Live** | [web-production-4ae37.up.railway.app](https://web-production-4ae37.up.railway.app/) |
+| **Benchmarks** | [Shap-Landscape-Benchmark](https://github.com/shap-landscape-group/Shap-Landscape-Benchmark) |
+
+Raw experiment outputs come from the benchmark repo; converters here turn them into
+the CSVs the Dash app plots.
+
+---
+
+## Research questions
+
+| Route | Question |
+|-------|----------|
+| [`/rq1`](https://web-production-4ae37.up.railway.app/rq1) | Approximation accuracy |
+| [`/rq2`](https://web-production-4ae37.up.railway.app/rq2) | Dimensionality / scaling |
+| [`/rq3`](https://web-production-4ae37.up.railway.app/rq3) | Neural networks |
+| [`/rq4`](https://web-production-4ae37.up.railway.app/rq4) | Tree models |
+| [`/rq5`](https://web-production-4ae37.up.railway.app/rq5) | GPU vs CPU |
+
+---
 
 ## Structure
 
 ```
-benchmark_explorer.py        # app entry point — shell layout, sidebar
-shared/                      # shared package
-  tokens.py                  # design tokens, CSS, chart layout defaults
-  data.py                    # CSV loading helpers
-  charts.py                  # reusable chart builders
-  layout.py                  # reusable layout components
-pages/
-  home.py                    # overview / landing  →  /
-  rq1_dimensionality.py      # RQ1: high vs low dim  →  /rq1
-  rq2_accuracy.py            # RQ2: approximation accuracy  →  /rq2
-  rq3_neural_networks.py     # RQ3: NN runtime  →  /rq3
-  rq4_trees.py               # RQ4: tree depth / bottlenecks  →  /rq4
-results/
-  rq1_dimensionality.csv     # RQ1 data
-  rq2_accuracy.csv           # RQ2 data
-  rq3_neural_networks.csv    # RQ3 data
-  rq4_trees.csv              # RQ4 data
+benchmark_explorer.py     # app shell — sidebar, topbar, page routing
+pages/                    # one Dash page per RQ (+ home)
+shared/                   # tokens, layout helpers, chart builders, data I/O
+results/                  # raw benchmark dumps
+results/converted/        # tables the pages load
+results_converters/       # raw → converted pipeline (run after refreshing data)
 ```
 
----
-
-## Setup (first time only)
-
-```bash
-# Create virtual environment
-python3 -m venv .venv
-
-# Activate it
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
+Page modules keep the original data-pipeline names (`rq1_dimensionality.py`,
+`rq2_accuracy.py`, …) while routes follow the RQ numbering above.
 
 ---
 
 ## Run locally
 
 ```bash
+python3 -m venv .venv
 source .venv/bin/activate
-python benchmark_explorer.py
-```
+pip install -r requirements.txt
 
-Then open **<http://localhost:8050>** in your browser.
-
----
-
-## Run in production (gunicorn)
-
-```bash
-source .venv/bin/activate
+python benchmark_explorer.py          # → http://localhost:8050
+# or
 gunicorn benchmark_explorer:server --bind 0.0.0.0:$PORT
 ```
 
 ---
 
-## Updating CSV data
+## Refreshing data
 
-Each page loads exactly one CSV from the `results/` folder:
-
-| File | Used by |
-|---|---|
-| `results/rq1_dimensionality.csv` | Home, RQ1 |
-| `results/rq2_accuracy.csv` | RQ2 |
-| `results/rq3_neural_networks.csv` | RQ3 |
-| `results/rq4_trees.csv` | RQ4 |
-
-Replace the file and **refresh the browser** — no code changes needed.
-
-### Minimum CSV columns
-
-```
-dataset, model, n_features, n_samples, backend, library, computation_type,
-approximator, budget, n_eval, runtime_s, n_model_evals, mean_abs_diff,
-relative_mae, sign_agreement, mean_sample_rho, reference_backend
-```
-
-`rq4_trees.csv` benefits from an extra `tree_depth` (or `max_depth`) column —
-the page uses it as the complexity axis. Without it, `model` is used instead.
-
----
-
-## Deactivate the environment
-
-```bash
-deactivate
-```
+1. Pull new CSVs from [Shap-Landscape-Benchmark](https://github.com/shap-landscape-group/Shap-Landscape-Benchmark) into `results/`.
+2. Re-run the matching script in `results_converters/`.
+3. Reload the browser — pages read only from `results/converted/`.
