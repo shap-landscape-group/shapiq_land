@@ -22,6 +22,7 @@ dash.register_page(
 _HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _AGGREGATED = os.path.join(_HERE, "results", "converted", "rq5_gpu_cpu_comparison_aggregated.csv")
 _BY_SEED    = os.path.join(_HERE, "results", "converted", "rq5_gpu_cpu_comparison_by_seed.csv")
+_WOODELF_DEPTH = os.path.join(_HERE, "results", "converted", "rq5_woodelf_depth_scaling.csv")
 
 
 def _load(path) -> pd.DataFrame:
@@ -34,13 +35,14 @@ def _load(path) -> pd.DataFrame:
 
 _RQ_HEADER = (
     "RQ5", "GPU vs CPU Comparison",
-    "As a user training and running neural network models, how much speedup "
-    "does running Shapley explanations on GPU (CUDA) provide compared to CPU?"
+    "As a user running Shapley explanations on neural networks and tree ensembles, "
+    "how much speedup does executing on GPU (CUDA) provide compared to CPU?"
 )
 
 _REMARKS = [
-    "Benchmark compares neural network and tree explanation methods across CPU and GPU devices.",
+    "Benchmark compares neural network (captum, shapiq) and tree (woodelf) explanation methods across CPU and GPU devices.",
     "Configurations are identical between both devices to ensure a direct hardware comparison.",
+    "woodelf runs exact tree Shapley values on XGBoost / LightGBM / Random Forest; its runtime is the median across the max_depth sweep per seed. GPU acceleration only pays off once the per-call overhead is amortised — for these tree sizes the CPU backend is often faster.",
 ]
 
 _CHARTS = [
@@ -64,16 +66,23 @@ _CHARTS = [
     ),
     dict(
         section_id = "rq5-captum-dividends-section",
-        title      = "Figure 22: Captum Hardware Acceleration Dividends",
+        title      = "Captum Hardware Acceleration Dividends",
         subtitle   = "Grouped paired bar chart comparing Captum estimators (Gradient SHAP, DeepLIFT SHAP) on CPU vs GPU across architectures.",
         fn         = S.fig_captum_hardware_dividends,
+    ),
+    dict(
+        section_id = "rq5-woodelf-scaling-section",
+        title      = "woodelf Tree-Explainer Scaling — CPU vs GPU",
+        subtitle   = "Log-log runtime of the woodelf tree explainer against maximum tree depth (the swept variable), split by imputation (path-dependent / interventional) and device. CPU stays roughly flat while GPU runtime climbs steeply with depth.",
+        fn         = S.fig_woodelf_depth_scaling,
     ),
 ]
 
 _INTERP = (
-    "How to read this page: check the runtime comparison chart to see the raw seconds saved by moving to a GPU. "
-    "The Speedup Factor chart quantifies the relative hardware efficiency improvement, helping you decide whether the GPU "
-    "overhead (e.g. data transfer) is justified for smaller datasets or budgets."
+    "How to read this page: check the runtime comparison chart to see the raw seconds gained or lost by moving to a GPU. "
+    "The Speedup Factor chart quantifies the relative hardware efficiency — a factor above 1× means the GPU wins, while "
+    "a factor below 1× (as seen for the woodelf tree backend at these sizes) means the GPU overhead (kernel launch, data "
+    "transfer) is not yet justified. Use it to decide whether the accelerator pays off for your dataset and budget."
 )
 
 
@@ -222,6 +231,7 @@ def _schema_hint() -> html.Div:
 def update_rq5(ds, mdl, dev_val):
     df_agg = _load(_AGGREGATED)
     df_seed = _load(_BY_SEED)
+    df_depth = _load(_WOODELF_DEPTH)
     if df_agg.empty:
         return html.Div()
 
@@ -229,12 +239,18 @@ def update_rq5(ds, mdl, dev_val):
     if ds != "__all__":
         df_agg = df_agg[df_agg["dataset"] == ds]
         df_seed = df_seed[df_seed["dataset"] == ds]
+        if not df_depth.empty:
+            df_depth = df_depth[df_depth["dataset"] == ds]
     if mdl != "__all__":
         df_agg = df_agg[df_agg["model"] == mdl]
         df_seed = df_seed[df_seed["model"] == mdl]
+        if not df_depth.empty:
+            df_depth = df_depth[df_depth["model"] == mdl]
     if dev_val != "__all__":
         df_agg = df_agg[df_agg["device"].astype(str).str.lower().eq(dev_val.lower())]
         df_seed = df_seed[df_seed["device"].astype(str).str.lower().eq(dev_val.lower())]
+        if not df_depth.empty:
+            df_depth = df_depth[df_depth["device"].astype(str).str.lower().eq(dev_val.lower())]
 
     warns = []
     if df_agg.empty:
@@ -269,6 +285,13 @@ def update_rq5(ds, mdl, dev_val):
                       config=S.graph_config("rq5_captum_hardware_dividends"),
                       style={"padding": "8px"}),
             section_id=_CHARTS[3]["section_id"],
+        ),
+        S.section(
+            _CHARTS[4]["title"], _CHARTS[4]["subtitle"],
+            dcc.Graph(figure=S.fig_woodelf_depth_scaling(df_depth),
+                      config=S.graph_config("rq5_woodelf_scaling"),
+                      style={"padding": "8px"}),
+            section_id=_CHARTS[4]["section_id"],
         ),
         S.interpretation_note(_INTERP),
     ])

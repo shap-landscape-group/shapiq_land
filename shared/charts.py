@@ -2074,7 +2074,10 @@ def fig_hardware_speedup(df: pd.DataFrame) -> go.Figure:
             sub.groupby(["method", "device"])
             .agg(rt=("runtime_median", "median")).reset_index()
         )
-        pivot = grp.pivot(index="method", columns="device", values="rt").dropna(subset=["cpu", "gpu"])
+        pivot = grp.pivot(index="method", columns="device", values="rt")
+        if "cpu" not in pivot.columns or "gpu" not in pivot.columns:
+            return fig_empty("Speedup needs both CPU and GPU runs — select 'All devices'.")
+        pivot = pivot.dropna(subset=["cpu", "gpu"])
         if pivot.empty:
             return fig_empty("No matching CPU and GPU runs to compute speedup.")
         pivot["speedup"] = pivot["cpu"] / pivot["gpu"]
@@ -2086,7 +2089,10 @@ def fig_hardware_speedup(df: pd.DataFrame) -> go.Figure:
             return fig_empty()
         sub["device"] = sub["device"].astype(str).str.lower().replace({"cuda": "gpu"})
         group_keys = ["dataset", "model", "library", "approximator", "method", "seed"]
-        pivot_raw = sub.pivot_table(index=group_keys, columns="device", values="runtime_s").dropna(subset=["cpu", "gpu"])
+        pivot_raw = sub.pivot_table(index=group_keys, columns="device", values="runtime_s")
+        if "cpu" not in pivot_raw.columns or "gpu" not in pivot_raw.columns:
+            return fig_empty("Speedup needs both CPU and GPU runs — select 'All devices'.")
+        pivot_raw = pivot_raw.dropna(subset=["cpu", "gpu"])
         if pivot_raw.empty:
             return fig_empty("No matching CPU and GPU runs to compute speedup.")
         pivot_raw["speedup"] = pivot_raw["cpu"] / pivot_raw["gpu"]
@@ -2696,7 +2702,7 @@ def fig_rq3_topology_violations(df: pd.DataFrame) -> go.Figure:
 
 
 def fig_captum_hardware_dividends(df: pd.DataFrame) -> go.Figure:
-    """Figure 22: Captum Hardware Acceleration Dividends grouped paired bar chart."""
+    """Captum Hardware Acceleration Dividends grouped paired bar chart."""
     df = df.copy()
     if "seed" in df.columns:
         sub = df[
@@ -2807,105 +2813,102 @@ def fig_captum_hardware_dividends(df: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def fig_woodelf_vectorization_scaling(df: pd.DataFrame) -> go.Figure:
-    """Figure 23: Woodelf Vectorization Scaling Laws across Compute Cores (log-log line plot)."""
-    df = df.copy()
-    if "seed" in df.columns:
-        sub = df[
-            (df["library"].str.lower() == "woodelf") &
-            (df["n_features"].notna()) &
-            (df["runtime_s"].notna())
-        ].copy()
-        if sub.empty:
-            return fig_empty("No Woodelf run data found.")
-        sub["paradigm"] = sub["approximator"].apply(lambda x: "path_dependent" if "path_dependent" in str(x).lower() else "interventional")
-        sub["device"] = sub["approximator"].apply(lambda x: "gpu" if "gpu" in str(x).lower() else "cpu")
-        
-        grp = (
-            sub.groupby(["n_features", "paradigm", "device"])
-            .agg(
-                rt=("runtime_s", "median"),
-                rt_lo=("runtime_s", lambda x: x.quantile(0.25)),
-                rt_hi=("runtime_s", lambda x: x.quantile(0.75))
-            ).reset_index()
-        )
-    else:
-        sub = df[
-            (df["library"].str.lower() == "woodelf") &
-            (df["n_features"].notna()) &
-            (df["runtime_median"].notna())
-        ].copy()
-        if sub.empty:
-            return fig_empty("No Woodelf run data found.")
-        sub["paradigm"] = sub["approximator"].apply(lambda x: "path_dependent" if "path_dependent" in str(x).lower() else "interventional")
-        sub["device"] = sub["approximator"].apply(lambda x: "gpu" if "gpu" in str(x).lower() else "cpu")
-        
-        grp = (
-            sub.groupby(["n_features", "paradigm", "device"])
-            .agg(
-                rt=("runtime_median", "median"),
-                rt_lo=("runtime_q25", "median"),
-                rt_hi=("runtime_q75", "median")
-            ).reset_index()
-        )
+def _woodelf_device(sub: pd.DataFrame) -> pd.Series:
+    """Resolve the device for woodelf rows.
 
+    Prefer an explicit ``device`` column (current converted schema); fall back to
+    parsing a legacy ``woodelf_gpu_*`` approximator string when it is absent.
+    """
+    if "device" in sub.columns and sub["device"].notna().any():
+        return sub["device"].astype(str).str.lower().replace({"cuda": "gpu"})
+    return sub["approximator"].apply(lambda x: "gpu" if "gpu" in str(x).lower() else "cpu")
+
+
+def fig_woodelf_depth_scaling(df: pd.DataFrame) -> go.Figure:
+    """woodelf runtime scaling against tree depth, split by device.
+
+    Tree depth is the variable the woodelf benchmark actually sweeps, so it — not
+    feature count, which is fixed per dataset — is the meaningful scaling axis.
+    Each series is the median wall-clock runtime over datasets, models and seeds
+    at a given max tree depth; Q25–Q75 spread is shown as a shaded band.
+    """
+    df = df.copy()
+    sub = df[
+        (df["library"].astype(str).str.lower() == "woodelf") &
+        (df["max_depth"].notna()) &
+        (df["runtime_s"].notna()) &
+        (df["runtime_s"] > 0)  # runtime==0 is a degenerate/empty tree; drop for log axis
+    ].copy()
+    if sub.empty:
+        return fig_empty("No woodelf run data found.")
+
+    sub["paradigm"] = sub["approximator"].apply(
+        lambda x: "path_dependent" if "path_dependent" in str(x).lower() else "interventional")
+    sub["device"] = _woodelf_device(sub)
+
+    grp = (
+        sub.groupby(["max_depth", "paradigm", "device"])
+        .agg(
+            rt=("runtime_s", "median"),
+            rt_lo=("runtime_s", lambda x: x.quantile(0.25)),
+            rt_hi=("runtime_s", lambda x: x.quantile(0.75)),
+        ).reset_index()
+    )
     if grp.empty:
         return fig_empty()
-        
+
+    colors = {"interventional": ACCENT, "path_dependent": PINK}
+    styles = {"cpu": "solid", "gpu": "dash"}
+
+    grp = grp.sort_values("max_depth")
+
     fig = go.Figure()
-    
-    colors = {
-        "interventional": ACCENT,
-        "path_dependent": PINK,
-    }
-    
-    styles = {
-        "cpu": "solid",
-        "gpu": "dash",
-    }
-    
-    grp = grp.sort_values("n_features")
-    
     for (paradigm, device), ldf in grp.groupby(["paradigm", "device"]):
         color = colors.get(paradigm, ACCENT)
         dash = styles.get(device, "solid")
-        
-        name = f"Woodelf {paradigm.replace('_', ' ').capitalize()} ({device.upper()})"
-        
+        name = f"woodelf {paradigm.replace('_', ' ')} ({device.upper()})"
+
         fig.add_trace(go.Scatter(
-            x=ldf["n_features"], y=ldf["rt"],
+            x=ldf["max_depth"], y=ldf["rt"],
             mode="lines+markers",
             name=name,
             line=dict(color=color, width=2.5, dash=dash),
             marker=dict(color=color, size=6),
+            error_y=dict(
+                type="data", symmetric=False,
+                array=(ldf["rt_hi"] - ldf["rt"]).values,
+                arrayminus=(ldf["rt"] - ldf["rt_lo"]).values,
+                visible=True, color=color, thickness=1.0, width=3,
+            ),
             customdata=np.column_stack((
                 ldf["rt_lo"].values,
                 ldf["rt_hi"].values,
-                [paradigm.replace('_', ' ').capitalize()] * len(ldf),
-                [device.upper()] * len(ldf)
+                [device.upper()] * len(ldf),
             )),
             hovertemplate=(
-                "<b>%{name}</b><br>"
-                "Features: <b>%{x}</b><br>"
-                "Median runtime: <b>%{y:.3f} s</b> <span style='font-size:11px;color:#64748B'>[%{customdata[0]:.3f}s - %{customdata[1]:.3f}s]</span><extra></extra>"
+                "<b>%{fullData.name}</b><br>"
+                "Max tree depth: <b>%{x}</b><br>"
+                "Median runtime: <b>%{y:.3f} s</b> "
+                "<span style='font-size:11px;color:#64748B'>[%{customdata[0]:.3f}s - %{customdata[1]:.3f}s]</span>"
+                "<extra></extra>"
             )
         ))
-        
+
     fig.update_layout(
         **_CHART_LAYOUT,
         height=420,
         margin=dict(l=55, r=20, t=30, b=48),
         xaxis=dict(
-            title="Number of features (M) — log scale",
+            title="Maximum tree depth — log scale",
             type="log",
             gridcolor=BORDER,
-            zeroline=False
+            zeroline=False,
         ),
         yaxis=dict(
             title="Wall-clock runtime (s) — log scale",
             type="log",
             gridcolor=BORDER,
-            zeroline=False
+            zeroline=False,
         ),
         legend=dict(
             orientation="h", yanchor="bottom", y=1.02,
