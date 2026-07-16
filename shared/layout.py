@@ -73,8 +73,7 @@ def section(title, subtitle=None, children=None,
     """
     Wraps a chart or table with an editorial header and card border.
 
-    section_id: stable DOM id — used as a CONNECTOR target by the advisor panel.
-    To deep-link from the advisor, change the advisor href to f'{rq_page}#{section_id}'.
+    section_id: stable DOM id for the section wrapper (optional deep-link anchor).
     """
     title_node = (
         html.H3(title, style={"margin": "0", "fontSize": "15px",

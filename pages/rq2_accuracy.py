@@ -134,11 +134,8 @@ def _config_card() -> html.Div:
                ["n_features = 12", "n_background = 100",
                 "n_eval = 10", "imputer = marginal"],
                "#F1F5F9", S.TEXT2)
-    right = _col("Reference",
-                 ["oracle = shap_true_value",
-                  "lightshap_exact ≈ oracle (1e-15)",
-                  "shapiq_true_value ≈ oracle (1e-7)",
-                  "dalex_true_value deviates 3.2%"],
+    right = _col("Scoring reference",
+                 ["all error metrics vs shap_true_value"],
                  "#F0FDF4", S.GREEN)
 
     return html.Div([
@@ -263,7 +260,9 @@ def _fmt_rel_mae_sci(v: float) -> str:
 def _oracle_info() -> html.Div:
     return S.info_content(
         "Approximation error needs a fixed reference first. "
-        "shap_true_value is that reference: lightshap_exact matches it at "
+        "Every error metric on this page is computed against shap_true_value "
+        "only — not an average of the exact backends. "
+        "This chart checks that choice: lightshap_exact matches shap_true_value at "
         "~0 % (machine precision), shapiq_true_value at ~0.00005 % — "
         "negligible but visibly higher — while dalex_true_value sits at "
         "~3.2 % from a different exact-computation path, not seed noise.",
@@ -404,22 +403,16 @@ def _seed_checklist() -> html.Div:
     })
 
 
-def _pool_models_datasets(conv: pd.DataFrame, ds: str, mdl: str) -> pd.DataFrame:
+def _pool_models_datasets(conv: pd.DataFrame, ds, mdl) -> pd.DataFrame:
     """Display-level pooling for the convergence figures.
 
-    When 'All datasets' / 'All models' is selected, the remaining
-    dimension(s) are pooled by MEDIAN over the aggregated cells. This is
-    stated on each affected chart's provenance note. Selecting a specific
-    dataset and model shows unpooled converter output.
+    Dataset/model filters accept None (all), one value, or a list. When
+    multiple values remain, the aggregated cells are pooled by median.
     """
-    group_cols = ["library", "approximator", "budget", "method"]
-    if ds != "__all__":
-        conv = conv[conv["dataset"] == ds]
-    else:
-        group_cols = ["dataset"] + group_cols if False else group_cols
-    if mdl != "__all__":
-        conv = conv[conv["model"] == mdl]
+    conv = S.filter_by_column(conv, "dataset", ds)
+    conv = S.filter_by_column(conv, "model", mdl)
 
+    group_cols = ["library", "approximator", "budget", "method"]
     value_cols = [c for c in conv.columns
                   if c.endswith(("_median", "_q25", "_q75"))]
     return (conv.groupby(group_cols, as_index=False)[value_cols].median())
@@ -635,15 +628,12 @@ def _budget_legend_marker(color: str, budget: int) -> dict:
     )
 
 
-def _build_pareto_figure(ra: pd.DataFrame, ds: str, mdl: str) -> go.Figure:
+def _build_pareto_figure(ra: pd.DataFrame, ds, mdl) -> go.Figure:
     if ra.empty:
         return S.fig_empty()
 
-    sub = ra.copy()
-    if ds != "__all__":
-        sub = sub[sub["dataset"] == ds]
-    if mdl != "__all__":
-        sub = sub[sub["model"] == mdl]
+    sub = S.filter_by_column(S.filter_by_column(ra.copy(), "dataset", ds),
+                             "model", mdl)
     if sub.empty:
         return S.fig_empty()
 
@@ -816,8 +806,11 @@ def _stability_linear_yaxis(vals: pd.Series, *, ceil: float) -> dict:
     )
 
 
-def _is_linear_stability_view(mdl: str, model_group: str) -> bool:
-    return mdl == _LINEAR_MODEL or (mdl == "__all__" and model_group == "linear")
+def _is_linear_stability_view(mdl, model_group: str) -> bool:
+    selected = S.normalize_filter_selection(mdl)
+    if selected is not None:
+        return len(selected) == 1 and selected[0] == _LINEAR_MODEL
+    return model_group == "linear"
 
 
 def _linear_stability_note() -> html.Div:
@@ -862,7 +855,7 @@ def _stability_panel(fig: go.Figure, mdl: str, model_group: str) -> html.Div:
     return html.Div(children, style={"width": "100%"})
 
 
-def _build_seed_stability_figure(by_seed: pd.DataFrame, ds: str, mdl: str,
+def _build_seed_stability_figure(by_seed: pd.DataFrame, ds, mdl,
                                  budget: int,
                                  model_group: str = "nonlinear",
                                  seeds: list | None = None) -> go.Figure:
@@ -870,10 +863,10 @@ def _build_seed_stability_figure(by_seed: pd.DataFrame, ds: str, mdl: str,
         return S.fig_empty()
 
     sub = by_seed[by_seed["budget"] == budget]
-    if ds != "__all__":
-        sub = sub[sub["dataset"] == ds]
-    if mdl != "__all__":
-        sub = sub[sub["model"] == mdl]
+    sub = S.filter_by_column(sub, "dataset", ds)
+    selected_mdl = S.normalize_filter_selection(mdl)
+    if selected_mdl is not None:
+        sub = sub[sub["model"].isin(selected_mdl)]
     elif model_group == "linear":
         sub = sub[sub["model"] == _LINEAR_MODEL]
     else:
@@ -1200,8 +1193,6 @@ def layout(**kwargs):
 )
 def update_rq2(ds, mdl, approxs, conv_metric, stability_budget,
                stability_models, stability_seeds):
-    ds = ds or "__all__"
-    mdl = mdl or "__all__"
     conv_metric = conv_metric or "relative_mae"
     stability_budget = int(stability_budget or 512)
     stability_models = stability_models or "nonlinear"

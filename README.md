@@ -5,13 +5,12 @@ Four focused Dash pages, one per research question.
 ## Structure
 
 ```
-benchmark_explorer.py        # app entry point — shell layout, sidebar, advisor panel
+benchmark_explorer.py        # app entry point — shell layout, sidebar
 shared/                      # shared package
   tokens.py                  # design tokens, CSS, chart layout defaults
   data.py                    # CSV loading helpers
   charts.py                  # reusable chart builders
   layout.py                  # reusable layout components
-  advisor.py                 # advisor panel logic
 pages/
   home.py                    # overview / landing  →  /
   rq1_dimensionality.py      # RQ1: high vs low dim  →  /rq1

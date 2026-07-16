@@ -140,6 +140,36 @@ def try_load_data(*paths: str) -> tuple[pd.DataFrame, str | None]:
     return empty, None
 
 
+def normalize_filter_selection(selection) -> list[str] | None:
+    """Topbar filter store → None means all, [] means none, else explicit list."""
+    if selection is None or selection == "__all__":
+        return None
+    if isinstance(selection, str):
+        return [selection]
+    if isinstance(selection, list):
+        if "__all__" in selection:
+            return None
+        return list(selection)
+    return None
+
+
+def filter_by_column(df: pd.DataFrame, column: str, selection) -> pd.DataFrame:
+    selected = normalize_filter_selection(selection)
+    if selected is None or column not in df.columns or df.empty:
+        return df
+    if not selected:
+        return df.iloc[0:0]
+    return df[df[column].isin(selected)]
+
+
+def should_pool_dimension(selection) -> bool:
+    """Pool by median when all values or more than one are selected."""
+    selected = normalize_filter_selection(selection)
+    if selected is None:
+        return True
+    return len(selected) > 1
+
+
 def compute_leaderboard(df: pd.DataFrame) -> pd.DataFrame:
     """Aggregate per method and rank by median Spearman ρ, ties broken by runtime."""
     empty_cols = ["rank", "method", "library", "approximator",

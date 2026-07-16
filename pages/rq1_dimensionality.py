@@ -448,18 +448,19 @@ def _scaling_traces(sub: pd.DataFrame, metric: str, showlegend: bool):
     return traces
 
 
-def _build_runtime_scaling_figure(agg: pd.DataFrame, dataset: str,
-                                  metric: str) -> go.Figure:
+def _build_runtime_scaling_figure(agg: pd.DataFrame, metric: str) -> go.Figure:
     if agg.empty:
         return S.fig_empty("No converted data — run results_converters/rq1_results_converter.py")
 
     y_title = ("Median runtime (s)" if metric == "runtime_s"
                else "Model evals / 2ⁿ features")
 
-    if dataset != "__all__":
-        sub = agg[agg["dataset"] == dataset]
-        if sub.empty:
-            return S.fig_empty()
+    datasets = [d for d in _DATASET_ORDER if d in agg["dataset"].unique()]
+    if not datasets:
+        return S.fig_empty()
+
+    if len(datasets) == 1:
+        sub = agg[agg["dataset"] == datasets[0]]
         fig = go.Figure()
         for tr in _scaling_traces(sub, metric, showlegend=True):
             fig.add_trace(tr)
@@ -474,23 +475,21 @@ def _build_runtime_scaling_figure(agg: pd.DataFrame, dataset: str,
         )
         return fig
 
-    # "All datasets": small multiples — one panel per dataset, because the
-    # datasets use different feature grids and pooling them into one line
+    # Multiple datasets: small multiples — one panel per dataset, because each
+    # dataset uses a different feature grid and pooling them into one line
     # would average incomparable x-positions.
-    datasets = [d for d in _DATASET_ORDER if d in agg["dataset"].unique()]
+    cols = 2
+    rows = (len(datasets) + cols - 1) // cols
     fig = make_subplots(
-        rows=2, cols=2, subplot_titles=datasets,
+        rows=rows, cols=cols, subplot_titles=datasets,
         horizontal_spacing=0.12, vertical_spacing=0.16,
     )
-    # axis key suffix: subplot (row, col) → "" / "2" / "3" / "4"
-    _ax_sfx = {(1, 1): "", (1, 2): "2", (2, 1): "3", (2, 2): "4"}
     for i, ds in enumerate(datasets):
-        row, col = divmod(i, 2)
+        row, col = divmod(i, cols)
         sub = agg[agg["dataset"] == ds]
         for tr in _scaling_traces(sub, metric, showlegend=(i == 0)):
             fig.add_trace(tr, row=row + 1, col=col + 1)
-        sfx = _ax_sfx[(row + 1, col + 1)]
-        # Only label y-axis on left column panels to avoid crowding.
+        sfx = "" if i == 0 else str(i + 1)
         y_label = y_title if col == 0 else ""
         y_ticks = (_runtime_ticks() if metric == "runtime_s"
                    else _evals_ticks(sub))
@@ -501,7 +500,7 @@ def _build_runtime_scaling_figure(agg: pd.DataFrame, dataset: str,
                                 title_text=y_label, **y_ticks),
         })
     fig.update_layout(
-        **S._CHART_LAYOUT, height=680, legend=S._LEGEND_H,
+        **S._CHART_LAYOUT, height=max(440, rows * 320), legend=S._LEGEND_H,
         margin=dict(l=60, r=16, t=60, b=48),
     )
     fig.update_annotations(font_size=12)
@@ -555,7 +554,7 @@ def _build_runtime_scaling_figure(agg: pd.DataFrame, dataset: str,
 #     budgets at fixed dimensionality).
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _build_budget_effect_figure(agg: pd.DataFrame, dataset: str) -> go.Figure:
+def _build_budget_effect_figure(agg: pd.DataFrame) -> go.Figure:
     """
     RQ2-F4 — Does doubling the budget (512 → 1024) double the runtime?
 
@@ -569,7 +568,7 @@ def _build_budget_effect_figure(agg: pd.DataFrame, dataset: str) -> go.Figure:
     """
     if agg.empty:
         return S.fig_empty()
-    sub = agg if dataset == "__all__" else agg[agg["dataset"] == dataset]
+    sub = agg
 
     cell_keys = ["dataset", "model", "n_features", "method", "library"]
 
@@ -683,10 +682,10 @@ def _build_budget_effect_figure(agg: pd.DataFrame, dataset: str) -> go.Figure:
 #     infeasibility, not a crash.
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _build_feasibility_heatmap(feas: pd.DataFrame, dataset: str) -> go.Figure:
+def _build_feasibility_heatmap(feas: pd.DataFrame) -> go.Figure:
     if feas.empty:
         return S.fig_empty()
-    sub = feas if dataset == "__all__" else feas[feas["dataset"] == dataset]
+    sub = feas
     if sub.empty:
         return S.fig_empty()
 
@@ -766,10 +765,10 @@ def _build_feasibility_heatmap(feas: pd.DataFrame, dataset: str) -> go.Figure:
 #     wrong. Accuracy claims belong to RQ2, which has an exact reference.
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _build_agreement_figure(agg: pd.DataFrame, dataset: str) -> go.Figure:
+def _build_agreement_figure(agg: pd.DataFrame) -> go.Figure:
     if agg.empty or "cross_method_rho_median" not in agg.columns:
         return S.fig_empty()
-    sub = agg if dataset == "__all__" else agg[agg["dataset"] == dataset]
+    sub = agg
     sub = sub.dropna(subset=["cross_method_rho_median"])
     if sub.empty:
         return S.fig_empty()
@@ -898,8 +897,8 @@ def layout(**kwargs):
             S.info_content(
                 "Median cost per method (10 seeds, band = q25–q75). "
                 "'All datasets' shows one panel per dataset because each dataset "
-                "has its own feature grid. 'All models' pools the 4 models by "
-                "median — select a model to isolate it. Time-capped runs excluded. "
+                "has its own feature grid. Multiple models are pooled by "
+                "median — select a single model to isolate it. Time-capped runs excluded. "
                 "When 'model evaluations' is selected the y-axis shows raw calls "
                 "normalised by 2ⁿ features (the size of the full coalition lattice) "
                 "so the exponential coverage gap is directly visible as a downward "
@@ -908,7 +907,7 @@ def layout(**kwargs):
                 provenance=S.provenance_line(
                     "source: converted/rq1_scaling_aggregated.csv",
                     "agg: median(10 seeds) in converter",
-                    "display: median over models when 'All models'",
+                    "display: median over models when multiple/all selected",
                     "capped runs excluded from medians",
                 ),
             ),
@@ -984,12 +983,8 @@ def layout(**kwargs):
 
 def _apply_filters(df, ds, mdl, approxs):
     """Filter by topbar store values. approxs may be None (= all) or a list."""
-    ds = ds or "__all__"
-    mdl = mdl or "__all__"
-    if ds != "__all__" and "dataset" in df.columns:
-        df = df[df["dataset"] == ds]
-    if mdl != "__all__" and "model" in df.columns:
-        df = df[df["model"] == mdl]
+    df = S.filter_by_column(df, "dataset", ds)
+    df = S.filter_by_column(df, "model", mdl)
     if approxs and "approximator" in df.columns:
         df = df[df["approximator"].isin(approxs)]
     return df
@@ -1008,8 +1003,6 @@ def _apply_filters(df, ds, mdl, approxs):
     Input("rq2-budget", "value"),
 )
 def update_rq1(ds, mdl, approxs, cost_metric, budget):
-    ds = ds or "__all__"
-    mdl = mdl or "__all__"
     cost_metric = cost_metric or "runtime_s"
     budget = int(budget or 520)
 
@@ -1019,10 +1012,10 @@ def update_rq1(ds, mdl, approxs, cost_metric, budget):
 
     agg_f = _apply_filters(agg, ds, mdl, approxs or [])
 
-    # F1 + F2 (agreement) show one budget at a time (radio); "All models"
-    # pooling by median happens here, matching the note on the charts.
+    # F1 + F2 (agreement) show one budget at a time (radio); multiple/all
+    # models are pooled by median here, matching the note on the charts.
     f1_input = agg_f[agg_f["budget"] == budget]
-    if mdl == "__all__" and not f1_input.empty:
+    if S.should_pool_dimension(mdl) and not f1_input.empty:
         f1_input = (
             f1_input.groupby(["dataset", "n_features", "library",
                               "approximator", "budget", "method"],
@@ -1042,11 +1035,11 @@ def update_rq1(ds, mdl, approxs, cost_metric, budget):
         return dcc.Graph(figure=fig, config=S.graph_config(filename))
 
     return (
-        _g(_build_runtime_scaling_figure(f1_input, ds, cost_metric),
+        _g(_build_runtime_scaling_figure(f1_input, cost_metric),
            "rq2_cost_scaling"),
-        _g(_build_agreement_figure(f1_input, ds), "rq2_cross_method_agreement"),
-        _g(_build_feasibility_heatmap(feas_f, ds), "rq2_feasibility"),
-        _g(_build_budget_effect_figure(agg_f, ds), "rq2_budget_effect"),
+        _g(_build_agreement_figure(f1_input), "rq2_cross_method_agreement"),
+        _g(_build_feasibility_heatmap(feas_f), "rq2_feasibility"),
+        _g(_build_budget_effect_figure(agg_f), "rq2_budget_effect"),
         # F5 deliberately unfiltered — single-seed stress test (see comment).
         _g(_build_extreme_stress_figure(extreme), "rq2_stress_test"),
     )

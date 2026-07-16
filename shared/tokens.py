@@ -75,25 +75,37 @@ html, body {{ margin: 0; padding: 0; height: 100%; font-family: {FONT}; color: {
 }}
 .tabs--content {{ border: none !important; }}
 
+/* RQ4 case-focus — full-width pill beans */
+.rq4-case-beans {{
+    display: flex !important;
+    flex: 1;
+    min-width: 0;
+    gap: 10px;
+}}
+.rq4-case-beans label {{
+    margin: 0 !important;
+    flex: 1 1 0 !important;
+    text-align: center !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    color: {TEXT2} !important;
+    background: {CARD} !important;
+    border: none !important;
+    border-radius: 999px !important;
+    transition: background 0.12s, color 0.12s, font-weight 0.12s;
+}}
+.rq4-case-beans label:hover {{
+    color: {TEXT} !important;
+}}
+.rq4-case-beans label:has(input:checked) {{
+    color: {ACCENT} !important;
+    font-weight: 700 !important;
+    background: #EEF2FF !important;
+}}
+
 /* ── Layout shell ────────────────────────────────────────────────────────── */
 .page-wrapper {{ display: flex; height: 100vh; overflow: hidden; background: {BG}; }}
 .app-shell {{ display: flex; flex: 1; min-width: 0; overflow: hidden; }}
-
-/* ── Advisor strip (always-visible left edge) ────────────────────────────── */
-.advisor-strip {{
-    width: 26px; flex-shrink: 0; cursor: pointer; user-select: none;
-    background: linear-gradient(180deg, {ACCENT} 0%, #7C3AED 50%, {PINK} 100%);
-    display: flex; align-items: center; justify-content: center;
-    transition: opacity 0.15s; z-index: 10;
-    border: none; outline: none; padding: 0; border-radius: 0;
-}}
-.advisor-strip:hover {{ opacity: 0.85; }}
-.advisor-strip-label {{
-    writing-mode: vertical-rl; transform: rotate(180deg);
-    color: white; font-size: 9px; font-weight: 700;
-    letter-spacing: 0.14em; text-transform: uppercase;
-    white-space: nowrap; pointer-events: none;
-}}
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────── */
 .sidebar {{
@@ -181,19 +193,4 @@ a.sidebar-footer-link:hover {{ color: rgba(255,255,255,0.65); }}
 .topbar-toggle-btn:hover {{ color: {TEXT}; background: {BG}; }}
 .page-scroll {{ flex: 1; overflow-y: auto; }}
 .page-inner {{ max-width: 1160px; margin: 0 auto; padding: 28px 24px; }}
-
-/* ── Advisor overlay ──────────────────────────────────────────────────────── */
-.advisor-overlay {{
-    position: fixed; top: 0; right: 0; bottom: 0; left: 0;
-    background: rgba(26,32,64,0.35); z-index: 299;
-}}
-
-/* ── Advisor panel (right side) ──────────────────────────────────────────── */
-.advisor-panel {{
-    position: fixed; top: 0; right: 0;
-    width: 380px; height: 100vh;
-    background: #2B2B2B; z-index: 300;
-    overflow-y: auto;
-    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) transparent;
-}}
 """

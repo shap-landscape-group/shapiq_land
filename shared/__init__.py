@@ -6,7 +6,6 @@ Sub-modules:
   data.py     — CSV loading, compute_leaderboard, pareto_mark
   charts.py   — all fig_* Plotly figure builders
   layout.py   — Dash component helpers (kpi_card, section, filter_bar, …)
-  advisor.py  — recommend_library() (pure logic, no Dash imports)
 """
 
 # Design tokens & CSS (edit tokens.py to retheme)
@@ -20,6 +19,7 @@ from .tokens import (
 
 # Data helpers
 from .data import load_data, try_load_data, compute_leaderboard, pareto_mark
+from .data import normalize_filter_selection, filter_by_column, should_pool_dimension
 
 # Chart builders
 from .charts import (
@@ -90,6 +90,3 @@ from .layout import (
     build_leaderboard_datatable,
     capability_matrix_table,
 )
-
-# Advisor recommendation engine
-from .advisor import recommend_library

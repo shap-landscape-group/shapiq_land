@@ -388,7 +388,7 @@ def _config_card(df: pd.DataFrame) -> html.Div:
     it stays correct if the sweep config changes), instead of the old
     data-source line + fixed-parameter chips + raw per-column value dump,
     which repeated the dataset/library/model lists already visible in the
-    filters below and buried the few facts that actually matter.
+    topbar filters and buried the few facts that actually matter.
     """
     n_ds = df["dataset"].nunique() if "dataset" in df.columns else 0
     n_models = df["model"].nunique() if "model" in df.columns else 0
@@ -457,72 +457,44 @@ def layout(**kwargs):
             _schema_hint(),
         ])
 
-    datasets = sorted(df["dataset"].dropna().unique())
-    libs = sorted(df["library"].dropna().unique())
-    models = sorted(df["model"].dropna().unique()) if "model" in df.columns else []
-
     return html.Div([
         S.rq_header(*_RQ_HEADER),
         *[S.info_note(r) for r in _REMARKS],
         _config_card(df),
-        S.filter_bar(
-            S.filter_checklist(
-                "Dataset", "rq4-ds",
-                [{"label": f"  {d}", "value": d} for d in datasets], datasets,
-            ),
-            S.filter_checklist(
-                "Library", "rq4-lib",
-                [{"label": f"  {lib}", "value": lib} for lib in libs], libs,
-            ),
-            S.filter_checklist(
-                "Model", "rq4-model",
-                [{"label": f"  {m}", "value": m} for m in models], models,
-            ),
-        ),
         html.Div([
-            html.Label("Case focus", style={
-                       "fontWeight": "600", "fontSize": "13px"}),
-            dcc.Tabs(
+            html.Span("Case focus", style={
+                "fontSize": "10px", "fontWeight": "700", "color": S.TEXT2,
+                "textTransform": "uppercase", "letterSpacing": "0.06em",
+                "marginRight": "12px", "flexShrink": "0",
+            }),
+            dcc.RadioItems(
                 id="rq4-case",
+                options=[{"label": opt["label"], "value": opt["value"]}
+                         for opt in _CASE_OPTIONS],
                 value=_DEFAULT_CASE,
-                children=[
-                    dcc.Tab(
-                        label=opt["label"],
-                        value=opt["value"],
-                        style={
-                            "padding": "8px 12px",
-                            "border": f"1px solid {S.BORDER}",
-                            "borderRadius": "999px",
-                            "marginRight": "8px",
-                            "marginTop": "6px",
-                            "background": "white",
-                            "color": S.TEXT2,
-                            "fontSize": "12px",
-                            "fontWeight": "500",
-                        },
-                        selected_style={
-                            "padding": "8px 12px",
-                            "border": f"1px solid {S.ACCENT}",
-                            "borderRadius": "999px",
-                            "marginRight": "8px",
-                            "marginTop": "6px",
-                            "background": S.ACCENT,
-                            "color": "white",
-                            "fontSize": "12px",
-                            "fontWeight": "600",
-                        },
-                    )
-                    for opt in _CASE_OPTIONS
-                ],
-                parent_style={"marginTop": "6px"},
-                style={"display": "flex", "flexWrap": "wrap", "gap": "4px"},
+                inline=True,
+                className="rq4-case-beans",
+                inputStyle={"display": "none"},
+                labelStyle={
+                    "display": "block",
+                    "flex": "1",
+                    "textAlign": "center",
+                    "padding": "8px 14px",
+                    "margin": "0",
+                    "borderRadius": "999px",
+                    "cursor": "pointer",
+                    "userSelect": "none",
+                    "lineHeight": "1.3",
+                },
             ),
-        ], style={"margin": "8px 0 12px", "padding": "8px 12px",
-                  "border": f"1px solid {S.BORDER}", "borderRadius": "8px",
-                  "background": S.BG}),
+        ], style={
+            "display": "flex", "alignItems": "center",
+            "width": "100%",
+            "margin": "4px 0 16px",
+            "padding": "0",
+            "gap": "10px",
+        }),
 
-        # ── Dynamic content ───────────────────────────────────────────────────
-        html.Div(id="rq4-kpis"),
         html.Div(id="rq4-charts"),
     ])
 
@@ -575,83 +547,50 @@ def _schema_hint() -> html.Div:
 # ═════════════════════════════════════════════════════════════════════════════
 
 @callback(
-    Output("rq4-kpis",   "children"),
     Output("rq4-charts", "children"),
-    Input("rq4-ds",    "value"),
-    Input("rq4-lib",   "value"),
-    Input("rq4-model", "value"),
+    Input("rq4-ds",    "data"),
+    Input("rq4-lib",   "data"),
+    Input("rq4-model", "data"),
     Input("rq4-case",  "value"),
 )
 def update_rq4(datasets, libs, models, case):
     df = _load(_CSV)
     if df.empty:
-        return html.Div(), html.Div()
+        return html.Div()
     pairwise_df = _load(_PAIRWISE)
 
     charts_man = _build_charts(case)
 
-    if datasets:
-        df = df[df["dataset"].isin(datasets)]
-        pairwise_df = pairwise_df[pairwise_df["dataset"].isin(datasets)]
-    if libs:
-        df = df[df["library"].isin(libs)]
-        # Only the "anchor" side of each pair is restricted to the selected
-        # libraries, matching what the row's own backend/library filter did
-        # before conversion — the peer it's compared against is never itself
-        # filtered out, since pairwise_metrics compares every row against
-        # every same-mode peer regardless of the Library selection.
-        pairwise_df = pairwise_df[pairwise_df["library_a"].isin(libs)]
-    if models and "model" in df.columns:
-        df = df[df["model"].isin(models)]
-        pairwise_df = pairwise_df[pairwise_df["model"].isin(models)]
+    df = S.filter_by_column(df, "dataset", datasets)
+    df = S.filter_by_column(df, "model", models)
+    pairwise_df = S.filter_by_column(pairwise_df, "dataset", datasets)
+    pairwise_df = S.filter_by_column(pairwise_df, "model", models)
 
-    # KPIs/warnings describe whichever mode the current case tab covers.
-    kpi_mode = _CASE_TO_MODE.get(case, "path_dependent")
-    kpi_df = df[df["mode"] == kpi_mode]
+    # Only the "anchor" side of each pair is restricted to the selected
+    # libraries — the peer it's compared against is never itself filtered out,
+    # since pairwise_metrics compares every row against every same-mode peer.
+    selected_libs = S.normalize_filter_selection(libs)
+    if selected_libs is not None:
+        if not selected_libs:
+            df = df.iloc[0:0]
+            pairwise_df = pairwise_df.iloc[0:0]
+        else:
+            df = df[df["library"].isin(selected_libs)]
+            if "library_a" in pairwise_df.columns:
+                pairwise_df = pairwise_df[pairwise_df["library_a"].isin(selected_libs)]
+            else:
+                pairwise_df = S.filter_by_column(pairwise_df, "library", libs)
 
-    # ── KPIs — describe the axes that actually vary in the tree benchmark ──
-    def _label(backend) -> str:
-        return backend.replace("_", " ") if isinstance(backend, str) else "—"
+    case_mode = _CASE_TO_MODE.get(case, "path_dependent")
+    case_df = df[df["mode"] == case_mode]
+    n_backends = (case_df["backend"].dropna().nunique()
+                  if "backend" in case_df.columns and not case_df.empty else 0)
 
-    n_backends = kpi_df["backend"].dropna().nunique() \
-        if "backend" in kpi_df.columns and not kpi_df.empty else 0
-
-    feat_range = "—"
-    if "n_features" in kpi_df.columns:
-        feats = pd.to_numeric(kpi_df["n_features"], errors="coerce").dropna()
-        if not feats.empty:
-            lo, hi = int(feats.min()), int(feats.max())
-            feat_range = f"{lo}" if lo == hi else f"{lo}–{hi}"
-
-    # Fastest backend that actually returns valid values.
-    fastest = "—"
-    valid = kpi_df[~kpi_df["is_failure"] &
-                   kpi_df["runtime_s"].notna()] if not kpi_df.empty else kpi_df
-    if not valid.empty and "backend" in valid.columns:
-        rt_by_backend = valid.groupby("backend")["runtime_s"].median()
-        if not rt_by_backend.empty:
-            fastest = _label(rt_by_backend.idxmin())
-
-    # Count of backends that never produce a valid explanation (breaking points).
-    n_broken = 0
-    if not kpi_df.empty and "backend" in kpi_df.columns:
-        fr_by_backend = kpi_df.groupby("backend")["is_failure"].mean()
-        n_broken = int((fr_by_backend >= 0.5).sum())
-
-    kpis = S.kpi_row(
-        S.kpi_card(str(n_backends),  "Algorithm variants (backends)"),
-        S.kpi_card(feat_range,       "Feature counts benchmarked"),
-        S.kpi_card(fastest,          "Fastest valid backend", S.GREEN),
-        S.kpi_card(str(n_broken),    "Backends with no valid output",
-                   S.RED if n_broken else S.TEXT2),
-    )
-
-    # ── Warnings ──────────────────────────────────────────────────────────
     warns = []
     if df.empty:
         warns.append(S.warning_note(
             "No data matches the current filter selection."))
-    elif kpi_df.empty:
+    elif case_df.empty:
         warns.append(S.warning_note(
             f"No rows remain for the selected case focus: {case}."))
     elif n_backends < 2:
@@ -660,7 +599,6 @@ def update_rq4(datasets, libs, models, case):
             "Widen the Library filter above to compare backends."
         ))
 
-    # ── Charts — driven by _build_charts() manifest above ───────────────────
     def _chart_df(c: dict) -> pd.DataFrame:
         if c.get("custom_filter") is not None:
             return c["custom_filter"](df)
@@ -669,7 +607,7 @@ def update_rq4(datasets, libs, models, case):
                 if c["mode"] is not None else pairwise_df
         return df[df["mode"] == c["mode"]] if c["mode"] is not None else df
 
-    charts = html.Div([
+    return html.Div([
         *warns,
         *[
             S.section(
@@ -683,5 +621,3 @@ def update_rq4(datasets, libs, models, case):
         ],
         S.interpretation_note(_INTERP),
     ])
-
-    return kpis, charts
