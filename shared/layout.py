@@ -41,29 +41,122 @@ def kpi_row(*cards) -> html.Div:
 
 # ── Section wrapper ────────────────────────────────────────────────────────────
 
-def section(title: str, subtitle: str, children,
-            section_id: str | None = None) -> html.Div:
+def provenance_line(*parts: str) -> str:
+    """Join provenance fragments for the info box footer."""
+    return "  ·  ".join(parts)
+
+
+def info_content(primary, secondary: str = "", provenance: str = "") -> html.Div:
+    """Info body for a section's collapsible blue note."""
+    primary_node = (primary if not isinstance(primary, str)
+                    else html.Div(primary, style={
+                        "fontSize": "12px", "color": TEXT, "lineHeight": "1.6",
+                        "marginBottom": "4px" if (secondary or provenance) else "0",
+                    }))
+    children = [primary_node]
+    if secondary:
+        children.append(html.Div(secondary, style={
+            "fontSize": "11px", "color": TEXT2, "lineHeight": "1.55",
+            "marginBottom": "4px" if provenance else "0",
+        }))
+    if provenance:
+        children.append(html.Div(provenance, style={
+            "fontSize": "10px", "color": TEXT2, "fontFamily": "monospace",
+            "lineHeight": "1.55", "letterSpacing": "0.01em",
+        }))
+    return html.Div(children)
+
+
+def section(title, subtitle=None, children=None,
+            section_id: str | None = None,
+            info_id: str | None = None) -> html.Div:
     """
     Wraps a chart or table with an editorial header and card border.
 
     section_id: stable DOM id — used as a CONNECTOR target by the advisor panel.
     To deep-link from the advisor, change the advisor href to f'{rq_page}#{section_id}'.
     """
+    title_node = (
+        html.H3(title, style={"margin": "0", "fontSize": "15px",
+                              "fontWeight": "600", "letterSpacing": "-0.01em",
+                              "color": TEXT})
+        if isinstance(title, str) else title
+    )
+    _info_icon = html.Span(
+        "i",
+        style={
+            "display": "inline-flex",
+            "alignItems": "center",
+            "justifyContent": "center",
+            "width": "16px",
+            "height": "16px",
+            "borderRadius": "999px",
+            "border": f"1px solid {ACCENT}",
+            "color": ACCENT,
+            "fontSize": "11px",
+            "fontWeight": "700",
+            "lineHeight": "16px",
+            "textAlign": "center",
+            "paddingTop": "0",
+            "flexShrink": "0",
+        },
+    )
+    _gradient = html.Div(style={
+        "height": "2px", "width": "28px", "marginTop": "6px",
+        "background": f"linear-gradient(90deg, {ACCENT}, {PINK})",
+        "borderRadius": "2px",
+    })
+    _info_box_style = {
+        "marginTop": "8px",
+        "background": "#F0F4FF",
+        "border": f"1px solid {BORDER}",
+        "borderRadius": "6px",
+        "padding": "9px 13px",
+    }
+
+    if children is None:
+        children = []
+
+    def _has_subtitle(value) -> bool:
+        if value is None:
+            return False
+        if isinstance(value, str):
+            return bool(value)
+        return True  # Dash components are falsy when empty — still valid info slots
+
+    if info_id:
+        info_body = html.Div(id=info_id)
+    elif _has_subtitle(subtitle):
+        info_body = (subtitle if not isinstance(subtitle, str)
+                     else html.Div(subtitle, style={
+                         "fontSize": "12px", "color": TEXT2, "lineHeight": "1.6",
+                     }))
+    else:
+        info_body = None
+
+    if info_body is not None:
+        header = html.Div([
+            html.Details([
+                html.Summary(
+                    [title_node, _info_icon],
+                    style={
+                        "display": "flex",
+                        "alignItems": "center",
+                        "gap": "8px",
+                        "cursor": "pointer",
+                        "listStyle": "none",
+                    },
+                ),
+                html.Div(info_body, style=_info_box_style),
+            ]),
+            _gradient,
+        ], style={"marginBottom": "8px"})
+    else:
+        header = html.Div([title_node, _gradient], style={"marginBottom": "8px"})
+
     return html.Div(
         [
-            html.Div(
-                [
-                    html.H3(title, style={"margin": "0", "fontSize": "15px",
-                                         "fontWeight": "600", "letterSpacing": "-0.01em",
-                                         "color": TEXT}),
-                    html.Div(style={"height": "2px", "width": "28px", "marginTop": "6px",
-                                    "background": f"linear-gradient(90deg, {ACCENT}, {PINK})",
-                                    "borderRadius": "2px"}),
-                ],
-                style={"marginBottom": "8px"},
-            ),
-            html.P(subtitle, style={"margin": "0 0 12px", "fontSize": "12px",
-                                    "color": TEXT2, "lineHeight": "1.6"}),
+            header,
             html.Div(children, style={
                 "background": CARD, "borderRadius": "10px",
                 "border": f"1px solid {BORDER}", "overflow": "hidden",

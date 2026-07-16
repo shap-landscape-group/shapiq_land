@@ -86,7 +86,7 @@ EXPECTED_DATASETS = {"ames_housing", "covertype", "diabetes_130", "gisette"}
 EXPECTED_MODELS = {"decision_tree", "gradient_boosting",
                    "linear_regularized", "random_forest"}
 EXPECTED_SEEDS = set(range(10))
-EXPECTED_BUDGETS = {512, 1024}
+EXPECTED_BUDGETS = {520, 1024}
 EXPECTED_LIBRARIES = {"shap", "shapiq", "lightshap", "dalex"}
 # 14 = 3 libraries x 2 approximators x 2 budgets + dalex (permutation only) x 2 budgets
 EXPECTED_METHODS_PER_CELL = 14

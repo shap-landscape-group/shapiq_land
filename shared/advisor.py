@@ -64,8 +64,8 @@ def recommend_library(
             ),
             "rq_page":        "/rq4",
             "rq_name":        "RQ4 — Tree Models",
-            "secondary_page": "/rq2",
-            "secondary_name": "RQ2 — Accuracy",
+            "secondary_page": "/rq1",
+            "secondary_name": "RQ1 — Accuracy",
             "chart_ids": {                           # CONNECTORS
                 "failure_heatmap": "rq4-failure-section",
                 "runtime_scaling": "rq4-runtime-section",
@@ -85,8 +85,8 @@ def recommend_library(
             ),
             "rq_page":        "/rq4",
             "rq_name":        "RQ4 — Tree Models",
-            "secondary_page": "/rq2",
-            "secondary_name": "RQ2 — Accuracy",
+            "secondary_page": "/rq1",
+            "secondary_name": "RQ1 — Accuracy",
             "chart_ids": {                           # CONNECTORS
                 "failure_heatmap": "rq4-failure-section",
                 "quality_scaling": "rq4-quality-section",
@@ -102,16 +102,16 @@ def recommend_library(
             "why": (
                 "High-dimensional black-box models punish standard KernelSHAP exponentially. "
                 "lightshap's optimised kernel scales significantly better across feature counts. "
-                "Check RQ1 for how each library's runtime curve steepens with n_features."
+                "Check RQ2 for how each library's runtime curve steepens with n_features."
             ),
-            "rq_page":        "/rq1",
-            "rq_name":        "RQ1 — Dimensionality",
-            "secondary_page": "/rq2",
-            "secondary_name": "RQ2 — Accuracy",
+            "rq_page":        "/rq2",
+            "rq_name":        "RQ2 — Dimensionality",
+            "secondary_page": "/rq1",
+            "secondary_name": "RQ1 — Accuracy",
             "chart_ids": {                           # CONNECTORS
-                "runtime_vs_features":  "rq1-runtime-section",
-                "speed_ranking_hi_dim": "rq1-speed-section",
-                "failure_heatmap":      "rq1-failure-section",
+                "runtime_vs_features":   "rq2-f1-section",
+                "agreement_vs_features": "rq2-f2-section",
+                "failure_heatmap":       "rq2-f3-section",
             },
             "metrics": ["runtime_s at high n_features", "failure_rate", "mean_sample_rho"],
         }
@@ -124,16 +124,16 @@ def recommend_library(
             "why": (
                 "shapiq's kernel approximator consistently achieves the highest quality scores. "
                 "Its interaction-aware sampling improves accuracy even at low budgets. "
-                "Use RQ2 to find the minimum budget where quality plateaus."
+                "Use RQ1 to find the minimum budget where quality plateaus."
             ),
-            "rq_page":        "/rq2",
-            "rq_name":        "RQ2 — Accuracy",
-            "secondary_page": "/rq1",
-            "secondary_name": "RQ1 — Dimensionality",
+            "rq_page":        "/rq1",
+            "rq_name":        "RQ1 — Accuracy",
+            "secondary_page": "/rq2",
+            "secondary_name": "RQ2 — Dimensionality",
             "chart_ids": {                           # CONNECTORS
-                "pareto":         "rq2-pareto-section",
-                "budget_quality": "rq2-budget-section",
-                "distribution":   "rq2-distribution-section",
+                "pareto":         "rq1-f3-section",
+                "budget_quality": "rq1-f2-section",
+                "distribution":   "rq1-f4-section",
             },
             "metrics": ["mean_sample_rho", "sign_agreement", "mean_sample_rho"],
         }
@@ -145,16 +145,16 @@ def recommend_library(
         "why": (
             "For fast model-agnostic approximations on low-dimensional data, "
             "lightshap tops the runtime ranking while staying in the reliable quality zone. "
-            "Compare against shap/KernelSHAP in RQ2 to confirm the trade-off is acceptable."
+            "Compare against shap/KernelSHAP in RQ1 to confirm the trade-off is acceptable."
         ),
-        "rq_page":        "/rq2",
-        "rq_name":        "RQ2 — Accuracy",
-        "secondary_page": "/rq1",
-        "secondary_name": "RQ1 — Dimensionality",
+        "rq_page":        "/rq1",
+        "rq_name":        "RQ1 — Accuracy",
+        "secondary_page": "/rq2",
+        "secondary_name": "RQ2 — Dimensionality",
         "chart_ids": {                               # CONNECTORS
-            "pareto":         "rq2-pareto-section",
-            "ranking":        "rq2-ranking-section",
-            "budget_quality": "rq2-budget-section",
+            "pareto":         "rq1-f3-section",
+            "convergence":    "rq1-f2-section",
+            "budget_quality": "rq1-f2-section",
         },
         "metrics": ["runtime_s", "mean_sample_rho"],
     }

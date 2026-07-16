@@ -417,9 +417,9 @@ def _render_page_topbar(pathname):
                    "marginRight": "4px", "whiteSpace": "nowrap"},
         )
 
-    # ── RQ1 ───────────────────────────────────────────────────────────────
+    # ── RQ2 — Dimensionality (/rq2) ─────────────────────────────────────
     # Visible controls use -ctl suffix IDs; they sync into dcc.Store nodes
-    # (rq1-ds, rq1-mdl, rq1-approx) that live in the main layout and are
+    # (rq2-ds, rq2-mdl, rq2-approx) that live in the main layout and are
     # always present, so the chart callback never races the topbar.
     if pathname == "/rq2":
         _csv = os.path.join(_RESULTS, "converted", "rq1_scaling_aggregated.csv")
@@ -460,7 +460,7 @@ def _render_page_topbar(pathname):
             ]),
         ]
 
-    # ── RQ2 ───────────────────────────────────────────────────────────────
+    # ── RQ1 — Accuracy (/rq1) ─────────────────────────────────────────────
     if pathname == "/rq1":
         _csv = os.path.join(_RESULTS, "converted", "rq2_convergence_aggregated.csv")
         df = pd.read_csv(_csv) if os.path.exists(_csv) else pd.DataFrame(

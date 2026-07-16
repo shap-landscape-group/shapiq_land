@@ -78,6 +78,8 @@ from .layout import (
     section,
     rq_header,
     interpretation_note,
+    info_content,
+    provenance_line,
     warning_note,
     info_note,
     missing_data_banner,

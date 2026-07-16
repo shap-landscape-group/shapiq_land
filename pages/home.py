@@ -81,8 +81,8 @@ def layout(**kwargs):  # called on every page visit → always fresh data
                     "transition": "background 0.15s",
                 })
                 for href, label in [
-                    ("/rq1", "RQ1 — Dimensionality"),
-                    ("/rq2", "RQ2 — Accuracy"),
+                    ("/rq1", "RQ1 — Accuracy"),
+                    ("/rq2", "RQ2 — Dimensionality"),
                     ("/rq3", "RQ3 — Neural Networks"),
                     ("/rq4", "RQ4 — Tree Models"),
                     ("/rq5", "RQ5 — GPU vs CPU"),

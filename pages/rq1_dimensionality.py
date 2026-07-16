@@ -61,16 +61,21 @@ _RQ_HEADER = (
     "fastest model-agnostic library for high-dimensional datasets?",
 )
 
-# Interpretation revised for the new data: runtime/feasibility claims only.
-# The old text implied a quality axis ("while quality stays high") — RQ1
-# data contains no exact reference, so no quality-vs-truth claim is made.
+# Page-level reading guide (footer). Section-specific detail lives in ⓘ boxes.
 _INTERP = (
-    "Compare how steeply each method's runtime grows as n_features increases "
-    "— flatter is better. The feasibility heatmap shows where methods hit the "
-    "10-minute execution cap (all such runs are lightshap). F2 tracks whether "
-    "the 7 methods still rank features alike as dimensionality grows (F2). "
-    "The 1,000-feature stress test is a separate one-shot experiment and is "
-    "not comparable to the standard scaling grid."
+    "How to read this page: this benchmark has no exact reference — every method "
+    "is an approximation — so the curves measure cost and cross-method agreement, "
+    "not accuracy against ground truth. Cost scaling by feature count is the main "
+    "read: flatter runtime or model-evaluation curves mean better scaling; toggle "
+    "budget (520 / 1024) and metric (runtime vs normalised model evaluations). "
+    "Cross-method agreement tracks whether the seven methods still rank features "
+    "alike as n_features grows (Spearman ρ vs the other six at the same budget). "
+    "Execution-cap feasibility shows where runs hit the 10-minute wall — a "
+    "deployment risk if any cell is hot. Budget effect on runtime compares "
+    "1024 / 520 per cell (ratio ≈ 2 ≈ linear coalition scaling for shap, shapiq "
+    "and lightshap; dalex is not directly comparable). The 1,000-feature stress "
+    "test is a separate one-shot experiment and is not on the standard grid. "
+    "Click ⓘ on any chart for section notes and CSV provenance."
 )
 
 _DATASET_ORDER = ["ames_housing", "covertype", "diabetes_130", "gisette"]
@@ -128,7 +133,7 @@ def _config_card() -> html.Div:
     left = _col("Swept",
                 ["4 datasets", "4 models", "n_features: 14–256",
                  "7 methods", "dalex: perm only",
-                 "budget: 512, 1024", "10 seeds"],
+                 "budget: 520, 1024", "10 seeds"],
                 "#EEF2FF", S.ACCENT)
     mid = _col("Fixed",
                ["n_background = 100", "n_eval = 10", "imputer = marginal",
@@ -157,81 +162,43 @@ def _config_card() -> html.Div:
     })
 
 
-def _col_note(*parts: str) -> html.Div:
-    """Compact data-provenance line inside a chart card."""
-    children = []
-    for i, part in enumerate(parts):
-        children.append(html.Span(part, style={"whiteSpace": "pre"}))
-        if i < len(parts) - 1:
-            children.append(html.Span("  ·  ", style={"color": S.BORDER}))
-    return html.Div(children, style={
-        "fontSize": "10px", "color": S.TEXT2, "fontFamily": "monospace",
-        "padding": "4px 12px 6px",
-        "borderBottom": f"1px solid {S.BORDER}",
-        "background": S.BG,
-        "letterSpacing": "0.01em",
-    })
-
-
 _DALEX_METHOD = "dalex / permutation"
 
 
-def _budget_effect_note() -> html.Div:
-    """F4 context — what the ratio means and why dalex is flagged."""
-    return html.Div([
-        html.Div(
-            "Runtime ratio = runtime(1024) / runtime(512) per experiment cell. "
-            "For shap, shapiq, and lightshap this tests whether wall-clock cost "
-            "scales linearly with coalition samples — ratio ≈ 2 means yes, "
-            "< 2 means fixed overhead dominates.",
-            style={"fontSize": "12px", "color": S.TEXT, "lineHeight": "1.6",
-                   "marginBottom": "4px"},
-        ),
-        html.Div(
-            "★ dalex uses a fixed evaluation budget split across features — "
-            "doubling the config budget does not add coalition samples the "
-            "same way, so its ratio is not directly comparable. "
-            "Median per cell · capped/failed cells excluded · "
+def _agreement_info() -> html.Div:
+    return S.info_content(
+        "Each line is one of the 7 approximation methods "
+        "(shap, shapiq, and lightshap: kernel + permutation; "
+        "dalex: permutation only). "
+        "The y-axis is the mean Spearman ρ against the other six methods "
+        "at the same budget — how closely their feature rankings agree "
+        "as n_features grows.",
+        "A drop at high M usually means methods diverge under budget pressure, "
+        "not that one line is automatically correct.",
+        provenance=S.provenance_line(
+            "same-budget pairwise comparisons only",
+            "median over 10 seeds",
+            "budget follows the F1 toggle",
             "source: converted/rq1_scaling_aggregated.csv",
-            style={"fontSize": "11px", "color": S.TEXT2, "lineHeight": "1.55"},
         ),
-    ], style={
-        "background": "#F0F4FF",
-        "border": f"1px solid {S.BORDER}",
-        "borderRadius": "6px",
-        "padding": "9px 13px",
-        "margin": "0 0 2px",
-    })
+    )
 
 
-def _agreement_note() -> html.Div:
-    """Compact agreement chart context — what is compared and how to read it."""
-    return html.Div([
-        html.Div(
-            "Each line is one of the 7 approximation methods "
-            "(shap, shapiq, and lightshap: kernel + permutation; "
-            "dalex: permutation only). "
-            "The y-axis is the mean Spearman ρ against the other six methods "
-            "at the same budget — how closely their feature rankings agree "
-            "as n_features grows.",
-            style={"fontSize": "12px", "color": S.TEXT, "lineHeight": "1.6",
-                   "marginBottom": "4px"},
-        ),
-        html.Div(
-            "A drop at high M usually means methods diverge under budget pressure, "
-            "not that one line is automatically correct. "
-            "Same-budget pairwise comparisons only · median over 10 seeds · "
-            "budget follows the F1 toggle · "
+def _budget_effect_info() -> html.Div:
+    return S.info_content(
+        "Runtime ratio = runtime(1024) / runtime(520) per experiment cell. "
+        "For shap, shapiq, and lightshap this tests whether wall-clock cost "
+        "scales linearly with coalition samples — ratio ≈ 2 means yes, "
+        "< 2 means fixed overhead dominates.",
+        "★ dalex uses a fixed evaluation budget split across features — "
+        "doubling the config budget does not add coalition samples the "
+        "same way, so its ratio is not directly comparable.",
+        provenance=S.provenance_line(
+            "median per cell",
+            "capped/failed cells excluded",
             "source: converted/rq1_scaling_aggregated.csv",
-            style={"fontSize": "11px", "color": S.TEXT2, "lineHeight": "1.55"},
         ),
-    ], style={
-        "background": "#F0F4FF",
-        "border": f"1px solid {S.BORDER}",
-        "borderRadius": "6px",
-        "padding": "9px 13px",
-        "margin": "0 0 2px",
-    })
+    )
 
 
 def _filter_bar() -> html.Div:
@@ -617,10 +584,13 @@ def _build_budget_effect_figure(agg: pd.DataFrame, dataset: str) -> go.Figure:
 
     wide = clean.pivot_table(index=cell_keys, columns="budget",
                              values="runtime_median").reset_index()
-    if 512 not in wide.columns or 1024 not in wide.columns:
+    budget_cols = [c for c in wide.columns if c not in cell_keys]
+    budgets = sorted(budget_cols)
+    if len(budgets) < 2:
         return S.fig_empty("Need both budgets in the current filter")
-    wide = wide.dropna(subset=[512, 1024])
-    wide["ratio"] = wide[1024] / wide[512]
+    b_lo, b_hi = budgets[0], budgets[-1]
+    wide = wide.dropna(subset=[b_lo, b_hi])
+    wide["ratio"] = wide[b_hi] / wide[b_lo]
 
     order = (wide.groupby("method")["ratio"].median()
              .sort_values().index.tolist())
@@ -654,7 +624,7 @@ def _build_budget_effect_figure(agg: pd.DataFrame, dataset: str) -> go.Figure:
         **S._CHART_LAYOUT, height=400,
         margin=dict(l=55, r=16, t=36, b=90),
         xaxis=dict(tickangle=-25, gridcolor="rgba(0,0,0,0)", automargin=True),
-        yaxis=dict(title="runtime(1024) / runtime(512)",
+        yaxis=dict(title=f"runtime({b_hi}) / runtime({b_lo})",
                    gridcolor=S.BORDER, zeroline=False),
     )
 
@@ -924,28 +894,31 @@ def layout(**kwargs):
 
         # RQ1-F1
         S.section(
-            "RQ2-F1 · Cost scaling by feature count",
-            "Median cost per method (10 seeds, band = q25–q75). "
-            "'All datasets' shows one panel per dataset because each dataset "
-            "has its own feature grid. 'All models' pools the 4 models by "
-            "median — select a model to isolate it. Time-capped runs excluded. "
-            "When 'model evaluations' is selected the y-axis shows raw calls "
-            "normalised by 2ⁿ features (the size of the full coalition lattice) "
-            "so the exponential coverage gap is directly visible as a downward "
-            "slope — values > 1 at small n are expected because each coalition "
-            "is probed against a background dataset.",
+            "Cost scaling by feature count",
+            S.info_content(
+                "Median cost per method (10 seeds, band = q25–q75). "
+                "'All datasets' shows one panel per dataset because each dataset "
+                "has its own feature grid. 'All models' pools the 4 models by "
+                "median — select a model to isolate it. Time-capped runs excluded. "
+                "When 'model evaluations' is selected the y-axis shows raw calls "
+                "normalised by 2ⁿ features (the size of the full coalition lattice) "
+                "so the exponential coverage gap is directly visible as a downward "
+                "slope — values > 1 at small n are expected because each coalition "
+                "is probed against a background dataset.",
+                provenance=S.provenance_line(
+                    "source: converted/rq1_scaling_aggregated.csv",
+                    "agg: median(10 seeds) in converter",
+                    "display: median over models when 'All models'",
+                    "capped runs excluded from medians",
+                ),
+            ),
             html.Div([
                 _axis_toggle("rq2-cost-metric",
                              {"runtime_s": "runtime (s)",
                               "n_model_evals": "model evaluations"},
                              "runtime_s", label="Metric"),
-                _axis_toggle("rq2-budget", {"512": "512", "1024": "1024"},
-                             "512", label="Budget"),
-                _col_note(
-                    "source: converted/rq1_scaling_aggregated.csv",
-                    "agg: median(10 seeds) in converter · display: median over models when 'All models'",
-                    "capped runs excluded from medians",
-                ),
+                _axis_toggle("rq2-budget", {"520": "520", "1024": "1024"},
+                             "520", label="Budget"),
                 html.Div(id="rq2-f1-chart", style={"padding": "8px"}),
             ]),
             section_id="rq2-f1-section",
@@ -953,56 +926,51 @@ def layout(**kwargs):
 
         # RQ2-F2 — cross-method agreement
         S.section(
-            "RQ2-F2 · Cross-method agreement vs dimensionality",
-            "",
-            html.Div([
-                _agreement_note(),
-                html.Div(id="rq2-f2-chart", style={"padding": "8px"}),
-            ]),
+            "Cross-method agreement vs dimensionality",
+            _agreement_info(),
+            html.Div(id="rq2-f2-chart", style={"padding": "8px"}),
             section_id="rq2-f2-section",
         ),
 
         # RQ2-F3
         S.section(
-            "RQ2-F3 · Execution-cap feasibility",
-            "Share of runs hitting the 10-minute cap per method × dataset × "
-            "n_features. Models, budgets and seeds pooled (80 runs per cell): "
-            "a cap anywhere is a deployment risk.",
-            html.Div([
-                _col_note(
+            "Execution-cap feasibility",
+            S.info_content(
+                "Share of runs hitting the 10-minute cap per method × dataset × "
+                "n_features. Models, budgets and seeds pooled (80 runs per cell): "
+                "a cap anywhere is a deployment risk.",
+                provenance=S.provenance_line(
                     "source: converted/rq1_feasibility.csv",
                     "capped = runtime_s ≥ 595 s (raw data clusters at 600 ± 0.02 s)",
                     "cell = capped / all runs over 4 models × 2 budgets × 10 seeds",
                 ),
-                html.Div(id="rq2-f3-chart", style={"padding": "8px"}),
-            ]),
+            ),
+            html.Div(id="rq2-f3-chart", style={"padding": "8px"}),
             section_id="rq2-f3-section",
         ),
 
         # RQ2-F4 — budget effect
         S.section(
-            "RQ2-F4 · Budget effect on runtime (512 → 1024)",
-            "",
-            html.Div([
-                _budget_effect_note(),
-                html.Div(id="rq2-f4-chart", style={"padding": "8px"}),
-            ]),
+            "Budget effect on runtime (520 → 1024)",
+            _budget_effect_info(),
+            html.Div(id="rq2-f4-chart", style={"padding": "8px"}),
             section_id="rq2-f4-section",
         ),
 
         # RQ1-F5
         S.section(
-            "RQ2-F5 · Extreme stress test — 1,000 features (separate experiment)",
-            "gisette @ 1,000 features, budget 2048, seed 0 only, 7 methods × "
-            "4 models. One-shot feasibility check — page filters do not apply "
-            "and these bars are not comparable with the scaling curves above.",
-            html.Div([
-                _col_note(
+            "Extreme stress test — 1,000 features (separate experiment)",
+            S.info_content(
+                "gisette @ 1,000 features, budget 2048, seed 0 only, 7 methods × "
+                "4 models. One-shot feasibility check — page filters do not apply "
+                "and these bars are not comparable with the scaling curves above.",
+                provenance=S.provenance_line(
                     "source: converted/rq1_extreme_stress_test.csv",
-                    "no aggregation (single seed) · hatched bars exceeded the 10-min cap",
+                    "no aggregation (single seed)",
+                    "hatched bars exceeded the 10-min cap",
                 ),
-                html.Div(id="rq2-f5-chart", style={"padding": "8px"}),
-            ]),
+            ),
+            html.Div(id="rq2-f5-chart", style={"padding": "8px"}),
             section_id="rq2-f5-section",
         ),
 
@@ -1043,7 +1011,7 @@ def update_rq1(ds, mdl, approxs, cost_metric, budget):
     ds = ds or "__all__"
     mdl = mdl or "__all__"
     cost_metric = cost_metric or "runtime_s"
-    budget = int(budget or 512)
+    budget = int(budget or 520)
 
     agg = _load(_AGGREGATED)
     feas = _load(_FEASIBILITY)
@@ -1075,10 +1043,10 @@ def update_rq1(ds, mdl, approxs, cost_metric, budget):
 
     return (
         _g(_build_runtime_scaling_figure(f1_input, ds, cost_metric),
-           "rq1_f1_cost_scaling"),
-        _g(_build_agreement_figure(f1_input, ds), "rq1_f2_agreement"),
-        _g(_build_feasibility_heatmap(feas_f, ds), "rq1_f3_feasibility"),
-        _g(_build_budget_effect_figure(agg_f, ds), "rq1_f4_budget_effect"),
+           "rq2_cost_scaling"),
+        _g(_build_agreement_figure(f1_input, ds), "rq2_cross_method_agreement"),
+        _g(_build_feasibility_heatmap(feas_f, ds), "rq2_feasibility"),
+        _g(_build_budget_effect_figure(agg_f, ds), "rq2_budget_effect"),
         # F5 deliberately unfiltered — single-seed stress test (see comment).
-        _g(_build_extreme_stress_figure(extreme), "rq1_f5_stress_test"),
+        _g(_build_extreme_stress_figure(extreme), "rq2_stress_test"),
     )

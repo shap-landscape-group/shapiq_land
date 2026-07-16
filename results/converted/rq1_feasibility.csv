@@ -13,7 +13,7 @@ dalex,permutation,dalex / permutation,gisette,64,80,0,0.0
 dalex,permutation,dalex / permutation,gisette,256,80,0,0.0
 lightshap,kernel,lightshap / kernel,ames_housing,14,80,0,0.0
 lightshap,kernel,lightshap / kernel,ames_housing,32,80,0,0.0
-lightshap,kernel,lightshap / kernel,ames_housing,79,80,10,0.125
+lightshap,kernel,lightshap / kernel,ames_housing,79,80,13,0.1625
 lightshap,kernel,lightshap / kernel,covertype,14,80,0,0.0
 lightshap,kernel,lightshap / kernel,covertype,28,80,0,0.0
 lightshap,kernel,lightshap / kernel,covertype,54,80,0,0.0
@@ -22,7 +22,7 @@ lightshap,kernel,lightshap / kernel,diabetes_130,24,80,0,0.0
 lightshap,kernel,lightshap / kernel,diabetes_130,47,80,0,0.0
 lightshap,kernel,lightshap / kernel,gisette,14,80,0,0.0
 lightshap,kernel,lightshap / kernel,gisette,64,80,0,0.0
-lightshap,kernel,lightshap / kernel,gisette,256,80,60,0.75
+lightshap,kernel,lightshap / kernel,gisette,256,80,66,0.825
 lightshap,permutation,lightshap / permutation,ames_housing,14,80,0,0.0
 lightshap,permutation,lightshap / permutation,ames_housing,32,80,0,0.0
 lightshap,permutation,lightshap / permutation,ames_housing,79,80,0,0.0
