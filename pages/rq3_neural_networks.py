@@ -47,28 +47,34 @@ _RQ_HEADER = (
 #  Local helpers — config & guidance cards
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _pill(text: str, bg: str, color: str) -> html.Span:
-    return html.Span(text, style={
+def _pill(text: str, bg: str, color: str, tooltip: str | None = None) -> html.Span:
+    style = {
         "fontSize": "11px", "fontWeight": "500", "color": color,
         "background": bg, "borderRadius": "4px",
         "padding": "2px 8px", "marginRight": "4px", "marginBottom": "4px",
         "display": "inline-block",
-    })
+    }
+    if tooltip:
+        style["cursor"] = "help"
+        return html.Span(text, title=tooltip, style=style)
+    return html.Span(text, style=style)
 
 
-def _col(heading, items, bg, color) -> html.Div:
+def _col(heading, items, bg, color, tooltips: dict | None = None) -> html.Div:
+    tooltips = tooltips or {}
     return html.Div([
         html.Div(heading, style={
             "fontSize": "10px", "fontWeight": "700", "color": S.TEXT2,
             "textTransform": "uppercase", "letterSpacing": "0.07em",
             "marginBottom": "8px",
         }),
-        html.Div([_pill(i, bg, color) for i in items]),
+        html.Div([_pill(i, bg, color, tooltip=tooltips.get(i)) for i in items]),
     ], style={"flex": "1", "minWidth": "160px"})
 
 
 def _config_card(df) -> html.Div:
     """Compact benchmark overview — config + experiment coverage."""
+    left_tooltips = {}
     if df.empty:
         left_items = ["—"]
         mid_items = ["—"]
@@ -109,8 +115,14 @@ def _config_card(df) -> html.Div:
             imp_str,
             dev_str
         ]
+        left_tooltips = {
+            left_items[0]: ", ".join(sorted(df["dataset"].dropna().unique())),
+            left_items[1]: ", ".join(sorted(df["model"].dropna().unique())),
+            left_items[2]: ", ".join(sorted(df["library"].dropna().unique())),
+            left_items[3]: ", ".join(sorted(df["approximator"].dropna().unique())),
+        }
 
-    left  = _col("Swept", left_items, "#EEF2FF", S.ACCENT)
+    left  = _col("Swept", left_items, "#EEF2FF", S.ACCENT, tooltips=left_tooltips)
     mid   = _col("Fixed", mid_items, "#F1F5F9", S.TEXT2)
     right = _col("Measured",
                  ["runtime_s", "n_model_evals", "relative_mae", "mean_sample_rho", "relative_additivity_gap"],
@@ -300,16 +312,13 @@ def update_rq3(ds, models, libs):
     if df_agg.empty or df_seed.empty:
         return html.Div()
 
-    # Apply dropdown and checklist filters
-    if ds != "__all__":
-        df_agg = df_agg[df_agg["dataset"] == ds]
-        df_seed = df_seed[df_seed["dataset"] == ds]
-    if models:
-        df_agg = df_agg[df_agg["model"].isin(models)]
-        df_seed = df_seed[df_seed["model"].isin(models)]
-    if libs:
-        df_agg = df_agg[df_agg["library"].isin(libs)]
-        df_seed = df_seed[df_seed["library"].isin(libs)]
+    # Apply dropdown filters
+    df_agg = S.filter_by_column(df_agg, "dataset", ds)
+    df_seed = S.filter_by_column(df_seed, "dataset", ds)
+    df_agg = S.filter_by_column(df_agg, "model", models)
+    df_seed = S.filter_by_column(df_seed, "model", models)
+    df_agg = S.filter_by_column(df_agg, "library", libs)
+    df_seed = S.filter_by_column(df_seed, "library", libs)
 
     warns = []
     if df_agg.empty:

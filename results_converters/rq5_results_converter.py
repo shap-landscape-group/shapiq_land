@@ -3,101 +3,86 @@ import json
 import pandas as pd
 import numpy as np
 
-def extract_nn_metrics(row):
+
+def extract_metrics(row):
+    """Extract this row's quality metrics vs. the reference method.
+
+    Each row's `pairwise_metrics` cell holds a dict keyed by every method run in
+    that (dataset, model, seed) group, e.g. "captum_approx|gradient_shap|512@cuda".
+    A row's entry for its OWN key is always a trivial self-comparison (diff=0,
+    rho=1), so it can't be used directly. Instead — matching the convention used
+    across the rest of the app (shared/data.py:_extract_vs_reference and
+    rq3_results_converter.py) — prefer the "*_true_value" reference key if present,
+    otherwise fall back to the first key whose relative_mae isn't 0/None.
+    """
     metrics_str = row.get("pairwise_metrics")
     if pd.isna(metrics_str):
         return pd.Series([np.nan, np.nan, np.nan], index=["mean_sample_rho", "relative_mae", "sign_agreement"])
     try:
-        metrics_json = json.loads(metrics_str)
-        approximator = row.get("approximator")
-        target_key = None
-        for k in metrics_json.keys():
-            parts = k.split("|")
-            if len(parts) >= 2 and parts[1] == approximator:
-                target_key = k
-                break
-        
-        if target_key and target_key in metrics_json:
-            m = metrics_json[target_key]
-            return pd.Series([
-                m.get("mean_sample_rho"),
-                m.get("relative_mae"),
-                m.get("sign_agreement")
-            ], index=["mean_sample_rho", "relative_mae", "sign_agreement"])
+        clean = metrics_str.replace(": NaN", ": null").replace(":NaN", ":null")
+        metrics_json = json.loads(clean)
+        for key, vals in metrics_json.items():
+            if "true_value" in key:
+                return pd.Series([
+                    vals.get("mean_sample_rho"), vals.get("relative_mae"), vals.get("sign_agreement")
+                ], index=["mean_sample_rho", "relative_mae", "sign_agreement"])
+        for key, vals in metrics_json.items():
+            if vals.get("relative_mae") not in (0.0, None):
+                return pd.Series([
+                    vals.get("mean_sample_rho"), vals.get("relative_mae"), vals.get("sign_agreement")
+                ], index=["mean_sample_rho", "relative_mae", "sign_agreement"])
     except Exception:
         pass
     return pd.Series([np.nan, np.nan, np.nan], index=["mean_sample_rho", "relative_mae", "sign_agreement"])
 
-def extract_tree_metrics(row):
-    metrics_str = row.get("pairwise_metrics")
-    if pd.isna(metrics_str):
-        return pd.Series([np.nan, np.nan, np.nan], index=["mean_sample_rho", "relative_mae", "sign_agreement"])
-    try:
-        metrics_json = json.loads(metrics_str)
-        backend = row.get("backend")
-        if backend in metrics_json:
-            m = metrics_json[backend]
-            return pd.Series([
-                m.get("mean_sample_rho"),
-                m.get("relative_mae"),
-                m.get("sign_agreement")
-            ], index=["mean_sample_rho", "relative_mae", "sign_agreement"])
-    except Exception:
-        pass
-    return pd.Series([np.nan, np.nan, np.nan], index=["mean_sample_rho", "relative_mae", "sign_agreement"])
 
 def main():
     print("Converting RQ5 results...")
     here = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(here)
-    
-    # Files
-    nn_path = os.path.join(project_root, "results", "rq5_model_gpu-vs-cpu-shapiq-shap.csv")
-    tree_path = os.path.join(project_root, "results", "rq5_tree-gpu-vs-cpu.csv")
-    
+
+    raw_path = os.path.join(project_root, "results", "RQ5_gpu_vs_cpu.csv")
+
     out_dir = os.path.join(project_root, "results", "converted")
     os.makedirs(out_dir, exist_ok=True)
-    
+
     aggregated_out = os.path.join(out_dir, "rq5_gpu_cpu_comparison_aggregated.csv")
     by_seed_out = os.path.join(out_dir, "rq5_gpu_cpu_comparison_by_seed.csv")
-    
-    # 1. Load and process NN data
-    print(f"Loading NN data from {nn_path}...")
-    df_nn = pd.read_csv(nn_path)
-    
-    print("Extracting metrics for NN...")
-    metrics_nn = df_nn.apply(extract_nn_metrics, axis=1)
-    df_nn = pd.concat([df_nn, metrics_nn], axis=1)
-    
-    # Combine datasets
+
+    print(f"Loading data from {raw_path}...")
+    df = pd.read_csv(raw_path)
+
+    print("Extracting pairwise metrics...")
+    metrics = df.apply(extract_metrics, axis=1)
+    df = pd.concat([df, metrics], axis=1)
+
+    # Clean devices to be uniform (cpu/gpu)
+    df["device"] = df["device"].astype(str).str.lower().replace({"cuda": "gpu"})
+
     columns_to_keep = [
         "dataset", "model", "library", "approximator", "device", "seed", "n_features",
         "runtime_s", "relative_additivity_gap", "mean_sample_rho", "relative_mae", "sign_agreement"
     ]
-    
-    # Clean devices to be uniform (cpu/gpu)
-    df_nn["device"] = df_nn["device"].astype(str).str.lower().replace({"cuda": "gpu"})
-    
-    df_nn_clean = df_nn[[c for c in columns_to_keep if c in df_nn.columns]].copy()
-    
-    # Fill in missing columns if any
+    df_clean = df[[c for c in columns_to_keep if c in df.columns]].copy()
     for col in columns_to_keep:
-        if col not in df_nn_clean.columns:
-            df_nn_clean[col] = np.nan
-            
-    df_combined = df_nn_clean[columns_to_keep].copy()
-    
+        if col not in df_clean.columns:
+            df_clean[col] = np.nan
+    df_combined = df_clean[columns_to_keep].copy()
+
     # Create canonical method label
     df_combined["method"] = df_combined["library"] + " / " + df_combined["approximator"]
-    
+    # Display-only rename: "shapiq_proxy / proxy" reads as a variant of shapiq_proxy
+    # rather than shapiq's proxy-based SHAP method — relabel for clarity.
+    df_combined.loc[df_combined["method"] == "shapiq_proxy / proxy", "method"] = "shapiq / proxyShap"
+
     # Save seed-level file
     print(f"Saving seed-level runs to {by_seed_out}...")
     df_combined.to_csv(by_seed_out, index=False)
-    
+
     # Aggregate across seeds
     print("Aggregating across seeds...")
     group_cols = ["dataset", "model", "library", "approximator", "method", "device", "n_features"]
-    
+
     df_agg = (
         df_combined.groupby(group_cols, dropna=False)
         .agg(
@@ -118,10 +103,11 @@ def main():
         )
         .reset_index()
     )
-    
+
     print(f"Saving aggregated runs to {aggregated_out}...")
     df_agg.to_csv(aggregated_out, index=False)
     print("Done!")
+
 
 if __name__ == "__main__":
     main()

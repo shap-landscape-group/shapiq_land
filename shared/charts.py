@@ -2032,8 +2032,6 @@ def fig_hardware_comparison(df: pd.DataFrame) -> go.Figure:
             y=dev_df["method"], x=dev_df["rt"], orientation="h",
             name=dev.upper(),
             marker=dict(color=PINK if dev == "gpu" else ACCENT, opacity=0.85),
-            text=dev_df["rt"].apply(lambda val: f"{val:.3f} s" if pd.notna(val) else ""),
-            textposition="outside",
             customdata=np.column_stack((
                 dev_df["rt_lo"].values,
                 dev_df["rt_hi"].values
@@ -2109,8 +2107,6 @@ def fig_hardware_speedup(df: pd.DataFrame) -> go.Figure:
     fig = go.Figure(go.Bar(
         y=pivot.index, x=pivot["speedup"], orientation="h",
         marker=dict(color=GREEN, opacity=0.85),
-        text=pivot["speedup"].apply(lambda val: f"{val:.1f}x speedup"),
-        textposition="outside",
         customdata=np.column_stack((
             pivot["cpu"].values,
             pivot["gpu"].values,
@@ -2610,6 +2606,13 @@ def fig_rq3_topology_violations(df: pd.DataFrame) -> go.Figure:
             ).reset_index()
         )
     
+    # Floor at a tiny epsilon so zero/near-zero gaps are representable on a log
+    # x-axis — matches the epsilon fig_rq3_axiomatic_integrity's boxplot uses,
+    # so the two charts of the same metric agree instead of this one rounding
+    # near-zero values down to a misleading "~0%".
+    for col in ("gap", "gap_lo", "gap_hi"):
+        grp[col] = grp[col] + 1e-12
+
     # Use the same library-grouped sorting as the Spearman Rank Alignment chart
     method_rhos = df.groupby("method")["rho_median"].median() if "rho_median" in df.columns else (
         df.groupby("method")["mean_sample_rho"].median() if "mean_sample_rho" in df.columns else pd.Series()
@@ -2656,8 +2659,6 @@ def fig_rq3_topology_violations(df: pd.DataFrame) -> go.Figure:
             name=model.upper().replace("_", "-"),
             orientation="h",
             marker=dict(color=model_colors.get(model, ACCENT), opacity=0.85),
-            text=gaps_pct.apply(lambda v: f"{v:.1f}%" if v > 0.5 else ("~0%" if pd.notna(v) else "")),
-            textposition="outside",
             customdata=np.column_stack((
                 gaps_pct_lo.values,
                 gaps_pct_hi.values
@@ -2674,7 +2675,7 @@ def fig_rq3_topology_violations(df: pd.DataFrame) -> go.Figure:
             ),
             hovertemplate=(
                 "<b>%{y}</b> (%{legendgroup})<br>"
-                "Mean violation gap: <b>%{x:.3f}%</b> <span style='font-size:11px;color:#64748B'>[%{customdata[0]:.3f}% - %{customdata[1]:.3f}%]</span><extra></extra>"
+                "Mean violation gap: <b>%{x:.3e}%</b> <span style='font-size:11px;color:#64748B'>[%{customdata[0]:.3e}% - %{customdata[1]:.3e}%]</span><extra></extra>"
             ),
             legendgroup=model,
         ))
@@ -2683,10 +2684,10 @@ def fig_rq3_topology_violations(df: pd.DataFrame) -> go.Figure:
         height=max(320, len(method_order) * 45 + 100),
         barmode="group",
         xaxis=dict(
-            title="Mean relative additivity gap (%) — lower is better",
+            title="Mean relative additivity gap (%) — log scale, lower is better",
+            type="log",
             gridcolor=BORDER,
-            zeroline=True,
-            range=[0, 105]
+            zeroline=False,
         ),
         yaxis=dict(gridcolor="rgba(0,0,0,0)", automargin=True),
         margin=dict(l=10, r=40, t=30, b=48),
@@ -2696,7 +2697,7 @@ def fig_rq3_topology_violations(df: pd.DataFrame) -> go.Figure:
 
 
 def fig_captum_hardware_dividends(df: pd.DataFrame) -> go.Figure:
-    """Figure 22: Captum Hardware Acceleration Dividends grouped paired bar chart."""
+    """Captum Hardware Acceleration Dividends grouped paired bar chart."""
     df = df.copy()
     if "seed" in df.columns:
         sub = df[
@@ -2766,8 +2767,6 @@ def fig_captum_hardware_dividends(df: pd.DataFrame) -> go.Figure:
                 y=trace_df["rt"],
                 name=trace_name,
                 marker=dict(color=colors.get((dev, method), ACCENT), opacity=0.85),
-                text=trace_df["rt"].apply(lambda v: f"{v:.2f}s" if pd.notna(v) else ""),
-                textposition="outside",
                 customdata=np.column_stack((
                     trace_df["rt_lo"].values,
                     trace_df["rt_hi"].values,
@@ -2797,7 +2796,8 @@ def fig_captum_hardware_dividends(df: pd.DataFrame) -> go.Figure:
         height=400,
         barmode="group",
         xaxis=dict(gridcolor="rgba(0,0,0,0)"),
-        yaxis=dict(title="Median runtime (s)", gridcolor=BORDER, zeroline=False),
+        yaxis=dict(title="Median runtime (s) — log scale", type="log",
+                   gridcolor=BORDER, zeroline=False),
         margin=dict(l=55, r=20, t=30, b=48),
         legend=dict(
             orientation="h", yanchor="bottom", y=1.02,

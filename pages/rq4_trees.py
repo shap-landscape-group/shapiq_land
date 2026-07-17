@@ -363,23 +363,28 @@ _INTERP = (
 )
 
 
-def _pill(text: str, bg: str, color: str) -> html.Span:
-    return html.Span(text, style={
+def _pill(text: str, bg: str, color: str, tooltip: str | None = None) -> html.Span:
+    style = {
         "fontSize": "11px", "fontWeight": "500", "color": color,
         "background": bg, "borderRadius": "4px",
         "padding": "2px 8px", "marginRight": "4px", "marginBottom": "4px",
         "display": "inline-block",
-    })
+    }
+    if tooltip:
+        style["cursor"] = "help"
+        return html.Span(text, title=tooltip, style=style)
+    return html.Span(text, style=style)
 
 
-def _col(heading: str, items: list, bg: str, color: str) -> html.Div:
+def _col(heading: str, items: list, bg: str, color: str, tooltips: dict | None = None) -> html.Div:
+    tooltips = tooltips or {}
     return html.Div([
         html.Div(heading, style={
             "fontSize": "10px", "fontWeight": "700", "color": S.TEXT2,
             "textTransform": "uppercase", "letterSpacing": "0.07em",
             "marginBottom": "8px",
         }),
-        html.Div([_pill(i, bg, color) for i in items]),
+        html.Div([_pill(i, bg, color, tooltip=tooltips.get(i)) for i in items]),
     ], style={"flex": "1", "minWidth": "160px"})
 
 
@@ -398,6 +403,12 @@ def _config_card(df: pd.DataFrame) -> html.Div:
 
     swept_items = [f"{n_ds} datasets", f"{n_models} model families",
                    f"{n_libs} libraries", "3 computation modes"]
+    swept_tooltips = {
+        swept_items[0]: ", ".join(sorted(df["dataset"].dropna().unique())) if "dataset" in df.columns else "",
+        swept_items[1]: ", ".join(sorted(df["model"].dropna().unique())) if "model" in df.columns else "",
+        swept_items[2]: ", ".join(sorted(df["library"].dropna().unique())) if "library" in df.columns else "",
+        swept_items[3]: "path-dependent, interventional, interaction",
+    }
     if "max_depth" in df.columns:
         depths = pd.to_numeric(df["max_depth"], errors="coerce").dropna()
         if not depths.empty:
@@ -426,7 +437,7 @@ def _config_card(df: pd.DataFrame) -> html.Div:
         if pd.notna(max_rt) and (df["runtime_s"] > max_rt - 1).sum() >= 5:
             fixed_items.append(f"backend timeout (inferred) ≈ {max_rt:.0f}s")
 
-    left  = _col("Swept", swept_items, "#EEF2FF", S.ACCENT)
+    left  = _col("Swept", swept_items, "#EEF2FF", S.ACCENT, tooltips=swept_tooltips)
     mid   = _col("Fixed", fixed_items or ["—"], "#F1F5F9", S.TEXT2)
     right = _col("Measured",
                  ["runtime_s", "sign_agreement / mean_sample_rho (cross-library "
