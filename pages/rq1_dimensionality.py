@@ -106,35 +106,53 @@ def _band_fill(hex_color: str, alpha: float = 0.13) -> str:
 #  Local layout helpers (unchanged style from the previous page version)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _pill(text, bg="#EEF2FF", color=S.ACCENT) -> html.Span:
-    return html.Span(text, style={
+def _pill(text, bg="#EEF2FF", color=S.ACCENT, tooltip: str | None = None) -> html.Span:
+    style = {
         "display": "inline-block", "background": bg, "color": color,
         "fontSize": "11px", "fontWeight": "600",
         "padding": "3px 9px", "borderRadius": "4px",
         "marginRight": "5px", "marginBottom": "5px",
         "border": f"1px solid {color}40",
         "whiteSpace": "nowrap",
-    })
+    }
+    if tooltip:
+        style["cursor"] = "help"
+        return html.Span(text, title=tooltip, style=style)
+    return html.Span(text, style=style)
 
 
-def _col(heading, items, bg, color) -> html.Div:
+def _col(heading, items, bg, color, tooltips: dict | None = None) -> html.Div:
+    tooltips = tooltips or {}
     return html.Div([
         html.Div(heading, style={
             "fontSize": "10px", "fontWeight": "700", "color": S.TEXT2,
             "textTransform": "uppercase", "letterSpacing": "0.07em",
             "marginBottom": "8px",
         }),
-        html.Div([_pill(i, bg, color) for i in items]),
+        html.Div([_pill(i, bg, color, tooltip=tooltips.get(i)) for i in items]),
     ], style={"flex": "1", "minWidth": "160px"})
 
 
 def _config_card() -> html.Div:
     """Benchmark-at-a-glance card, updated for the new experimental grid."""
-    left = _col("Swept",
-                ["4 datasets", "4 models", "n_features: 14–256",
-                 "7 methods", "dalex: perm only",
-                 "budget: 520, 1024", "10 seeds"],
-                "#EEF2FF", S.ACCENT)
+    df = _load(_AGGREGATED)
+
+    swept_items = ["4 datasets", "4 models", "n_features: 14–256",
+                    "7 methods", "dalex: perm only",
+                    "budget: 520, 1024", "10 seeds"]
+    swept_tooltips = {}
+    if not df.empty:
+        swept_tooltips = {
+            swept_items[0]: ", ".join(sorted(df["dataset"].dropna().unique())),
+            swept_items[1]: ", ".join(sorted(df["model"].dropna().unique())),
+            swept_items[2]: "; ".join(
+                f"{ds}: {', '.join(str(n) for n in sorted(g['n_features'].dropna().unique()))}"
+                for ds, g in df.groupby("dataset")
+            ),
+            swept_items[3]: ", ".join(sorted(df["method"].dropna().unique())),
+        }
+
+    left = _col("Swept", swept_items, "#EEF2FF", S.ACCENT, tooltips=swept_tooltips)
     mid = _col("Fixed",
                ["n_background = 100", "n_eval = 10", "imputer = marginal",
                 "10-min execution cap"],
@@ -980,10 +998,11 @@ def layout(**kwargs):
 #  Callback — filtering only; all statistics were computed in the converter
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _apply_filters(df, ds, mdl, approxs):
+def _apply_filters(df, ds, mdl, lib, approxs):
     """Filter by topbar store values. approxs may be None (= all) or a list."""
     df = S.filter_by_column(df, "dataset", ds)
     df = S.filter_by_column(df, "model", mdl)
+    df = S.filter_by_column(df, "library", lib)
     if approxs and "approximator" in df.columns:
         df = df[df["approximator"].isin(approxs)]
     return df
@@ -997,11 +1016,12 @@ def _apply_filters(df, ds, mdl, approxs):
     Output("rq2-f5-chart", "children"),
     Input("rq2-ds", "data"),
     Input("rq2-mdl", "data"),
+    Input("rq2-lib", "data"),
     Input("rq2-approx", "data"),
     Input("rq2-cost-metric", "value"),
     Input("rq2-budget", "value"),
 )
-def update_rq1(ds, mdl, approxs, cost_metric, budget):
+def update_rq1(ds, mdl, lib, approxs, cost_metric, budget):
     cost_metric = cost_metric or "runtime_s"
     budget = int(budget or 520)
 
@@ -1009,7 +1029,7 @@ def update_rq1(ds, mdl, approxs, cost_metric, budget):
     feas = _load(_FEASIBILITY)
     extreme = _load(_EXTREME)
 
-    agg_f = _apply_filters(agg, ds, mdl, approxs or [])
+    agg_f = _apply_filters(agg, ds, mdl, lib, approxs or [])
 
     # F1 + F2 (agreement) show one budget at a time (radio); multiple/all
     # models are pooled by median here, matching the note on the charts.
@@ -1026,7 +1046,7 @@ def update_rq1(ds, mdl, approxs, cost_metric, budget):
                  cross_method_rho_median=("cross_method_rho_median", "median"))
         )
 
-    feas_f = feas if not feas.empty else feas
+    feas_f = S.filter_by_column(feas, "library", lib)
     if approxs:
         feas_f = feas_f[feas_f["approximator"].isin(approxs)]
 

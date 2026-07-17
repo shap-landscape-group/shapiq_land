@@ -61,7 +61,10 @@ def build_by_seed(df: pd.DataFrame) -> pd.DataFrame:
         apx = df.copy()
         
     apx["method"] = apx["library"] + " / " + apx["approximator"]
-    
+    # Display-only rename: "shapiq_proxy / proxy" reads as a variant of shapiq_proxy
+    # rather than shapiq's proxy-based SHAP method — relabel for clarity.
+    apx.loc[apx["method"] == "shapiq_proxy / proxy", "method"] = "shapiq / proxyShap"
+
     extracted = {m: [] for m in ERROR_METRICS}
     for cell_json in apx["pairwise_metrics"]:
         pm = _parse_pairwise(cell_json)

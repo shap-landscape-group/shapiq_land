@@ -103,33 +103,48 @@ def _band_fill(hex_color: str, alpha: float = 0.13) -> str:
 #  Local layout helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _pill(text, bg="#EEF2FF", color=S.ACCENT) -> html.Span:
-    return html.Span(text, style={
+def _pill(text, bg="#EEF2FF", color=S.ACCENT, tooltip: str | None = None) -> html.Span:
+    style = {
         "display": "inline-block", "background": bg, "color": color,
         "fontSize": "11px", "fontWeight": "600",
         "padding": "3px 9px", "borderRadius": "4px",
         "marginRight": "5px", "marginBottom": "5px",
         "border": f"1px solid {color}40",
         "whiteSpace": "nowrap",
-    })
+    }
+    if tooltip:
+        style["cursor"] = "help"
+        return html.Span(text, title=tooltip, style=style)
+    return html.Span(text, style=style)
 
 
-def _col(heading, items, bg, color) -> html.Div:
+def _col(heading, items, bg, color, tooltips: dict | None = None) -> html.Div:
+    tooltips = tooltips or {}
     return html.Div([
         html.Div(heading, style={
             "fontSize": "10px", "fontWeight": "700", "color": S.TEXT2,
             "textTransform": "uppercase", "letterSpacing": "0.07em",
             "marginBottom": "8px",
         }),
-        html.Div([_pill(i, bg, color) for i in items]),
+        html.Div([_pill(i, bg, color, tooltip=tooltips.get(i)) for i in items]),
     ], style={"flex": "1", "minWidth": "160px"})
 
 
 def _config_card() -> html.Div:
-    left = _col("Swept",
-                ["5 datasets", "4 models", "budget: 128, 512, 2048",
-                 "4 libraries", "2 approximators", "10 seeds"],
-                "#EEF2FF", S.ACCENT)
+    df = _load(_BY_SEED)
+
+    swept_items = ["5 datasets", "4 models", "budget: 128, 512, 2048",
+                    "4 libraries", "2 approximators", "10 seeds"]
+    swept_tooltips = {}
+    if not df.empty:
+        swept_tooltips = {
+            swept_items[0]: ", ".join(sorted(df["dataset"].dropna().unique())),
+            swept_items[1]: ", ".join(sorted(df["model"].dropna().unique())),
+            swept_items[3]: ", ".join(sorted(df["library"].dropna().unique())),
+            swept_items[4]: ", ".join(sorted(df["approximator"].dropna().unique())),
+        }
+
+    left = _col("Swept", swept_items, "#EEF2FF", S.ACCENT, tooltips=swept_tooltips)
     mid = _col("Fixed",
                ["n_features = 12", "n_background = 100",
                 "n_eval = 10", "imputer = marginal"],
@@ -403,14 +418,15 @@ def _seed_checklist() -> html.Div:
     })
 
 
-def _pool_models_datasets(conv: pd.DataFrame, ds, mdl) -> pd.DataFrame:
+def _pool_models_datasets(conv: pd.DataFrame, ds, mdl, lib=None) -> pd.DataFrame:
     """Display-level pooling for the convergence figures.
 
-    Dataset/model filters accept None (all), one value, or a list. When
-    multiple values remain, the aggregated cells are pooled by median.
+    Dataset/model/library filters accept None (all), one value, or a list.
+    When multiple values remain, the aggregated cells are pooled by median.
     """
     conv = S.filter_by_column(conv, "dataset", ds)
     conv = S.filter_by_column(conv, "model", mdl)
+    conv = S.filter_by_column(conv, "library", lib)
 
     group_cols = ["library", "approximator", "budget", "method"]
     value_cols = [c for c in conv.columns
@@ -628,12 +644,13 @@ def _budget_legend_marker(color: str, budget: int) -> dict:
     )
 
 
-def _build_pareto_figure(ra: pd.DataFrame, ds, mdl) -> go.Figure:
+def _build_pareto_figure(ra: pd.DataFrame, ds, mdl, lib=None) -> go.Figure:
     if ra.empty:
         return S.fig_empty()
 
     sub = S.filter_by_column(S.filter_by_column(ra.copy(), "dataset", ds),
                              "model", mdl)
+    sub = S.filter_by_column(sub, "library", lib)
     if sub.empty:
         return S.fig_empty()
 
@@ -858,12 +875,14 @@ def _stability_panel(fig: go.Figure, mdl: str, model_group: str) -> html.Div:
 def _build_seed_stability_figure(by_seed: pd.DataFrame, ds, mdl,
                                  budget: int,
                                  model_group: str = "nonlinear",
-                                 seeds: list | None = None) -> go.Figure:
+                                 seeds: list | None = None,
+                                 lib=None) -> go.Figure:
     if by_seed.empty:
         return S.fig_empty()
 
     sub = by_seed[by_seed["budget"] == budget]
     sub = S.filter_by_column(sub, "dataset", ds)
+    sub = S.filter_by_column(sub, "library", lib)
     selected_mdl = S.normalize_filter_selection(mdl)
     if selected_mdl is not None:
         sub = sub[sub["model"].isin(selected_mdl)]
@@ -1185,13 +1204,14 @@ def layout(**kwargs):
     Output("rq1-f3-chart", "children"),            # F4 slot — seed stability
     Input("rq1-ds", "data"),
     Input("rq1-mdl", "data"),
+    Input("rq1-lib", "data"),
     Input("rq1-approx", "data"),
     Input("rq1-conv-metric", "value"),
     Input("rq1-stability-budget", "value"),
     Input("rq1-stability-models", "value"),
     Input("rq1-stability-seeds", "value"),
 )
-def update_rq2(ds, mdl, approxs, conv_metric, stability_budget,
+def update_rq2(ds, mdl, lib, approxs, conv_metric, stability_budget,
                stability_models, stability_seeds):
     conv_metric = conv_metric or "relative_mae"
     stability_budget = int(stability_budget or 512)
@@ -1216,7 +1236,15 @@ def update_rq2(ds, mdl, approxs, conv_metric, stability_budget,
                 runtime_acc["is_reference"] |
                 runtime_acc["approximator"].isin(approxs)]
 
-    pooled = (_pool_models_datasets(convergence, ds, mdl)
+    selected_lib = S.normalize_filter_selection(lib)
+    if selected_lib is not None and not runtime_acc.empty:
+        # keep exact reference rows visible regardless of the library
+        # filter — they are the comparison baseline (matches approxs above)
+        runtime_acc = runtime_acc[
+            runtime_acc["is_reference"] |
+            runtime_acc["library"].isin(selected_lib)]
+
+    pooled = (_pool_models_datasets(convergence, ds, mdl, lib)
               if not convergence.empty else convergence)
 
     def _g(fig, filename):
@@ -1232,11 +1260,11 @@ def update_rq2(ds, mdl, approxs, conv_metric, stability_budget,
         # F2 — convergence
         _g(_build_convergence_figure(pooled, conv_metric), "rq1_error_convergence"),
         # F3 — Pareto runtime vs error
-        _g(_build_pareto_figure(runtime_acc, ds, mdl), "rq1_runtime_vs_error"),
+        _g(_build_pareto_figure(runtime_acc, ds, mdl, lib), "rq1_runtime_vs_error"),
         # F4 — seed stability (responsive chart + HTML note on linear view)
         _stability_panel(
             _build_seed_stability_figure(
                 by_seed, ds, mdl, stability_budget,
-                model_group=stability_models, seeds=stability_seeds),
+                model_group=stability_models, seeds=stability_seeds, lib=lib),
             mdl, stability_models),
     )

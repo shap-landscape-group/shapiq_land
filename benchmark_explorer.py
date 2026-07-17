@@ -66,9 +66,11 @@ app.layout = html.Div(
         # Filter stores — always in layout so chart callbacks never race the topbar
         dcc.Store(id="rq2-ds",    data=None),
         dcc.Store(id="rq2-mdl",   data=None),
+        dcc.Store(id="rq2-lib",   data=None),
         dcc.Store(id="rq2-approx", data=None),   # None → all approximators
         dcc.Store(id="rq1-ds",    data=None),
         dcc.Store(id="rq1-mdl",   data=None),
+        dcc.Store(id="rq1-lib",   data=None),
         dcc.Store(id="rq1-approx", data=None),
         dcc.Store(id="rq4-ds",    data=None),
         dcc.Store(id="rq4-lib",   data=None),
@@ -227,6 +229,7 @@ def _render_page_topbar(pathname):
 
         datasets = sorted(df["dataset"].dropna().unique()) if not df.empty else []
         models   = sorted(df["model"].dropna().unique()) if not df.empty else []
+        libs     = sorted(df["library"].dropna().unique()) if not df.empty and "library" in df.columns else []
         approxs  = sorted(df["approximator"].dropna().unique()) if not df.empty else []
         _multi_dd = {"fontSize": "12px", "minHeight": "28px"}
 
@@ -247,6 +250,15 @@ def _render_page_topbar(pathname):
                     id="rq2-mdl-ctl",
                     options=[{"label": m, "value": m} for m in models],
                     value=None, multi=True, placeholder="All models",
+                    style={**_multi_dd, "width": "180px"},
+                ),
+            ], style={"marginRight": "4px"}),
+            html.Div([
+                _lbl("Library"),
+                dcc.Dropdown(
+                    id="rq2-lib-ctl",
+                    options=[{"label": lib, "value": lib} for lib in libs],
+                    value=None, multi=True, placeholder="All libraries",
                     style={**_multi_dd, "width": "180px"},
                 ),
             ], style={"marginRight": "4px"}),
@@ -272,6 +284,7 @@ def _render_page_topbar(pathname):
 
         datasets = sorted(df["dataset"].dropna().unique()) if not df.empty else []
         models   = sorted(df["model"].dropna().unique()) if not df.empty else []
+        libs     = sorted(df["library"].dropna().unique()) if not df.empty and "library" in df.columns else []
         approxs  = sorted(df["approximator"].dropna().unique()) if not df.empty else []
         _multi_dd = {"fontSize": "12px", "minHeight": "28px"}
 
@@ -296,6 +309,15 @@ def _render_page_topbar(pathname):
                 ),
             ], style={"marginRight": "4px"}),
             html.Div([
+                _lbl("Library"),
+                dcc.Dropdown(
+                    id="rq1-lib-ctl",
+                    options=[{"label": lib, "value": lib} for lib in libs],
+                    value=None, multi=True, placeholder="All libraries",
+                    style={**_multi_dd, "width": "180px"},
+                ),
+            ], style={"marginRight": "4px"}),
+            html.Div([
                 _lbl("Approximator"),
                 dcc.Checklist(
                     id="rq1-approx-ctl",
@@ -313,30 +335,30 @@ def _render_page_topbar(pathname):
         df, src = S.try_load_data(
             os.path.join(_RESULTS, "converted", "rq3_neural_networks_aggregated.csv"),
         )
- 
-        datasets = [{"label": "All datasets", "value": "__all__"}] + \
-                   [{"label": d, "value": d} for d in sorted(df["dataset"].dropna().unique())]
+
+        datasets = sorted(df["dataset"].dropna().unique()) if not df.empty else []
         models   = sorted(df["model"].dropna().unique())   if not df.empty else []
         libs     = sorted(df["library"].dropna().unique()) if not df.empty else []
         _mlbl    = {"mlp": "MLP", "transformer": "Transformer", "cnn_1d": "CNN-1D"}
- 
+
         return [
             _src_tag(src),
             html.Div([
                 _lbl("Dataset"),
-                dcc.Dropdown(id="rq3-ds", options=datasets, value="__all__",
-                             clearable=False,
-                             style={"width": "150px", "fontSize": "12px", "minHeight": "28px"}),
+                dcc.Dropdown(
+                    id="rq3-ds",
+                    options=[{"label": d, "value": d} for d in datasets],
+                    value=None, multi=True, placeholder="All datasets",
+                    style={"width": "180px", "fontSize": "12px", "minHeight": "28px"},
+                ),
             ], style={"marginRight": "4px"}),
             html.Div([
                 _lbl("Model"),
-                dcc.Checklist(
+                dcc.Dropdown(
                     id="rq3-model",
-                    options=[{"label": f" {_mlbl.get(m, m)}", "value": m} for m in models],
-                    value=list(models),
-                    inline=True,
-                    inputStyle={"marginRight": "3px"},
-                    labelStyle={"marginRight": "8px", "fontSize": "12px", "cursor": "pointer"},
+                    options=[{"label": _mlbl.get(m, m), "value": m} for m in models],
+                    value=None, multi=True, placeholder="All models",
+                    style={"width": "200px", "fontSize": "12px", "minHeight": "28px"},
                 ),
             ], style={"marginRight": "4px"}),
             html.Div([
@@ -400,12 +422,12 @@ def _render_page_topbar(pathname):
         _csv = os.path.join(_RESULTS, "converted", "rq5_gpu_cpu_comparison_aggregated.csv")
         df, src = S.try_load_data(_csv)
 
-        datasets = [{"label": "All datasets", "value": "__all__"}]
+        datasets = sorted(df["dataset"].dropna().unique())  if not df.empty else []
+        libs     = sorted(df["library"].dropna().unique())  if not df.empty else []
         models   = [{"label": "All models",   "value": "__all__"}]
         devices  = [{"label": "All devices",  "value": "__all__"}]
 
         if not df.empty:
-            datasets += [{"label": d, "value": d} for d in sorted(df["dataset"].dropna().unique())]
             models   += [{"label": m, "value": m} for m in sorted(df["model"].dropna().unique())]
             if "device" in df.columns:
                 devices += [{"label": dev.upper(), "value": dev} for dev in sorted(df["device"].dropna().unique())]
@@ -414,9 +436,21 @@ def _render_page_topbar(pathname):
             _src_tag(src),
             html.Div([
                 _lbl("Dataset"),
-                dcc.Dropdown(id="rq5-ds", options=datasets, value="__all__",
-                             clearable=False,
-                             style={"width": "150px", "fontSize": "12px", "minHeight": "28px"}),
+                dcc.Dropdown(
+                    id="rq5-ds",
+                    options=[{"label": d, "value": d} for d in datasets],
+                    value=None, multi=True, placeholder="All datasets",
+                    style={"width": "180px", "fontSize": "12px", "minHeight": "28px"},
+                ),
+            ], style={"marginRight": "4px"}),
+            html.Div([
+                _lbl("Library"),
+                dcc.Dropdown(
+                    id="rq5-lib",
+                    options=[{"label": lib, "value": lib} for lib in libs],
+                    value=None, multi=True, placeholder="All libraries",
+                    style={"width": "200px", "fontSize": "12px", "minHeight": "28px"},
+                ),
             ], style={"marginRight": "4px"}),
             html.Div([
                 _lbl("Model"),
@@ -445,6 +479,9 @@ def _sync_rq1_ds(v):    return v
 @app.callback(Output("rq2-mdl",   "data"), Input("rq2-mdl-ctl",   "value"), prevent_initial_call=True)
 def _sync_rq1_mdl(v):   return v
 
+@app.callback(Output("rq2-lib",   "data"), Input("rq2-lib-ctl",   "value"), prevent_initial_call=True)
+def _sync_rq1_lib(v):   return v
+
 @app.callback(Output("rq2-approx","data"), Input("rq2-approx-ctl","value"), prevent_initial_call=True)
 def _sync_rq1_approx(v): return v  # None or list — page handles both
 
@@ -453,6 +490,9 @@ def _sync_rq2_ds(v):    return v
 
 @app.callback(Output("rq1-mdl",   "data"), Input("rq1-mdl-ctl",   "value"), prevent_initial_call=True)
 def _sync_rq2_mdl(v):   return v
+
+@app.callback(Output("rq1-lib",   "data"), Input("rq1-lib-ctl",   "value"), prevent_initial_call=True)
+def _sync_rq2_lib(v):   return v
 
 @app.callback(Output("rq1-approx","data"), Input("rq1-approx-ctl","value"), prevent_initial_call=True)
 def _sync_rq2_approx(v): return v

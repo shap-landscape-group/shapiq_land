@@ -64,7 +64,7 @@ _CHARTS = [
     ),
     dict(
         section_id = "rq5-captum-dividends-section",
-        title      = "Figure 22: Captum Hardware Acceleration Dividends",
+        title      = "Captum Hardware Acceleration Dividends",
         subtitle   = "Grouped paired bar chart comparing Captum estimators (Gradient SHAP, DeepLIFT SHAP) on CPU vs GPU across architectures.",
         fn         = S.fig_captum_hardware_dividends,
     ),
@@ -81,23 +81,28 @@ _INTERP = (
 #  Local helpers — config card
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _pill(text: str, bg: str, color: str) -> html.Span:
-    return html.Span(text, style={
+def _pill(text: str, bg: str, color: str, tooltip: str | None = None) -> html.Span:
+    style = {
         "fontSize": "11px", "fontWeight": "500", "color": color,
         "background": bg, "borderRadius": "4px",
         "padding": "2px 8px", "marginRight": "4px", "marginBottom": "4px",
         "display": "inline-block",
-    })
+    }
+    if tooltip:
+        style["cursor"] = "help"
+        return html.Span(text, title=tooltip, style=style)
+    return html.Span(text, style=style)
 
 
-def _col(heading, items, bg, color) -> html.Div:
+def _col(heading, items, bg, color, tooltips: dict | None = None) -> html.Div:
+    tooltips = tooltips or {}
     return html.Div([
         html.Div(heading, style={
             "fontSize": "10px", "fontWeight": "700", "color": S.TEXT2,
             "textTransform": "uppercase", "letterSpacing": "0.07em",
             "marginBottom": "8px",
         }),
-        html.Div([_pill(i, bg, color) for i in items]),
+        html.Div([_pill(i, bg, color, tooltip=tooltips.get(i)) for i in items]),
     ], style={"flex": "1", "minWidth": "160px"})
 
 
@@ -109,9 +114,18 @@ def _config_card(df) -> html.Div:
     n_approx = df["approximator"].dropna().nunique() if not df.empty else 0
     n_seeds = int(df["seed_count"].iloc[0]) if not df.empty and "seed_count" in df.columns else 10
 
-    left  = _col("Swept",
-                 [f"{n_ds} datasets", f"{n_mdl} models", f"{n_libs} libraries", f"{n_approx} approximators", f"{n_seeds} seeds", "2 devices (CPU, GPU)"],
-                 "#EEF2FF", S.ACCENT)
+    swept_items = [f"{n_ds} datasets", f"{n_mdl} models", f"{n_libs} libraries",
+                   f"{n_approx} approximators", f"{n_seeds} seeds", "2 devices (CPU, GPU)"]
+    swept_tooltips = {}
+    if not df.empty:
+        swept_tooltips = {
+            swept_items[0]: ", ".join(sorted(df["dataset"].dropna().unique())),
+            swept_items[1]: ", ".join(sorted(df["model"].dropna().unique())),
+            swept_items[2]: ", ".join(sorted(df["library"].dropna().unique())),
+            swept_items[3]: ", ".join(sorted(df["approximator"].dropna().unique())),
+        }
+
+    left  = _col("Swept", swept_items, "#EEF2FF", S.ACCENT, tooltips=swept_tooltips)
     mid   = _col("Fixed",
                  ["budget = 512 (NNs)", "n_background = 100", "n_eval = 10", "imputer = marginal"],
                  "#F1F5F9", S.TEXT2)
@@ -164,9 +178,61 @@ def layout(**kwargs):
         ]),
         _config_card(df_agg),
 
-        # ── Dynamic content ───────────────────────────────────────────────────
-        html.Div(id="rq5-charts"),
+        html.Div(id="rq5-warnings"),
+
+        # ── Dynamic content — one static section wrapper per chart, only the
+        # nested graph placeholder is filled in by the callback. The scatter
+        # section's seed checklist has to live here (not inside the dynamic
+        # output) or it would reset/race every time the callback re-renders.
+        S.section(
+            _CHARTS[0]["title"], _CHARTS[0]["subtitle"],
+            html.Div(id="rq5-runtime-comparison-chart"),
+            section_id=_CHARTS[0]["section_id"],
+        ),
+        S.section(
+            _CHARTS[1]["title"], _CHARTS[1]["subtitle"],
+            html.Div(id="rq5-speedup-chart"),
+            section_id=_CHARTS[1]["section_id"],
+        ),
+        S.section(
+            _CHARTS[2]["title"], _CHARTS[2]["subtitle"],
+            html.Div([
+                _seed_checklist(),
+                html.Div(id="rq5-scatter-chart"),
+            ]),
+            section_id=_CHARTS[2]["section_id"],
+        ),
+        S.section(
+            _CHARTS[3]["title"], _CHARTS[3]["subtitle"],
+            html.Div(id="rq5-captum-dividends-chart"),
+            section_id=_CHARTS[3]["section_id"],
+        ),
+        S.interpretation_note(_INTERP),
     ])
+
+
+def _seed_checklist() -> html.Div:
+    """Per-seed inclusion toggles, scoped to the Speed vs Accuracy scatter only."""
+    return html.Div([
+        html.Span("Seeds:", style={
+            "fontSize": "11px", "fontWeight": "600", "color": S.TEXT2,
+            "marginRight": "10px", "flexShrink": "0",
+        }),
+        dcc.Checklist(
+            id="rq5-scatter-seeds",
+            options=[{"label": str(s), "value": s} for s in range(10)],
+            value=list(range(10)),
+            inline=True,
+            inputStyle={"marginRight": "4px"},
+            labelStyle={"marginRight": "12px", "fontSize": "12px",
+                        "cursor": "pointer", "color": S.TEXT},
+        ),
+    ], style={
+        "display": "flex", "alignItems": "center", "flexWrap": "wrap",
+        "padding": "8px 12px",
+        "borderBottom": f"1px solid {S.BORDER}",
+        "background": S.BG,
+    })
 
 
 def _schema_hint() -> html.Div:
@@ -214,21 +280,29 @@ def _schema_hint() -> html.Div:
 # ─────────────────────────────────────────────────────────────────────────────
 
 @callback(
-    Output("rq5-charts", "children"),
-    Input("rq5-ds",     "value"),
-    Input("rq5-mdl",    "value"),
-    Input("rq5-device", "value"),
+    Output("rq5-warnings",                   "children"),
+    Output("rq5-runtime-comparison-chart",   "children"),
+    Output("rq5-speedup-chart",              "children"),
+    Output("rq5-scatter-chart",              "children"),
+    Output("rq5-captum-dividends-chart",     "children"),
+    Input("rq5-ds",             "value"),
+    Input("rq5-lib",            "value"),
+    Input("rq5-mdl",            "value"),
+    Input("rq5-device",         "value"),
+    Input("rq5-scatter-seeds",  "value"),
 )
-def update_rq5(ds, mdl, dev_val):
+def update_rq5(ds, libs, mdl, dev_val, scatter_seeds):
     df_agg = _load(_AGGREGATED)
     df_seed = _load(_BY_SEED)
     if df_agg.empty:
-        return html.Div()
+        empty = html.Div()
+        return empty, empty, empty, empty, empty
 
     # Apply dropdown filters
-    if ds != "__all__":
-        df_agg = df_agg[df_agg["dataset"] == ds]
-        df_seed = df_seed[df_seed["dataset"] == ds]
+    df_agg = S.filter_by_column(df_agg, "dataset", ds)
+    df_seed = S.filter_by_column(df_seed, "dataset", ds)
+    df_agg = S.filter_by_column(df_agg, "library", libs)
+    df_seed = S.filter_by_column(df_seed, "library", libs)
     if mdl != "__all__":
         df_agg = df_agg[df_agg["model"] == mdl]
         df_seed = df_seed[df_seed["model"] == mdl]
@@ -236,41 +310,27 @@ def update_rq5(ds, mdl, dev_val):
         df_agg = df_agg[df_agg["device"].astype(str).str.lower().eq(dev_val.lower())]
         df_seed = df_seed[df_seed["device"].astype(str).str.lower().eq(dev_val.lower())]
 
-    warns = []
+    warn = html.Div()
     if df_agg.empty:
-        warns.append(S.warning_note("No data matches the current filter selection."))
+        warn = S.warning_note("No data matches the current filter selection.")
 
-    charts = html.Div([
-        *warns,
-        S.section(
-            _CHARTS[0]["title"], _CHARTS[0]["subtitle"],
-            dcc.Graph(figure=S.fig_hardware_comparison(df_agg),
-                      config=S.graph_config("rq5_hardware_comparison"),
-                      style={"padding": "8px"}),
-            section_id=_CHARTS[0]["section_id"],
-        ),
-        S.section(
-            _CHARTS[1]["title"], _CHARTS[1]["subtitle"],
-            dcc.Graph(figure=S.fig_hardware_speedup(df_seed),
-                      config=S.graph_config("rq5_hardware_speedup"),
-                      style={"padding": "8px"}),
-            section_id=_CHARTS[1]["section_id"],
-        ),
-        S.section(
-            _CHARTS[2]["title"], _CHARTS[2]["subtitle"],
-            dcc.Graph(figure=S.fig_rho_vs_runtime_by_hardware(df_seed),
-                      config=S.graph_config("rq5_rho_vs_runtime"),
-                      style={"padding": "8px"}),
-            section_id=_CHARTS[2]["section_id"],
-        ),
-        S.section(
-            _CHARTS[3]["title"], _CHARTS[3]["subtitle"],
-            dcc.Graph(figure=S.fig_captum_hardware_dividends(df_seed),
-                      config=S.graph_config("rq5_captum_hardware_dividends"),
-                      style={"padding": "8px"}),
-            section_id=_CHARTS[3]["section_id"],
-        ),
-        S.interpretation_note(_INTERP),
-    ])
+    # Speed vs Accuracy scatter — seed selection is scoped to this chart only.
+    if scatter_seeds is None:
+        scatter_seeds = list(range(10))
+    scatter_df = df_seed[df_seed["seed"].isin(scatter_seeds)]
 
-    return charts
+    return (
+        warn,
+        dcc.Graph(figure=S.fig_hardware_comparison(df_agg),
+                  config=S.graph_config("rq5_hardware_comparison"),
+                  style={"padding": "8px"}),
+        dcc.Graph(figure=S.fig_hardware_speedup(df_seed),
+                  config=S.graph_config("rq5_hardware_speedup"),
+                  style={"padding": "8px"}),
+        dcc.Graph(figure=S.fig_rho_vs_runtime_by_hardware(scatter_df),
+                  config=S.graph_config("rq5_rho_vs_runtime"),
+                  style={"padding": "8px"}),
+        dcc.Graph(figure=S.fig_captum_hardware_dividends(df_seed),
+                  config=S.graph_config("rq5_captum_hardware_dividends"),
+                  style={"padding": "8px"}),
+    )
